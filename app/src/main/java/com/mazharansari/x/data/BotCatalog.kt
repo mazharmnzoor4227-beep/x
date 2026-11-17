@@ -139,8 +139,8 @@ object BotCatalog {
             skills = listOf("local-android-dev"),
             toolGroups = listOf("files", "commands", "skills"),
             sourceName = "Antigravity (Google)",
-            sourceUrl = "",
-            license = "",
+            sourceUrl = "https://antigravity.google/",
+            license = "Proprietary (Google)",
             logo = BotLogo.builtin("rocket"),
         ),
         BotDefinition(

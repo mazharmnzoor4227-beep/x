@@ -50,13 +50,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Axion user bubble: right-aligned indigo, 20dp corners with a 4dp bottom-right, 12dp from the edge, 16sp text. */
+/** Axion user bubble (mock): sky bg, on-sky text, 24dp corners with a 4dp bottom-right, 40dp start margin. */
 @Composable
 fun UserBubble(m: Message, onLongPress: () -> Unit = {}) {
     val p = P
     // Phase 2: a pasted or model-echoed message that arrives URL-encoded renders decoded.
     val text = remember(m.text) { MessageText.decodeIfEncoded(m.text) }
-    Column(Modifier.fillMaxWidth().padding(start = 64.dp, end = 12.dp, top = 10.dp, bottom = 6.dp), horizontalAlignment = Alignment.End) {
+    Column(Modifier.fillMaxWidth().padding(start = 40.dp, end = 16.dp, top = 10.dp, bottom = 6.dp), horizontalAlignment = Alignment.End) {
         if (m.attachments.isNotEmpty()) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 m.attachments.forEach { AttachmentChip(it) }
@@ -66,7 +66,7 @@ fun UserBubble(m: Message, onLongPress: () -> Unit = {}) {
         if (text.isNotBlank()) {
             SelectionContainer {
                 Text(text, style = Type.body, color = p.onAccent,
-                    modifier = Modifier.clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 4.dp)).background(p.accent)
+                    modifier = Modifier.clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 24.dp, bottomEnd = 4.dp)).background(p.accent)
                         .padding(horizontal = 16.dp, vertical = 12.dp))
             }
         }
@@ -131,7 +131,8 @@ internal fun runLabel(r: StepRun): String {
     }
 }
 
-/** Axion assistant turn: no bubble, 16dp margins; Thinking header → grouped steps → Bash cards → answer → actions. */
+/** Axion assistant turn (mock AgentBubble): bubble bg, 24dp corners with a 4dp bottom-left, 32dp end margin.
+ * Thinking header → grouped steps → Bash cards → answer → actions, all inside the bubble. */
 @Composable
 fun AssistantMessage(
     m: Message, isLast: Boolean, speaking: Boolean,
@@ -145,8 +146,9 @@ fun AssistantMessage(
     // Phase 2: decode before anything else — a URL-encoded answer renders as its text,
     // and the Sources extraction runs on the decoded text too.
     val text = remember(m.text) { MessageText.decodeIfEncoded(m.text) }
-    // v0.3.1: Axion's reply column is 12 dp from each screen edge (measured), not 16.
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+    Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 32.dp, top = 6.dp, bottom = 6.dp)
+        .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 4.dp, bottomEnd = 24.dp))
+        .background(p.surface2).padding(horizontal = 16.dp, vertical = 12.dp)) {
         if (m.plan.isNotEmpty()) { PlanCard(m.plan); Spacer(Modifier.height(10.dp)) }   // axion-p2
         if (m.steps.isNotEmpty() || m.reasoning.isNotBlank() || streaming) ThoughtsHeader(m, onOpenThoughts)
         if (streaming && m.notice.isNotBlank()) Text(m.notice, style = Type.small, color = p.text2, maxLines = 1, modifier = Modifier.padding(start = 30.dp, top = 2.dp))

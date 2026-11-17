@@ -108,7 +108,7 @@ fun PopDivider() = Box(Modifier.padding(horizontal = 22.dp, vertical = 4.dp).fil
 
 /** + menu: Camera · Gallery · Files │ Skills · Connectors — 174dp wide, 48dp rows, divider after Files (Grok frame 1:43). */
 @Composable
-fun BoxScope.PlusPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp, maxHeight: Dp = Dp.Unspecified, onCamera: () -> Unit, onGallery: () -> Unit, onFiles: () -> Unit, onSkills: () -> Unit, onConnectors: () -> Unit, onUploadSkill: (() -> Unit)? = null, onImagine: (() -> Unit)? = null, onBuild: (() -> Unit)? = null) {
+fun BoxScope.PlusPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp, maxHeight: Dp = Dp.Unspecified, onCamera: () -> Unit, onGallery: () -> Unit, onFiles: () -> Unit, onSkills: () -> Unit, onConnectors: () -> Unit, onUploadSkill: (() -> Unit)? = null, onImagine: (() -> Unit)? = null) {
     GlassPopover(visible, onDismiss, bottomGap, 196.dp, maxHeight) {
         PopRow(Gk.camera, "Camera") { onDismiss(); onCamera() }
         PopRow(Gk.image, "Gallery") { onDismiss(); onGallery() }
@@ -116,8 +116,7 @@ fun BoxScope.PlusPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp,
         PopDivider()
         // v0.3.1: Imagine left the top bar — it lives here now (and the agent makes images when asked).
         if (onImagine != null) PopRow(Gk.imagine, "Imagine") { onDismiss(); onImagine() }
-        if (onBuild != null) PopRow(Gk.hammer, "Build") { onDismiss(); onBuild() }
-        if (onImagine != null || onBuild != null) PopDivider()
+        if (onImagine != null) PopDivider()
         PopRow(Gk.skills, "Skills") { onDismiss(); onSkills() }
         if (onUploadSkill != null) PopRow(Gk.file, "Upload skill") { onDismiss(); onUploadSkill() }
         PopRow(Gk.connectors, "Connectors") { onDismiss(); onConnectors() }
@@ -130,7 +129,7 @@ fun BoxScope.PlusPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp,
  * providers it will use there instead (same layout: title, one grey line, a white pill button).
  */
 @Composable
-fun BoxScope.ModelPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp, maxHeight: Dp = Dp.Unspecified, mode: String, connectors: List<Connector>, onPick: (String) -> Unit, onBuild: () -> Unit, onConnectors: () -> Unit) {
+fun BoxScope.ModelPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp, maxHeight: Dp = Dp.Unspecified, mode: String, connectors: List<Connector>, onPick: (String) -> Unit, onConnectors: () -> Unit) {
     val p = P
     GlassPopover(visible, onDismiss, bottomGap, 283.dp, maxHeight) {
         val on = connectors.filter { it.enabled }
@@ -147,7 +146,6 @@ fun BoxScope.ModelPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp
             }
         }
         PopDivider()
-        PopRow(Gk.hammer, "Build", "Build apps and sites", badge = "Beta") { onDismiss(); onBuild() }
         PopRow(Gk.think, "Expert", "Thinks hard", selected = mode == "EXPERT") { onPick("EXPERT"); onDismiss() }
         PopRow(Gk.bolt, "Fast", "Quick responses", selected = mode == "FAST") { onPick("FAST"); onDismiss() }
         PopRow(Gk.rocket, "Auto", "Chooses Fast or Expert", selected = mode == "AUTO") { onPick("AUTO"); onDismiss() }
@@ -252,39 +250,3 @@ private fun ThoughtLine(icon: Int, content: @Composable () -> Unit) {
 }
 
 
-/**
- * v0.4 Build's picker (mazhar 2:28 PM): Antigravity accounts and models only — no API keys here. Tapping an account
- * makes it the one Build starts on; auto-switch still moves on when it hits a limit.
- */
-@Composable
-fun BoxScope.BuildPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp, maxHeight: Dp = Dp.Unspecified, agy: com.mazharansari.x.antigravity.AgyAccounts, onManage: () -> Unit) {
-    val p = P
-    val store by agy.store.collectAsState()
-    GlassPopover(visible, onDismiss, bottomGap, 283.dp, maxHeight) {
-        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                com.mazharansari.x.ui.settings.ProviderLogo("antigravity", 22.dp); Spacer(Modifier.width(8.dp))
-                Text("Antigravity", style = Type.body.copy(fontSize = 19.sp, fontWeight = FontWeight.Medium), color = p.text)
-            }
-            Text(if (store.autoSwitch) "Auto-switch on limits · model: ${store.model.ifBlank { "default" }}" else "Model: ${store.model.ifBlank { "default" }}",
-                style = Type.small.copy(fontSize = 13.sp), color = p.text2, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
-        }
-        PopDivider()
-        val now = System.currentTimeMillis()
-        store.accounts.sortedBy { it.order }.forEach { a ->
-            val sub = when {
-                a.authExpiredAt > 0 -> "Signed out — sign in again"
-                a.cooldownUntil > now -> "Resting · back ${java.text.SimpleDateFormat("h:mm a", java.util.Locale.ENGLISH).format(java.util.Date(a.cooldownUntil))}"
-                !a.enabled -> "Off"
-                else -> when (a.tier) { "pro" -> "AI Pro"; "ultra" -> "Ultra"; "free" -> "Free"; else -> "Ready" }
-            }
-            PopRow(Gk.person, a.email.substringBefore('@'), sub, selected = a.email.equals(store.activeEmail, true), dim = a.authExpiredAt > 0 || !a.enabled) { agy.setActive(a.email); onDismiss() }
-        }
-        if (store.models.isNotEmpty()) {
-            PopDivider()
-            store.models.take(6).forEach { m -> PopRow(Gk.brain, m, null, selected = m == store.model) { agy.setModel(m); onDismiss() } }
-        }
-        PopDivider()
-        PopRow(Gk.settings, "Manage accounts", "Add, sign in, quota") { onDismiss(); onManage() }
-    }
-}

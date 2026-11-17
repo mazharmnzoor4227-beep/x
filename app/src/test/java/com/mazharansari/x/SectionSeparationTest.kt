@@ -35,7 +35,7 @@ class SectionSeparationTest {
     @Test fun askNeverUsesAntigravity_buildOnlyUsesIt() {
         agyReadyEverything()
         val vm = ChatViewModel(app)
-        assertTrue(vm.buildReady())
+        assertTrue(vm.agyBuildReady())
         val ask = vm.attempts(Mode.AUTO).map { it.provider }
         assertFalse(ask.toString(), ask.any { it.contains("Antigravity") })
         assertEquals("Free (slow) is the last resort", com.mazharansari.x.llm.FreeFallback.NAME, ask.last())
@@ -45,14 +45,16 @@ class SectionSeparationTest {
 
     @Test fun buildWithoutAntigravityRefusesInsteadOfUsingKeys() {
         val vm = ChatViewModel(app)
-        assertFalse(vm.buildReady())
+        assertFalse(vm.agyBuildReady())
         try { vm.buildAttempts(); fail("Build must not fall back to API keys") } catch (e: NoModelException) { assertTrue(e.message!!.contains("Antigravity")) }
     }
 
     @Test fun sectionsSaveSeparately() {
+        // No Build UI any more: a new chat is always Ask, and the section is set by
+        // the chat being opened (a build project's chat carries Section.BUILD).
         val vm = ChatViewModel(app)
-        vm.newChat(Section.BUILD); assertEquals(Section.BUILD, vm.section)
-        vm.newChat(Section.ASK); assertEquals(Section.ASK, vm.section)
+        vm.section = Section.BUILD; assertEquals(Section.BUILD, vm.section)
+        vm.newChat(); assertEquals(Section.ASK, vm.section)
         assertEquals(Section.BUILD, Section.of("build")); assertEquals(Section.ASK, Section.of(null))
     }
 }

@@ -30,11 +30,9 @@ import androidx.compose.ui.graphics.Color
  * stop — they keep their light values in dark mode. That is preserved here
  * on purpose (accent #3C8FD4 and danger #9C4038 are identical in both).
  *
- * FONTS — NOT YET PORTED: Grok uses Fraunces (display serif) + Outfit (sans).
- * Neither font file is bundled in this project (res/font has only
- * google_sans_flex / google_sans_code). Until OFL Fraunces + Outfit files are
- * added under res/font, [SandTheme] keeps the existing GoogleSans type scale
- * from Theme.kt and only the colours change.
+ * FONTS — PORTED: Grok uses Fraunces (display serif) + Outfit (sans).
+ * Both are bundled under res/font (OFL) and wired in Theme.kt as
+ * [Fraunces] / [Outfit]; [SandTheme] uses the same type scale as Theme.kt.
  */
 val SandLightPalette = Palette(
     bg = Color(0xFFF3EEE6), surface = Color(0xFFFFFCF8), surface2 = Color(0xFFE8E3DA),

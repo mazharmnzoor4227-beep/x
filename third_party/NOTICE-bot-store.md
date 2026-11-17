@@ -19,6 +19,10 @@ with its manifest's tool allow-list and the swarm worker caps.
 - **Reviewer** — Koog (JetBrains), https://github.com/JetBrains/koog — Apache-2.0
   (planning strategy, history compression, fault tolerance — ideas/patterns;
   see third_party/NOTICE-koog.md).
+- **Builder** — Antigravity (Google), https://antigravity.google/ — Proprietary
+  (Google). The one proprietary engine in the store: it drives the build engine
+  through the Antigravity CLI inside the phone's Linux; no Antigravity code is
+  copied or redistributed, only the CLI is invoked.
 
 Never in the store: Andee code (licence A.1(d) forbids it as a component),
 Locus (AGPL) code, Aether (GPL) code, Operit (LGPL) code. Behaviour/ideas from

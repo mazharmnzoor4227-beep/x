@@ -1,12 +1,8 @@
 package com.mazharansari.x.data
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -51,7 +47,6 @@ class JobRecordStore(dir: File) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val _records = MutableStateFlow(load())
     val records: StateFlow<List<JobRecord>> = _records.asStateFlow()
-    private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val maxKept = 100
 
     private fun load(): List<JobRecord> =
@@ -59,8 +54,11 @@ class JobRecordStore(dir: File) {
 
     private fun save(list: List<JobRecord>) {
         _records.value = list
-        val snap = list
-        io.launch { synchronized(file) { runCatching { file.writeText(json.encodeToString(snap)) } } }
+        // Synchronous on purpose (P2-3): a record must be on disk before save() returns,
+        // so a new store instance — or a new app process — sees it. The async write used
+        // to lose records created just before a restart, and a store built right after
+        // recordStart/recordFinish loaded an empty file.
+        synchronized(file) { runCatching { file.writeText(json.encodeToString(list)) } }
     }
 
     fun get(id: Int): JobRecord? = _records.value.firstOrNull { it.id == id }

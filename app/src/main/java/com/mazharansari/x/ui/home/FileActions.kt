@@ -2,9 +2,11 @@ package com.mazharansari.x.ui.home
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.core.content.FileProvider
 import com.mazharansari.x.data.Artifact
 import java.io.File
 
@@ -30,4 +32,25 @@ object FileActions {
             "Saved to ${dir.absolutePath}/${a.name}"
         }
     }.getOrElse { "Couldn't save: ${it.message}" }
+}
+
+/** Share a produced file with another app (moved here from HomeScreen — the chat screen and Settings both use it). */
+fun shareFile(ctx: Context, a: Artifact) {
+    com.mazharansari.x.security.SecretScanner.leaveCheck(File(a.path))?.let { android.widget.Toast.makeText(ctx, it, android.widget.Toast.LENGTH_LONG).show(); return }
+    runCatching {
+        val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", File(a.path))
+        ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType(a.mime).putExtra(Intent.EXTRA_STREAM, uri)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), a.name).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+}
+
+/** Open a produced file in another app (moved here from HomeScreen). */
+fun openFile(ctx: Context, a: Artifact) {
+    com.mazharansari.x.security.SecretScanner.leaveCheck(File(a.path))?.let { android.widget.Toast.makeText(ctx, it, android.widget.Toast.LENGTH_LONG).show(); return }
+    runCatching {
+        val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", File(a.path))
+        ctx.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, a.mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK))
+    }.onFailure {
+        android.widget.Toast.makeText(ctx, "No app to open ${a.name}", android.widget.Toast.LENGTH_SHORT).show()
+    }
 }

@@ -21,6 +21,7 @@ import com.mazharansari.x.ui.Route
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -118,8 +119,6 @@ class V05ScreensTest {
         return sc to vm!!
     }
 
-    private fun buildTab(prep: (ChatViewModel) -> Unit = {}) = launch { vm -> prep(vm); vm.debugHomeTab = 2 }.first
-
     private fun setMessages(vm: ChatViewModel, list: List<Message>) {
         val f = vm.javaClass.getDeclaredField("messages\$delegate").apply { isAccessible = true }
         @Suppress("UNCHECKED_CAST") (f.get(vm) as androidx.compose.runtime.MutableState<List<Message>>).value = list
@@ -144,15 +143,33 @@ class V05ScreensTest {
         )
     }
 
-    @Test fun projectsList() { seed(); seedProjects(); val sc = buildTab(); cap("01_build_projects"); sc.close() }
+    @Test fun projectsList() {
+        seed(); val p = seedProjects()
+        // The projects list is gone; a project now opens as a chat. The store still
+        // holds the three projects — verify that, then show the Clawora one in chat.
+        assertEquals(listOf("Clawora Beauty", "Notes API", "Pocket Budget").sorted(),
+            app.graph.build.store.list.value.map { it.name }.sorted())
+        val sc = launch { vm -> vm.openProject(p.id) }.first
+        cap("01_build_projects"); sc.close()
+    }
 
-    @Test fun buildFirstRunPopup() { seed(introShown = false); seedProjects(); val sc = buildTab { it.debugBuildIntro = true }; cap("02_build_first_run_tools_popup"); sc.close() }
+    @Test fun buildFirstRunPopup() {
+        seed(introShown = false); val p = seedProjects()
+        // The first-run tools popup is gone; a first-run build now opens as a chat.
+        val sc = launch { vm -> vm.openProject(p.id) }.first
+        cap("02_build_first_run_tools_popup"); sc.close()
+    }
 
-    @Test fun newProjectSheet() { seed(); seedProjects(); val sc = buildTab { it.debugNewProject = true }; cap("03_new_project"); sc.close() }
+    @Test fun newProjectSheet() {
+        seed(); seedProjects()
+        // The new-project sheet is gone; a project is now created from chat.
+        val sc = launch { vm -> vm.createProject("Expense Tracker", "android") }.first
+        cap("03_new_project"); sc.close()
+    }
 
     @Test fun projectChatLiveCode() {
         seed(); val p = seedProjects()
-        val (sc, vm) = launch { vm -> vm.debugHomeTab = 2; vm.openProject(p.id) }
+        val (sc, vm) = launch { vm -> vm.openProject(p.id) }
         compose.mainClock.advanceTimeBy(600)
         sc.onActivity { setMessages(vm, buildChat(p)) }
         compose.mainClock.advanceTimeBy(800)
@@ -163,46 +180,72 @@ class V05ScreensTest {
 
     @Test fun projectFiles() {
         seed(); val p = seedProjects()
-        val sc = launch { vm -> vm.debugHomeTab = 2; vm.debugProjectTab = 1; vm.openProject(p.id) }.first
-        runCatching { compose.onNodeWithText("assets").performClick() }
+        val (sc, vm) = launch { it.openProject(p.id) }
+        compose.mainClock.advanceTimeBy(600)
+        sc.onActivity { setMessages(vm, buildChat(p)) }
+        compose.mainClock.advanceTimeBy(800)
+        // The files tab is gone; the project's files now show as steps in the build
+        // chat — tap one to expand its diff.
+        runCatching { compose.onAllNodesWithText("index.html", substring = true).onFirst().performClick() }
         cap("05_project_files"); sc.close()
     }
 
     @Test fun codeEditor() {
         seed(); val p = seedProjects()
-        val sc = launch { vm -> vm.debugHomeTab = 2; vm.debugProjectTab = 1; vm.debugOpenFile = "index.html"; vm.openProject(p.id) }.first
+        val (sc, vm) = launch { it.openProject(p.id) }
+        compose.mainClock.advanceTimeBy(600)
+        sc.onActivity { setMessages(vm, buildChat(p)) }
+        compose.mainClock.advanceTimeBy(800)
+        // The code editor is gone; a file's diff now expands inline in the build chat.
+        runCatching { compose.onAllNodesWithText("index.html", substring = true).onFirst().performClick() }
         cap("06_code_editor"); sc.close()
     }
 
     @Test fun codeEditorEditing() {
         seed(); val p = seedProjects()
-        val sc = launch { vm -> vm.debugHomeTab = 2; vm.debugProjectTab = 1; vm.debugOpenFile = "styles.css"; vm.debugEditing = true; vm.openProject(p.id) }.first
+        val (sc, vm) = launch { it.openProject(p.id) }
+        compose.mainClock.advanceTimeBy(600)
+        sc.onActivity { setMessages(vm, buildChat(p)) }
+        compose.mainClock.advanceTimeBy(800)
+        // The editing state is the RUNNING styles.css step in the build chat.
         cap("06b_code_editor_editing"); sc.close()
     }
 
     @Test fun preview() {
         seed(); val p = seedProjects()
-        val sc = launch { vm -> vm.debugHomeTab = 2; vm.debugProjectTab = 2; vm.openProject(p.id) }.first
+        // The preview tab is gone; the published URL lives on the project itself.
+        assertEquals("https://clawora-beauty.netlify.app", app.graph.build.store.get(p.id)?.deploy?.url)
+        val (sc, vm) = launch { it.openProject(p.id) }
+        compose.mainClock.advanceTimeBy(600)
+        sc.onActivity { setMessages(vm, buildChat(p)) }
+        compose.mainClock.advanceTimeBy(800)
         cap("07_preview_and_publish"); sc.close()
     }
 
     @Test fun publishSheet() {
         seed(); val p = seedProjects()
         app.graph.build.tokens.set(com.mazharansari.x.build.DeployProvider.NETLIFY, "nfp_testtoken123456")
-        val sc = launch { vm -> vm.debugHomeTab = 2; vm.debugProjectTab = 2; vm.debugDeploySheet = true; vm.openProject(p.id) }.first
+        // The publish sheet is gone; publishing now runs through the build chat.
+        val (sc, vm) = launch { it.openProject(p.id) }
+        compose.mainClock.advanceTimeBy(600)
+        sc.onActivity { setMessages(vm, buildChat(p)) }
+        compose.mainClock.advanceTimeBy(800)
         cap("08_publish_sheet"); sc.close()
     }
 
     @Test fun projectMenu() {
         seed(); val p = seedProjects()
-        val sc = launch { vm -> vm.debugHomeTab = 2; vm.debugProjectTab = 1; vm.debugProjectMenu = true; vm.openProject(p.id) }.first
+        val (sc, vm) = launch { it.openProject(p.id) }
+        compose.mainClock.advanceTimeBy(600)
+        sc.onActivity { setMessages(vm, buildChat(p)) }
+        compose.mainClock.advanceTimeBy(800)
         cap("09_project_menu"); sc.close()
     }
 
     @Test fun androidApkCard() {
         seed(); seedProjects()
         val apk = app.graph.build.store.list.value.first { it.kind == "android" }
-        val sc = launch { vm -> vm.debugHomeTab = 2; vm.debugProjectTab = 2; vm.openProject(apk.id) }.first
+        val sc = launch { vm -> vm.openProject(apk.id) }.first
         cap("10_android_apk_builder"); sc.close()
     }
 
@@ -232,7 +275,7 @@ class V05ScreensTest {
 
     @Test fun modelMenuOwnModels() {
         seed(own = true)
-        val sc = launch { it.debugHomeTab = 0 }.first
+        val sc = launch().first
         runCatching { compose.onAllNodesWithText("Auto").onFirst().performClick() }
         cap("15_ask_model_menu_local_server"); sc.close()
     }
@@ -262,6 +305,6 @@ class V05ScreensTest {
 
     @Test fun homeUpdateBanner() {
         seed(); app.graph.updater.dismissedCode = 0; app.graph.updater.debugSet(com.mazharansari.x.update.UpdateState.Available(upd))
-        val sc = launch { it.debugHomeTab = 0 }.first; cap("17_home_update_banner"); sc.close()
+        val sc = launch().first; cap("17_home_update_banner"); sc.close()
     }
 }

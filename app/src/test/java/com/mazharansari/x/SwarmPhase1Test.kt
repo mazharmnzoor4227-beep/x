@@ -218,12 +218,19 @@ class SwarmPhase1Test {
     // ── Bot Store ────────────────────────────────────────────────────────────
 
     @Test fun botStoreSeedsAreRealAndLicensed() {
-        assertTrue(BotCatalog.seeds.size in 4..6)
+        // The curated roster: 6 donor seeds + 17 new specialists (23 total).
+        assertTrue(BotCatalog.seeds.size in 20..30)
         BotCatalog.seeds.forEach { def ->
             assertTrue(def.name.isNotBlank())
             assertTrue(def.description.isNotBlank())
             assertTrue(def.sourceName.isNotBlank())
-            assertTrue(def.sourceUrl.startsWith("https://github.com/"))
+            if (def.id == "store-builder") {
+                // The one proprietary engine in the store: Google's Antigravity CLI has no
+                // GitHub repo, so its source is the official product site, licence proprietary.
+                assertTrue(def.sourceUrl.startsWith("https://antigravity.google/"))
+            } else {
+                assertTrue(def.sourceUrl.startsWith("https://github.com/"))
+            }
             assertTrue(def.license.isNotBlank())
             assertTrue(def.id.startsWith("store-"))
             assertTrue(def.promptBlock().contains(def.name))

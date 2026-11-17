@@ -54,28 +54,36 @@ val LightPalette = Palette(
 val LocalPalette = staticCompositionLocalOf { DarkPalette }
 val P: Palette @Composable @ReadOnlyComposable get() = LocalPalette.current
 
-/** Axion bundles Google Sans Flex (OFL) and maps Compose weights onto its wght axis: 400→400, 500→550, 600→600, 700→650, 800→800. */
-@OptIn(ExperimentalTextApi::class)
-private fun flex(w: Int, axis: Int) = Font(R.font.google_sans_flex, FontWeight(w), variationSettings = FontVariation.Settings(FontVariation.weight(axis)))
+/** Outfit (OFL) is the UI sans; Fraunces (OFL) is the display serif (wordmark / titles). Static instances (see res/font). */
+val Outfit = FontFamily(
+    Font(R.font.outfit_regular, FontWeight.Normal),
+    Font(R.font.outfit_medium, FontWeight.Medium),
+    Font(R.font.outfit_semibold, FontWeight.SemiBold),
+    Font(R.font.outfit_bold, FontWeight.Bold),
+)
+val Fraunces = FontFamily(
+    Font(R.font.fraunces_regular, FontWeight.Normal),
+    Font(R.font.fraunces_semibold, FontWeight.SemiBold),
+)
 @OptIn(ExperimentalTextApi::class)
 private fun code(w: Int) = Font(R.font.google_sans_code, FontWeight(w), variationSettings = FontVariation.Settings(FontVariation.weight(w)))
 
-val GoogleSans = FontFamily(flex(300, 300), flex(400, 400), flex(500, 550), flex(600, 600), flex(700, 650), flex(800, 800), flex(900, 850))
 val GoogleSansCode = FontFamily(code(300), code(400), code(500), code(600), code(700))
 
 object Type {
-    val body = TextStyle(fontFamily = GoogleSans, fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.sp)
-    val small = TextStyle(fontFamily = GoogleSans, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.sp)
-    val tiny = TextStyle(fontFamily = GoogleSans, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.sp)
-    val label = TextStyle(fontFamily = GoogleSans, fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp)
-    val row = TextStyle(fontFamily = GoogleSans, fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp)
-    val title = TextStyle(fontFamily = GoogleSans, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp)
-    val header = TextStyle(fontFamily = GoogleSans, fontSize = 19.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp)
+    val display = TextStyle(fontFamily = Fraunces, fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp)
+    val body = TextStyle(fontFamily = Outfit, fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.sp)
+    val small = TextStyle(fontFamily = Outfit, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.sp)
+    val tiny = TextStyle(fontFamily = Outfit, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.sp)
+    val label = TextStyle(fontFamily = Outfit, fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp)
+    val row = TextStyle(fontFamily = Outfit, fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp)
+    val title = TextStyle(fontFamily = Outfit, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp)
+    val header = TextStyle(fontFamily = Outfit, fontSize = 19.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp)
     val mono = TextStyle(fontFamily = GoogleSansCode, fontSize = 13.sp, lineHeight = 20.sp, letterSpacing = 0.sp)
 }
 
 private val AxionTypography: Typography = Typography().let { t ->
-    fun TextStyle.g() = copy(fontFamily = GoogleSans, letterSpacing = 0.sp)
+    fun TextStyle.g() = copy(fontFamily = Outfit, letterSpacing = 0.sp)
     Typography(
         displayLarge = t.displayLarge.g(), displayMedium = t.displayMedium.g(), displaySmall = t.displaySmall.g(),
         headlineLarge = t.headlineLarge.g(), headlineMedium = t.headlineMedium.g(), headlineSmall = t.headlineSmall.g(),

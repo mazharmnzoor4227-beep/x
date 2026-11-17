@@ -149,12 +149,12 @@ class GroupScope internal constructor(val count: Int) { internal var index = 0 }
 
 @Composable
 fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)), verticalArrangement = Arrangement.spacedBy(2.dp), content = content)
+    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)), verticalArrangement = Arrangement.spacedBy(2.dp), content = content)
 }
 
 fun tileShape(first: Boolean, last: Boolean): Shape = RoundedCornerShape(
-    topStart = if (first) 20.dp else 6.dp, topEnd = if (first) 20.dp else 6.dp,
-    bottomStart = if (last) 20.dp else 6.dp, bottomEnd = if (last) 20.dp else 6.dp,
+    topStart = if (first) 16.dp else 6.dp, topEnd = if (first) 16.dp else 6.dp,
+    bottomStart = if (last) 16.dp else 6.dp, bottomEnd = if (last) 16.dp else 6.dp,
 )
 
 @Composable
@@ -201,7 +201,7 @@ fun Divider(start: Dp = 52.dp) = Box(Modifier.padding(start = start).fillMaxWidt
 @Composable
 fun Avatar(letter: String, size: Dp = 36.dp, bg: Color = P.accent.copy(alpha = 0.16f)) {
     Box(Modifier.size(size).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
-        Text(letter.take(1).uppercase(), color = P.accent, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.SemiBold, fontFamily = com.mazharansari.x.ui.theme.GoogleSans)
+        Text(letter.take(1).uppercase(), color = P.accent, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.SemiBold, fontFamily = com.mazharansari.x.ui.theme.Outfit)
     }
 }
 

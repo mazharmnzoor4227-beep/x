@@ -12,7 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.mazharansari.x.ui.components.LocalHaptics
 import com.mazharansari.x.ui.components.LocalTouchSound
-import com.mazharansari.x.ui.home.HomeScreen
+import com.mazharansari.x.ui.AnimationGate
+import com.mazharansari.x.ui.chat.ChatScreen
+import com.mazharansari.x.ui.chat.SplashScreen
 import com.mazharansari.x.ui.settings.*
 import com.mazharansari.x.ui.theme.SandLook
 import com.mazharansari.x.ui.theme.SandTheme
@@ -21,7 +23,9 @@ import com.mazharansari.x.ui.theme.P
 @Composable
 fun AppRoot(vm: ChatViewModel) {
     val settings by vm.g.settings.state.collectAsState()
-    val stack = remember { mutableStateListOf<Route>(Route.Home) }
+    val stack = remember { mutableStateListOf<Route>(Route.Chat) }
+    // Splash shows once per app start, after onboarding; skipped in tests.
+    var splashDone by remember { mutableStateOf(AnimationGate.inTestRuntime) }
     val ctx = LocalContext.current
     LaunchedEffect(vm.toast) { vm.toast?.let { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show(); vm.toast = null } }
     SandTheme(when (settings.theme) { "light" -> SandLook.Light; "system" -> SandLook.System; else -> SandLook.Dark }, settings.textScale) {
@@ -36,6 +40,9 @@ fun AppRoot(vm: ChatViewModel) {
         0 -> com.mazharansari.x.ui.auth.IntroScreen { vm.g.settings.update { it.copy(introShown = true) } }
         1 -> com.mazharansari.x.ui.auth.PermissionsOnboarding({ vm.g.settings.update { it.copy(permsShown = true) } })
         else ->
+        // One chat screen: the splash (mascot + X, ~700 ms, tap to skip) shows
+        // once per app start, after the onboarding stages. Skipped in tests.
+        if (!splashDone) SplashScreen { splashDone = true } else
         CompositionLocalProvider(LocalHaptics provides settings.haptics, LocalTouchSound provides settings.touchSound) {
             var goingBack by remember { mutableStateOf(false) }
             val nav: (Route) -> Unit = { if (stack.last() != it) { goingBack = false; stack.add(it) } }
@@ -54,11 +61,11 @@ fun AppRoot(vm: ChatViewModel) {
                         else (slideInHorizontally(tween(150)) { it / 3 } + fadeIn(tween(140))) togetherWith (slideOutHorizontally(tween(150)) { -it / 4 } + fadeOut(tween(110)))
                     },
                 ) { r ->
-                    if (r != Route.Home) com.mazharansari.x.ui.components.DismissKeyboard()
+                    if (r != Route.Chat) com.mazharansari.x.ui.components.DismissKeyboard()
                     // v0.5.2: screens where keys, tokens or passwords are typed: no screenshots, screen recording or Recents preview.
                     if (r in com.mazharansari.x.ui.SecureRoutes.all) com.mazharansari.x.security.SecureScreen()
                     saved.SaveableStateProvider(r.toString()) { when (r) {
-                        Route.Home -> HomeScreen(vm, nav)
+                        Route.Chat -> ChatScreen(vm, nav)
                         Route.Settings -> SettingsScreen(vm, nav, back)
                         Route.Appearance -> AppearanceScreen(vm, back)
                         Route.Language -> LanguageScreen(vm, back)
@@ -90,14 +97,6 @@ fun AppRoot(vm: ChatViewModel) {
                         Route.Telegram -> com.mazharansari.x.ui.settings.TelegramScreen(vm, back)
                         Route.BotStore -> com.mazharansari.x.ui.bots.BotStoreScreen(vm, back)
                         Route.Bots -> com.mazharansari.x.ui.bots.BotsScreen(vm, nav, back)
-                        Route.Feed -> com.mazharansari.x.ui.home.FeedScreen(vm, back, nav)
-                        Route.Ideas -> com.mazharansari.x.ui.home.IdeasScreen(vm, back)
-                        Route.Goals -> com.mazharansari.x.ui.home.GoalsScreen(vm, back)
-                        Route.Library -> com.mazharansari.x.ui.home.LibraryScreen(vm, back)
-                        Route.Activity -> com.mazharansari.x.ui.home.ActivityScreen(vm, back, nav)
-                        Route.Computer -> com.mazharansari.x.ui.home.ComputerScreen(vm, back, nav)
-                        Route.Mark -> com.mazharansari.x.ui.home.MarkScreen(vm, back)
-                        Route.CodeDiff -> com.mazharansari.x.ui.home.CodeDiffScreen(vm, back)
                         Route.CliPair -> com.mazharansari.x.ui.home.CliPairScreen(vm, back, nav)
                     } }
                 }

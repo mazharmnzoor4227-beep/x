@@ -43,7 +43,7 @@ fun Composer(
     attachments: List<Attachment>, onRemoveAttachment: (Attachment) -> Unit,
     listening: Boolean, level: () -> Float, partial: String,
     onPlus: () -> Unit, onMode: () -> Unit, onMic: () -> Unit, onSend: () -> Unit, onStop: () -> Unit, onVoiceCall: () -> Unit,
-    modifier: Modifier = Modifier, plusOpen: Boolean = false, modeOpen: Boolean = false, compact: Boolean = false,
+    modifier: Modifier = Modifier, plusOpen: Boolean = false, modeOpen: Boolean = false,
     onMicCancel: () -> Unit = onMic,
     /** Phase 2 voice: true while the final words are coming back — the mic ignores taps meanwhile. */
     finishing: Boolean = false,
@@ -55,22 +55,13 @@ fun Composer(
     onFocus: () -> Unit = {},
 ) {
     val p = P
-    val shape = RoundedCornerShape(if (compact) 28.dp else 24.dp)
+    // Mock pill: paper bg, 32dp corners.
+    val shape = RoundedCornerShape(32.dp)
     Column(modifier.fillMaxWidth().padding(horizontal = 8.dp).clip(shape).background(p.surface).border(1.dp, p.border, shape)) {
         if (attachments.isNotEmpty()) {
             Row(Modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 attachments.forEach { a -> key(a.path) { AttachmentChip(a) { onRemoveAttachment(a) } } }
             }
-        }
-        if (compact) {
-            // Build tab: one-line pill — (+) "Type to Build…" (mic) (↑)
-            Row(Modifier.fillMaxWidth().padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                RoundTool(if (plusOpen) Gk.close else Gk.plus, "Attach", onPlus)
-                Box(Modifier.weight(1f).padding(horizontal = 12.dp)) { Field(text, onText, placeholder, listening, partial, maxLines = 4, onFocus = onFocus) }
-                if (!running) { RoundTool(Gk.mic, "Dictate", onMic, active = listening); Spacer(Modifier.width(8.dp)) }
-                SendButton(if (running) 2 else if (text.isNotBlank() || attachments.isNotEmpty()) 1 else 3, onSend, onStop, onVoiceCall)
-            }
-            return@Column
         }
         // Axion: text line 13 dp below the top, control row 16 dp under it, 7 dp from the bottom → 95 dp box.
         Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 16.dp).heightIn(min = 24.dp, max = 168.dp)) {
@@ -144,14 +135,14 @@ private fun ModeChip(label: String, open: Boolean, onClick: () -> Unit) {
     }
 }
 
-fun modeIcon(label: String) = when (label) { "Fast" -> Gk.bolt; "Expert" -> Gk.think; "Heavy" -> Gk.connectors; "Build" -> Gk.hammer; else -> Gk.rocket }
+fun modeIcon(label: String) = when (label) { "Fast" -> Gk.bolt; "Expert" -> Gk.think; "Heavy" -> Gk.connectors; else -> Gk.rocket }
 
-/** 0 = Speak pill (empty, opens voice), 1 = send ↑, 2 = stop ■, 3 = disabled send (Build). */
+/** 0 = Speak pill (empty, opens voice), 1 = send ↑ (mock: ink circle), 2 = stop ■, 3 = disabled send. */
 @Composable
 private fun SendButton(state: Int, onSend: () -> Unit, onStop: () -> Unit, onVoice: () -> Unit) {
     val p = P
     val tap = rememberTap { when (state) { 0 -> onVoice(); 1 -> onSend(); 2 -> onStop(); else -> {} } }
-    val bg = if (state == 3) p.chip else p.accent
+    val bg = when (state) { 1 -> p.text; 3 -> p.chip; else -> p.accent }
     Row(
         Modifier.height(36.dp).animateContentSize(tween(160)).clip(RoundedCornerShape(50)).background(bg).clickable(onClick = tap)
             .padding(horizontal = if (state == 0) 14.dp else 0.dp).widthIn(min = 36.dp),
@@ -159,7 +150,7 @@ private fun SendButton(state: Int, onSend: () -> Unit, onStop: () -> Unit, onVoi
     ) {
         when (state) {
             0 -> { GkIcon(Gk.voice, "Voice mode", 18.dp, p.onAccent); Spacer(Modifier.width(6.dp)); Text("Speak", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.onAccent) }
-            1 -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { GkIcon(Gk.send, "Send", 20.dp, p.onAccent) }
+            1 -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { GkIcon(Gk.send, "Send", 20.dp, p.bg) }
             2 -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(p.onAccent)) }
             else -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { GkIcon(Gk.send, "Send", 20.dp, p.text3) }
         }
@@ -218,7 +209,7 @@ fun TurboChip(on: Boolean, onClick: () -> Unit, height: Dp = 36.dp, horizontalPa
  * v0.9.4: the 10X tool toggles (Research, Long task) live in their own line ABOVE the composer box,
  * not inside it. Inside the box they pushed the mic and the Send button off the right edge — the
  * user had no Send button at all. Same chips, same behaviour, only the placement changed.
- * Rendered by HomeScreen directly above Composer in an active chat; on the empty home the
+ * Rendered by ChatScreen directly above Composer in an active chat; on the empty chat the
  * toggles live in the merged suggestion row instead (0.9.6).
  */
 @Composable

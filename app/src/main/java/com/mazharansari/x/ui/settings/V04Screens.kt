@@ -104,6 +104,23 @@ internal fun SmallButton(text: String, filled: Boolean = false, enabled: Boolean
     }
 }
 
+/** Moved here from the deleted ui/build ProjectWorkspace (OwnModelScreens still uses it). */
+@Composable
+internal fun ConfirmDialog(title: String, body: String, confirm: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    val p = P
+    androidx.compose.ui.window.Dialog(onDismiss) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(p.page2).padding(20.dp)) {
+            Text(title, style = Type.title, color = p.text)
+            Text(body, style = Type.small, color = p.text2, modifier = Modifier.padding(top = 8.dp))
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SmallButton("Cancel") { onDismiss() }
+                SmallButton(confirm, filled = true) { onConfirm() }
+            }
+        }
+    }
+}
+
 @Composable
 internal fun BigButton(text: String, enabled: Boolean = true, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
@@ -131,7 +148,7 @@ internal fun ToolBadge(t: Toolchain, size: Dp = 40.dp) {
         Toolchain.ANDROIDSDK -> Color(0xFF2E7D32) to "apk"; Toolchain.GO -> Color(0xFF00897B) to "Go"; Toolchain.RUST -> Color(0xFF8D4E2A) to "Rs"
     }
     Box(Modifier.size(size).clip(RoundedCornerShape(12.dp)).background(bg), contentAlignment = Alignment.Center) {
-        Text(label, color = Color.White, fontSize = (size.value * 0.33f).sp, fontWeight = FontWeight.Bold, fontFamily = com.mazharansari.x.ui.theme.GoogleSans)
+        Text(label, color = Color.White, fontSize = (size.value * 0.33f).sp, fontWeight = FontWeight.Bold, fontFamily = com.mazharansari.x.ui.theme.Outfit)
     }
 }
 
@@ -424,9 +441,10 @@ fun AntigravityScreen(vm: ChatViewModel, back: () -> Unit, nav: (Route) -> Unit,
             ToggleRow(Gk.refresh, "Auto-switch", "On a limit, the next account continues the task. The used one rests 60 min, or until the reset time Google gives.", store.autoSwitch) { g.agy.setAutoSwitch(it) }
         }
 
-        // v0.4 (mazhar 2:28 PM): Antigravity is the Build tab's engine only — Ask never uses it, so no "use in chat" switch.
+        // Antigravity is the build engine only — Ask never uses it, so no "use in chat" switch.
+        // (One chat screen now: builds happen through chat when asked, there is no Build tab.)
         SectionLabel("Where it runs")
-        SettingsGroup { SettingsRow(Gk.hammer, "Build tab", "Every Build project runs on these accounts. Ask uses your API keys only.", chevron = false) {} }
+        SettingsGroup { SettingsRow(Gk.hammer, "Builds", "Every build runs on these accounts. Ask uses your API keys only.", chevron = false) {} }
         Note("Antigravity runs its own tools (files, commands) in Linux. Axion's PDF, web search and image tools aren't used inside an Antigravity reply.", Modifier.padding(start = 30.dp, end = 30.dp, top = 10.dp))
         Spacer(Modifier.height(10.dp))
         SettingsGroup {

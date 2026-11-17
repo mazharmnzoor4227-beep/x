@@ -1,7 +1,14 @@
 package com.mazharansari.x.ui
 
+/**
+ * One chat screen (2026-11-17 rebuild): the stack starts at [Route.Chat].
+ * Build mode and the dock screens are gone — Home, Feed, Ideas, Goals,
+ * Library, Activity, Computer, Mark and CodeDiff were deleted with their
+ * screens. Everything below stays as a stack destination, reached only
+ * from the chat menu / settings / chat actions, never from a dock.
+ */
 sealed interface Route {
-    data object Home : Route
+    data object Chat : Route
     data object Settings : Route
     data object Appearance : Route
     data object Language : Route
@@ -42,17 +49,9 @@ sealed interface Route {
     data object Telegram : Route
     // P1 — Bot Store (installable bot definitions)
     data object BotStore : Route
-    // Phase 2 — Bots section (menu only; the top bar is Ask | Build).
+    // Phase 2 — Bots section (menu only).
     data object Bots : Route
-    // New series — dock tabs + unified screens (ui/home).
-    data object Feed : Route
-    data object Ideas : Route
-    data object Goals : Route
-    data object Library : Route
-    data object Activity : Route
-    data object Computer : Route
-    data object Mark : Route
-    data object CodeDiff : Route
+    // Config, reachable from Antigravity/menu.
     data object CliPair : Route
 }
 

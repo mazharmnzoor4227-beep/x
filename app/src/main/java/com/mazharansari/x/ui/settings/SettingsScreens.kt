@@ -43,7 +43,6 @@ import com.mazharansari.x.linux.TurboAuth
 import com.mazharansari.x.linux.TurboSettings
 import com.mazharansari.x.ui.ChatViewModel
 import com.mazharansari.x.ui.Route
-import com.mazharansari.x.ui.build.BRed
 import com.mazharansari.x.ui.chat.ArtifactCard
 import com.mazharansari.x.ui.chat.sizeLabel
 import com.mazharansari.x.ui.components.*
@@ -52,11 +51,15 @@ import com.mazharansari.x.ui.home.openFile
 import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
 
-/** Grok settings page: #181818 page, left-aligned header, grouped #242424 tiles. */
+/** Grok settings page (mock settings-screen.tsx): centred Fraunces 24sp title, back chevron at left, paper cards. */
 @Composable
 fun SettingsPage(title: String, onBack: () -> Unit, close: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxSize().background(P.page2)) {
-        ScreenHeader(title, onBack, close)
+        Row(Modifier.fillMaxWidth().statusBarsPadding().height(64.dp).padding(start = 6.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconTap(if (close) Gk.close else Gk.arrowLeft, if (close) "Close" else "Back", 24.dp, P.text, 44.dp, onBack)
+            Text(title, style = Type.display.copy(fontSize = 24.sp), color = P.text, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.width(44.dp))
+        }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 28.dp), content = content)
     }
 }
@@ -77,7 +80,7 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
     val memCount = memData.user.size + memData.notes.size
     SettingsPage("Settings", back, close = true) {
         // profile card
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.card).clickable { nav(Route.Customize) }.padding(16.dp),
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.card).clickable { nav(Route.Customize) }.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(56.dp).clip(CircleShape).border(2.dp, if (p.isDark) Color(0xFF3A3A3A) else p.border, CircleShape).padding(4.dp)) { Avatar(s.userName.ifBlank { "You" }, 48.dp) }
             Spacer(Modifier.width(14.dp))
@@ -88,7 +91,7 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
             }
         }
         // Grok's Premium card → Axion's providers card (same layout, blue pill button)
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.card).padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.card).padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically) {
             GkIcon(Gk.connectors, null, 24.dp, p.text)
             Spacer(Modifier.width(14.dp))
@@ -298,7 +301,7 @@ fun TurboScreen(vm: ChatViewModel, back: () -> Unit) {
                 SecretField("Key passphrase (if any)", passphrase, { passphrase = it }, "Leave blank if the key has no passphrase")
             }
             val problems = draft().validate()
-            if (problems.isNotEmpty()) problems.forEach { Text(it, style = Type.small, color = BRed) }
+            if (problems.isNotEmpty()) problems.forEach { Text(it, style = Type.small, color = P.danger) }
             if (saved.hostKeyFingerprint != null) Text("Trusted server key: ${saved.hostKeyFingerprint}", style = Type.small, color = P.text2)
             BigButton(if (testing) "Testing…" else "Test connection", enabled = !testing && problems.isEmpty()) { test(false) }
             if (trustFingerprint != null) {

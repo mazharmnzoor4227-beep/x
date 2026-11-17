@@ -63,7 +63,7 @@ fun BotLogoView(logo: String, name: String, size: Dp, modifier: Modifier = Modif
             contentAlignment = Alignment.Center,
         ) {
             Text(name.take(1).uppercase(), color = p.accent, fontSize = (size.value * 0.42f).sp,
-                fontWeight = FontWeight.SemiBold, fontFamily = com.mazharansari.x.ui.theme.GoogleSans)
+                fontWeight = FontWeight.SemiBold, fontFamily = com.mazharansari.x.ui.theme.Outfit)
         }
     }
 }

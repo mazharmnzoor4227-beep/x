@@ -143,8 +143,8 @@ class V052ScreensTest {
         val job = g.build.jobs.value["${p.id}:deploy"] as JobState.Failed
         assertTrue(job.message, job.message.contains("app.js, line 2")); assertFalse(job.message.contains(groqKey))
         println("projects before launch: ${store.list.value.map { it.name }}")
-        val (sc, vm) = launch { vm -> vm.debugHomeTab = 2; vm.debugProjectTab = 2; vm.openProject(p.id); println("in prep: ${vm.projectId} get=${store.get(p.id)?.name}") }
-        println("after launch: projectId=${vm.projectId} list=${store.list.value.map { it.name }} ready=${vm.buildReady()}")
+        val (sc, vm) = launch { vm -> vm.openProject(p.id); println("in prep: ${vm.projectId} get=${store.get(p.id)?.name}") }
+        println("after launch: projectId=${vm.projectId} list=${store.list.value.map { it.name }} ready=${vm.agyBuildReady()}")
         scrollTo("Publishing stopped"); cap("08_publish_blocked_secret_found")
         File(shots, "08_publish_blocked_message.txt").writeText(job.message)
         sc.close()
@@ -153,7 +153,7 @@ class V052ScreensTest {
     /** A pasted key in chat is masked; the first-word time shows next to the model name. */
     @Test fun chatMaskedKeyAndTiming() {
         seed()
-        val (sc, vm) = launch { it.debugHomeTab = 0 }
+        val (sc, vm) = launch()
         val now = System.currentTimeMillis()
         val list = listOf(
             Message("u1", Role.USER, com.mazharansari.x.security.SecretScanner.scrub("Ye key check karo: $groqKey", emptyList()), createdAt = now - 20_000),
@@ -276,7 +276,7 @@ class V052ScreensTest {
     }
 
     @Test fun modelPickerHasFreeSlow() {
-        seed(); val (sc, _) = launch { it.debugHomeTab = 0; it.debugPopover = 2 }
+        seed(); val (sc, _) = launch { it.debugPopover = 2 }
         cap("14_model_picker_free_slow"); sc.close()
     }
 
@@ -288,12 +288,24 @@ class V052ScreensTest {
     }
 
     @Test fun buildToolsPopupNothingTicked() {
-        seed(); val (sc, _) = launch { it.debugHomeTab = 2; it.debugBuildIntro = true }
+        seed()
+        // The first-run tools popup is gone; the tools to install are now on the
+        // Antigravity screen — with the CLI not installed it shows "Not installed"
+        // + Set up Antigravity.
+        val recs = flow<Map<String, ToolRecord>>(app.graph.devtools, "_records")
+        recs.value = recs.value - "agy"
+        val (sc, _) = launch { it.debugStart = Route.Antigravity }
         cap("16_build_tools_popup_nothing_ticked"); sc.close()
     }
 
     @Test fun newProjectAndroidIcon() {
-        seed(); val (sc, _) = launch { it.debugHomeTab = 2; it.debugNewProject = true }
+        seed()
+        // The new-project sheet is gone; a project is now created from chat and opens
+        // as a chat — here an Android one.
+        val store = app.graph.build.store
+        store.list.value.forEach { store.delete(it.id) }
+        val p = store.create("Pocket Budget", "android")
+        val (sc, _) = launch { it.openProject(p.id) }
         cap("17_new_project_android_icon"); sc.close()
     }
 
@@ -303,7 +315,7 @@ class V052ScreensTest {
             val store = vm.g.build.store
             store.list.value.forEach { store.delete(it.id) }
             val p = store.create("Clawora Beauty", "web")
-            vm.debugHomeTab = 2; vm.debugProjectTab = 0; vm.openProject(p.id) }
+            vm.openProject(p.id) }
         cap("18_build_chat_antigravity_setup_card"); sc.close()
     }
 

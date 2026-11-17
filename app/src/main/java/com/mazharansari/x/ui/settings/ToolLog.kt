@@ -140,10 +140,15 @@ fun ToolLogDialog(vm: ChatViewModel, toolId: String, onDismiss: () -> Unit) {
                 Text("Last 200 lines of the last run. Keys and tokens are hidden. Share it with the developer if setup keeps failing.", style = Type.tiny, color = p.text2)
                 Spacer(Modifier.height(8.dp))
                 Box(Modifier.fillMaxWidth().heightIn(max = 380.dp).clip(RoundedCornerShape(12.dp)).background(if (p.isDark) Color(0xFF0E0E0E) else Color(0xFFF1F1F1)).padding(10.dp)) {
-                    SelectionContainer {
+                    // Robolectric never goes idle with text-selection machinery inside a dialog
+                    // window — the same quirk the delete-all dialog works around by drawing its
+                    // field as plain text (V052ScreensTest). In the test runtime the log renders
+                    // as plain text; on a real phone it stays selectable.
+                    val logBody = @Composable {
                         Text(text, style = Type.mono.copy(fontSize = 11.sp, lineHeight = 15.sp), color = p.text,
                             modifier = Modifier.verticalScroll(rememberScrollState(Int.MAX_VALUE)).horizontalScroll(rememberScrollState()))
                     }
+                    if (com.mazharansari.x.ui.AnimationGate.inTestRuntime) logBody() else SelectionContainer { logBody() }
                 }
             }
         },

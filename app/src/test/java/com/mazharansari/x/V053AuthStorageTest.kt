@@ -47,6 +47,11 @@ class V053AuthStorageTest {
         Files.createSymbolicLink(File(d, "big").toPath(), File("/usr").toPath())
         assertEquals(1500, StorageScan.bytes(d))
         assertEquals(0, StorageScan.bytes(File(d, "missing")))
+        // Delete the links first: Kotlin's deleteRecursively follows directory symlinks,
+        // so on this fixture (loop → d itself, big → /usr) it walks an unbounded tree
+        // and the test hangs. With the links gone the tree is plain files.
+        Files.deleteIfExists(File(d, "loop").toPath())
+        Files.deleteIfExists(File(d, "big").toPath())
         d.deleteRecursively()
     }
     @Test fun linuxSlimRemovesDocsOnceAndKeepsEnglish() {

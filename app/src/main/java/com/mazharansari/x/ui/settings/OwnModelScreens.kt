@@ -127,7 +127,7 @@ fun LocalModelsScreen(vm: ChatViewModel, back: () -> Unit) {
         }
     }
     confirm?.let { m ->
-        com.mazharansari.x.ui.build.ConfirmDialog("Download anyway?", LocalModelStore.ramVerdict(m, ram.first, ram.second).orEmpty(), "Download", onDismiss = { confirm = null }) { store.download(m); confirm = null }
+        ConfirmDialog("Download anyway?", LocalModelStore.ramVerdict(m, ram.first, ram.second).orEmpty(), "Download", onDismiss = { confirm = null }) { store.download(m); confirm = null }
     }
 }
 

@@ -64,9 +64,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     var debugStart by mutableStateOf<com.mazharansari.x.ui.Route?>(null)
     var debugToolSheet by mutableStateOf<com.mazharansari.x.linux.Toolchain?>(null)
     var debugAgyLogin by mutableStateOf<com.mazharansari.x.antigravity.AgyLoginState?>(null)
-    var debugHomeTab by mutableStateOf(-1)
-    // v0.5 render hooks (tests only): project tab, an open file, editor in edit mode, the publish sheet, the Build first-run popup
-    var debugProjectTab by mutableStateOf(-1)
 
     // v0.5: quiet update check on app start (at most once a day; a notification only when something newer is out)
     init { viewModelScope.launch { runCatching { g.updater.quietCheck() } } }
@@ -111,12 +108,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
         interruptedTask = null
     }
-    var debugOpenFile by mutableStateOf<String?>(null)
-    var debugEditing by mutableStateOf(false)
-    var debugDeploySheet by mutableStateOf(false)
-    var debugBuildIntro by mutableStateOf(false)
-    var debugNewProject by mutableStateOf(false)
-    var debugProjectMenu by mutableStateOf(false)
     // v0.5.2 render hooks (tests only): the "before you save" warning on key export, the Delete-all-data dialog
     var debugExportWarning by mutableStateOf(false)
     var debugDeleteAll by mutableStateOf(false)
@@ -179,14 +170,20 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private fun openSession(): RunSession? = conversationId?.let { sessions[it] }
     private var createdAt = 0L
 
-    fun newChat(into: Section = section) {
+    /**
+     * One chat screen, no modes: a new chat is always a plain Ask chat.
+     * There is no Build section to switch into any more — the agent still
+     * does build work through chat when asked (see runBuildTurn), but the
+     * user never picks a Build mode.
+     */
+    fun newChat() {
         // v0.8.0: no stop() — a run in the chat being left keeps working in the background.
         // Phase 2: the half-typed draft stays with the chat being left, not the new one.
         drafts.save(conversationId, draft)
-        conversationId = null; title = ""; messages = emptyList(); pending.clear(); draft = ""; section = into
+        conversationId = null; title = ""; messages = emptyList(); pending.clear(); draft = ""; section = Section.ASK
         viewingWorkerTranscript = false; workerReturnToId = null; workerReturnToName = null; activeBot = null
         contextUsage = null   // P2-2: the indicator belongs to the conversation just left
-        if (into != Section.BUILD) projectId = null
+        projectId = null
         refreshRunning()
     }
 
@@ -196,7 +193,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
      * never auto-runs it.
      */
     fun startBotChat(bot: com.mazharansari.x.data.BotDefinition) {
-        newChat(Section.ASK)
+        newChat()
         activeBot = bot
     }
 
@@ -312,8 +309,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Build can run: Linux + the agy CLI installed and at least one signed-in Antigravity account. */
-    fun buildReady(): Boolean = runCatching { g.agyReady() }.getOrDefault(false)
+    /** Build can run: Linux + the agy CLI installed and at least one signed-in Antigravity account. Kept for the chat-driven build engine (runBuildTurn); there is no Build UI entry point any more. */
+    internal fun agyBuildReady(): Boolean = runCatching { g.agyReady() }.getOrDefault(false)
 
     private var opening: String? = null
 
@@ -371,7 +368,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun closeWorkerChat() {
         val back = workerReturnToId
         workerReturnToId = null; workerReturnToName = null; viewingWorkerTranscript = false
-        if (back != null) open(back) else newChat(Section.ASK)
+        if (back != null) open(back) else newChat()
     }
 
     /** The parent bot's given name for the read-only banner above a worker transcript ("" = plain Axion). */
@@ -795,7 +792,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
      */
     private suspend fun runBuildTurn(pid: String, u: Message, sink: AgentSink) {
         val p = g.build.store.get(pid) ?: throw NoModelException("This project was deleted.")
-        if (!buildReady()) throw NoModelException("Build runs on Antigravity. Install Developer tools and add an Antigravity account first.")
+        if (!agyBuildReady()) throw NoModelException("Build runs on Antigravity. Install Developer tools and add an Antigravity account first.")
         val folder = g.build.folder(p)
         // files the user attached go into the project's uploads/ folder
         val note = if (u.attachments.isEmpty()) "" else {
@@ -944,7 +941,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Build: Antigravity only (the client itself switches accounts on a limit). No API key, no Free (slow). */
     internal fun buildAttempts(): List<Attempt> {
-        if (!buildReady()) throw NoModelException("Build runs on Antigravity — add an Antigravity account (and Developer tools) first.")
+        if (!agyBuildReady()) throw NoModelException("Build runs on Antigravity — add an Antigravity account (and Developer tools) first.")
         // v0.5.1: the stall watchdog is for API models; agy starts a CLI inside Linux and may take a while to speak.
         return listOf(Attempt("Antigravity", g.agy.store.value.model.ifBlank { "auto" }, g.agyClient, patientMs = 180_000))
     }

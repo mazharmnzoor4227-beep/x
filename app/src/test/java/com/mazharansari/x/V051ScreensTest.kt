@@ -102,7 +102,7 @@ class V051ScreensTest {
         var vm: ChatViewModel? = null
         sc.onActivity {
             vm = ViewModelProvider(it)[ChatViewModel::class.java]
-            if (project != null) { vm!!.debugHomeTab = 2; vm!!.openProject(project.id) }
+            if (project != null) { vm!!.openProject(project.id) }
         }
         compose.mainClock.advanceTimeBy(800)
         sc.onActivity { setMessages(vm!!, chat(state)) }

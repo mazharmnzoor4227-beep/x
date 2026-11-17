@@ -173,7 +173,14 @@ class V04ScreensTest {
 
     @Test fun homeAskBuild() { seed(); val (sc, _) = launch(); cap("06_home_ask_build"); sc.close() }
 
-    @Test fun homeBuildTab() { seed(); val (sc, _) = launch { it.debugHomeTab = 2 }; cap("06b_build_setup_card"); sc.close() }
+    @Test fun homeBuildTab() {
+        seed()
+        // The Build tab is gone; its setup card now lives on the Antigravity screen:
+        // with the CLI not installed it shows "Not installed" + Set up Antigravity.
+        val recs = flow<Map<String, ToolRecord>>(app.graph.devtools, "_records")
+        recs.value = recs.value - "agy"
+        val sc = route(Route.Antigravity); cap("06b_build_setup_card"); sc.close()
+    }
 
     @Test fun plusPopoverScrim() {
         seed()
