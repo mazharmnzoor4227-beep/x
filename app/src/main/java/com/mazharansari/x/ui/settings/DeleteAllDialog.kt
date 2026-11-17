@@ -45,7 +45,7 @@ fun DeleteAllDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 Text("Type DELETE to confirm", style = Type.small.copy(fontWeight = FontWeight.SemiBold), color = p.text)
                 Spacer(Modifier.height(6.dp))
-                if (!vm.debugNoField) Field(typed, { typed = it }, "DELETE") else Text(typed.ifEmpty { "DELETE" }, style = Type.body, color = if (typed.isEmpty()) p.text3 else p.text, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0xFF2A2A2A)).padding(horizontal = 14.dp, vertical = 13.dp))
+                if (!vm.debugNoField) Field(typed, { typed = it }, "DELETE") else Text(typed.ifEmpty { "DELETE" }, style = Type.body, color = if (typed.isEmpty()) p.text3 else p.text, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(p.chip).padding(horizontal = 14.dp, vertical = 13.dp))
             }
         },
         confirmButton = {

@@ -16,8 +16,8 @@ import com.mazharansari.x.ui.AnimationGate
 import com.mazharansari.x.ui.chat.ChatScreen
 import com.mazharansari.x.ui.chat.SplashScreen
 import com.mazharansari.x.ui.settings.*
-import com.mazharansari.x.ui.theme.SandLook
-import com.mazharansari.x.ui.theme.SandTheme
+import com.mazharansari.x.ui.theme.DotsLook
+import com.mazharansari.x.ui.theme.DotsTheme
 import com.mazharansari.x.ui.theme.P
 
 @Composable
@@ -28,7 +28,7 @@ fun AppRoot(vm: ChatViewModel) {
     var splashDone by remember { mutableStateOf(AnimationGate.inTestRuntime) }
     val ctx = LocalContext.current
     LaunchedEffect(vm.toast) { vm.toast?.let { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show(); vm.toast = null } }
-    SandTheme(when (settings.theme) { "light" -> SandLook.Light; "system" -> SandLook.System; else -> SandLook.Dark }, settings.textScale) {
+    DotsTheme(when (settings.theme) { "light" -> DotsLook.Light; "system" -> DotsLook.System; else -> DotsLook.Dark }, settings.textScale) {
         val onboarding = com.mazharansari.x.ui.auth.Onboarding.enabled
         // First run: intro → permissions → the app, cross-faded. No sign-in: the app opens straight in.
         val stage = when {

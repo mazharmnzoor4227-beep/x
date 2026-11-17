@@ -148,13 +148,14 @@ fun CodeBlock(lang: String, code: String, title: String? = null) {
     val ctxClip = androidx.compose.ui.platform.LocalContext.current
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(copied) { if (copied) { delay(1500); copied = false } }
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(p.code).border(1.dp, p.border, RoundedCornerShape(14.dp))) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(p.code).border(1.dp, p.border, RoundedCornerShape(13.dp))) {
         Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 0.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(title ?: lang.ifBlank { "code" }, style = Type.small, color = p.text2, modifier = Modifier.weight(1f))
             IconTap(if (copied) Gk.check else Gk.copy, "Copy", 18.dp) { com.mazharansari.x.security.SecureClipboard.copy(ctxClip, "Code", code); copied = true }
         }
         SelectionContainer {
-            Text(code, style = Type.mono, color = p.text, softWrap = false,
+            // Code boxes stay dark in both themes (Dots code surface), so the text is light.
+            Text(code, style = Type.mono, color = Color(0xFFF2F1EE), softWrap = false,
                 modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, bottom = 12.dp, top = 2.dp))
         }
     }

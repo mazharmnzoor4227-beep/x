@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.mazharansari.x.ui.components.AxionMark
+import com.mazharansari.x.ui.mascot.MascotLogo
 import com.mazharansari.x.ui.components.Gk
 import com.mazharansari.x.ui.components.GkIcon
 import com.mazharansari.x.ui.theme.P
@@ -55,7 +55,7 @@ object Onboarding {
 }
 
 /**
- * The intro: the Axion mark grows in out of a soft glow, the name and tagline rise in, then it moves on by itself
+ * The intro: the mascot logo grows in out of a soft glow, the name and tagline rise in, then it moves on by itself
  * (~1.8 s). Tap anywhere or Skip to go on at once. Shown on the first launch only.
  */
 @Composable
@@ -78,12 +78,12 @@ fun IntroScreen(onDone: () -> Unit) {
     Box(Modifier.fillMaxSize().background(Color(0xFF000000)).clickable(remember { MutableInteractionSource() }, null) { finish() }) {
         Canvas(Modifier.fillMaxSize()) {
             val c = Offset(size.width / 2, size.height * 0.42f)
-            drawCircle(Brush.radialGradient(listOf(Color(0xFF3B6BFF).copy(alpha = 0.38f * glow), Color(0xFF7A4DFF).copy(alpha = 0.16f * glow), Color.Transparent), c, size.minDimension * 0.62f), size.minDimension * 0.62f, c)
+            drawCircle(Brush.radialGradient(listOf(Color(0xFF7285D5).copy(alpha = 0.38f * glow), Color(0xFF35766F).copy(alpha = 0.16f * glow), Color.Transparent), c, size.minDimension * 0.62f), size.minDimension * 0.62f, c)
         }
         Column(Modifier.fillMaxWidth().align(Alignment.Center).offset(y = (-40).dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            AxionMark(96.dp, Modifier.graphicsLayer { alpha = markIn; scaleX = 0.6f + 0.4f * markIn; scaleY = 0.6f + 0.4f * markIn; rotationZ = -18f * (1f - markIn) }, tint = Color.White)
+            MascotLogo(96.dp, thinking = false, Modifier.graphicsLayer { alpha = markIn; scaleX = 0.6f + 0.4f * markIn; scaleY = 0.6f + 0.4f * markIn; rotationZ = -18f * (1f - markIn) })
             Spacer(Modifier.height(26.dp))
-            Text("Axion", style = Type.title.copy(fontSize = 40.sp, lineHeight = 46.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp), color = Color.White,
+            Text("X", style = Type.title.copy(fontSize = 40.sp, lineHeight = 46.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp), color = Color.White,
                 modifier = Modifier.graphicsLayer { alpha = nameIn; translationY = 28f * (1f - nameIn) })
             Spacer(Modifier.height(8.dp))
             Text("Your AI agent, right on your phone", style = Type.body.copy(fontSize = 16.sp), color = Color(0xFFB4B4B4),
@@ -99,9 +99,9 @@ data class PermPage(val id: String, @DrawableRes val icon: Int, val title: Strin
 
 object PermPages {
     fun all(): List<PermPage> = listOf(
-        PermPage("notifications", Gk.bell, "Stay in the loop", "Axion tells you when a download, a tool install, a build or an app update is done, even while you're in another app. No ads, ever.", null),
-        PermPage("mic", Gk.mic, "Talk to Axion", "The microphone is used only when you tap the mic to dictate, or start a voice call. Nothing is recorded in the background.", Manifest.permission.RECORD_AUDIO),
-        PermPage("camera", Gk.camera, "Show Axion a photo", "The camera opens only when you choose to take a photo to send in a chat.", Manifest.permission.CAMERA),
+        PermPage("notifications", Gk.bell, "Stay in the loop", "X tells you when a download, a tool install, a build or an app update is done, even while you're in another app. No ads, ever.", null),
+        PermPage("mic", Gk.mic, "Talk to X", "The microphone is used only when you tap the mic to dictate, or start a voice call. Nothing is recorded in the background.", Manifest.permission.RECORD_AUDIO),
+        PermPage("camera", Gk.camera, "Show X a photo", "The camera opens only when you choose to take a photo to send in a chat.", Manifest.permission.CAMERA),
     )
     fun granted(ctx: Context, page: PermPage): Boolean =
         if (page.permission == null) NotificationManagerCompat.from(ctx).areNotificationsEnabled()
@@ -158,7 +158,7 @@ fun PermissionsOnboarding(onDone: () -> Unit, showAll: Boolean = Onboarding.forc
     }
 }
 
-/** Axion targets API 28, so Android 13+ asks about notifications when the app creates its first channel; if they're still off,
+/** X targets API 28, so Android 13+ asks about notifications when the app creates its first channel; if they're still off,
  *  the app's notification settings open so it's one switch. */
 private fun requestNotifications(ctx: Context) {
     runCatching {

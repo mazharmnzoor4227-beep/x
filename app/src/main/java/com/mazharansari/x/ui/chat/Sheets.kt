@@ -42,14 +42,14 @@ import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeChild
 
-/** The screen's blur source; popovers frost whatever is behind them, like Grok's glass menus. */
+/** The screen's blur source; popovers sit over the chat (the haze is kept for the drawer scrim path). */
 val LocalHaze = staticCompositionLocalOf<HazeState?> { null }
 
-private val PopShape = RoundedCornerShape(22.dp)
+private val PopShape = RoundedCornerShape(13.dp)
 
 /**
- * Grok's anchored glass popover. It is NOT a bottom sheet: it grows out of the composer's bottom-left corner
- * (scale 0.92→1 + fade, ~150 ms), sits 12dp from the screen edge, frosts the chat behind it, and a tap outside
+ * Dots anchored popover (OpenDots): a white card that grows out of the composer's bottom-left corner
+ * (scale 0.92→1 + fade, ~150 ms), sits 12dp from the screen edge, and a tap outside
  * closes it. [bottomGap] is the distance from the screen bottom (inside the composer's box) to the popover's bottom.
  */
 @Composable
@@ -68,11 +68,11 @@ fun BoxScope.GlassPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp
         exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.95f, transformOrigin = TransformOrigin(0f, 1f)),
     ) {
         val haze = LocalHaze.current
-        val glass = if (p.isDark) Color(0xFF262626) else Color(0xFFFFFFFF)
+        val glass = p.popover
         Column(
             Modifier.width(width).then(if (maxHeight != Dp.Unspecified) Modifier.heightIn(max = maxHeight) else Modifier).clip(PopShape)
                 .background(glass)   // v0.4: opaque surface (was see-through glass)
-                .border(1.dp, if (p.isDark) Color(0x14FFFFFF) else Color(0x14000000), PopShape)
+                .border(1.dp, p.border, PopShape)
                 .verticalScroll(rememberScrollState())
                 .padding(vertical = 6.dp),
             content = content,
@@ -84,8 +84,8 @@ fun BoxScope.GlassPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp
 fun PopRow(icon: Int, title: String, subtitle: String? = null, selected: Boolean = false, dim: Boolean = false, badge: String? = null, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp).heightIn(min = if (subtitle != null) 57.dp else 48.dp).clip(RoundedCornerShape(18.dp))
-            .background(if (selected) (if (p.isDark) Color(0x1FFFFFFF) else Color(0x0F000000)) else Color.Transparent)
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp).heightIn(min = if (subtitle != null) 57.dp else 48.dp).clip(RoundedCornerShape(13.dp))
+            .background(if (selected) p.accentSoft else Color.Transparent)
             .clickable(onClick = tap).padding(start = 14.dp, end = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -95,7 +95,7 @@ fun PopRow(icon: Int, title: String, subtitle: String? = null, selected: Boolean
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(title, style = Type.body.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium), color = if (dim) p.text3 else p.text, maxLines = 1)
                 if (badge != null) Text(badge, style = Type.tiny.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium), color = p.text2,
-                    modifier = Modifier.padding(start = 8.dp).clip(RoundedCornerShape(50)).background(if (p.isDark) Color(0x1FFFFFFF) else Color(0x0F000000)).padding(horizontal = 7.dp, vertical = 1.dp))
+                    modifier = Modifier.padding(start = 8.dp).clip(RoundedCornerShape(50)).background(p.accentSoft).padding(horizontal = 7.dp, vertical = 1.dp))
             }
             if (subtitle != null) Text(subtitle, style = Type.small.copy(fontSize = 14.sp, lineHeight = 18.sp), color = if (selected) p.text.copy(alpha = 0.8f) else p.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -104,9 +104,9 @@ fun PopRow(icon: Int, title: String, subtitle: String? = null, selected: Boolean
 }
 
 @Composable
-fun PopDivider() = Box(Modifier.padding(horizontal = 22.dp, vertical = 4.dp).fillMaxWidth().height(1.dp).background(if (P.isDark) Color(0x1AFFFFFF) else Color(0x14000000)))
+fun PopDivider() = Box(Modifier.padding(horizontal = 22.dp, vertical = 4.dp).fillMaxWidth().height(1.dp).background(P.border))
 
-/** + menu: Camera · Gallery · Files │ Skills · Connectors — 174dp wide, 48dp rows, divider after Files (Grok frame 1:43). */
+/** + menu: Camera · Gallery · Files │ Skills · Connectors — 174dp wide, 48dp rows, divider after Files. */
 @Composable
 fun BoxScope.PlusPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp, maxHeight: Dp = Dp.Unspecified, onCamera: () -> Unit, onGallery: () -> Unit, onFiles: () -> Unit, onSkills: () -> Unit, onConnectors: () -> Unit, onUploadSkill: (() -> Unit)? = null, onImagine: (() -> Unit)? = null) {
     GlassPopover(visible, onDismiss, bottomGap, 196.dp, maxHeight) {
@@ -124,16 +124,15 @@ fun BoxScope.PlusPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp,
 }
 
 /**
- * Model picker: the same glass popover, 283dp wide, rows "title / grey description" with the chosen mode on a
- * lighter pill and a check at the right (Grok frame 1:39). Grok's top block is a Premium upsell; Axion puts the
- * providers it will use there instead (same layout: title, one grey line, a white pill button).
+ * Model picker: the same popover, 283dp wide, rows "title / grey description" with the chosen mode on a
+ * lavender pill and a check at the right. The top block holds the providers (same layout: title, one grey line, a periwinkle pill button).
  */
 @Composable
 fun BoxScope.ModelPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp, maxHeight: Dp = Dp.Unspecified, mode: String, connectors: List<Connector>, onPick: (String) -> Unit, onConnectors: () -> Unit) {
     val p = P
     GlassPopover(visible, onDismiss, bottomGap, 283.dp, maxHeight) {
         val on = connectors.filter { it.enabled }
-        // Grok's Premium block (icon + title, one grey line, white "Save 50%" pill) → Axion's Providers block
+        // Dots providers block (icon + title, one grey line, periwinkle pill button)
         Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 GkIcon(Gk.connectors, null, 22.dp, p.text); Spacer(Modifier.width(8.dp))
@@ -141,9 +140,7 @@ fun BoxScope.ModelPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp
             }
             Text(if (on.isEmpty()) "Add a free API key to start" else "${on.size} key${if (on.size > 1) "s" else ""} · auto-switch on limits",
                 style = Type.small.copy(fontSize = 13.sp), color = p.text2, maxLines = 1, modifier = Modifier.padding(top = 4.dp, bottom = 10.dp))
-            Box(Modifier.height(38.dp).clip(RoundedCornerShape(50)).background(p.accent).clickable { onDismiss(); onConnectors() }.padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
-                Text(if (on.isEmpty()) "Add key" else "Manage keys", style = Type.small.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium), color = p.onAccent)
-            }
+            DotsButton(if (on.isEmpty()) "Add key" else "Manage keys", { onDismiss(); onConnectors() })
         }
         PopDivider()
         PopRow(Gk.think, "Expert", "Thinks hard", selected = mode == "EXPERT") { onPick("EXPERT"); onDismiss() }
@@ -161,7 +158,7 @@ fun BoxScope.ModelPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp
     }
 }
 
-/** Grok's bottom sheet: #181818, 28dp top corners, 36×4dp grey handle, dim scrim. */
+/** Dots bottom sheet (OpenFuse): white card, 26dp top corners, 34×4dp handle, dim scrim. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AxionSheet(onDismiss: () -> Unit, skipPartial: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
@@ -170,9 +167,9 @@ fun AxionSheet(onDismiss: () -> Unit, skipPartial: Boolean = true, content: @Com
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = skipPartial),
-        containerColor = p.page2, contentColor = p.text, scrimColor = Color.Black.copy(alpha = 0.6f),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = { Box(Modifier.padding(top = 10.dp, bottom = 8.dp).size(width = 36.dp, height = 4.dp).clip(RoundedCornerShape(50)).background(if (p.isDark) Color(0xFF4D4D4D) else Color(0xFFCCCCCC))) },
+        containerColor = p.card, contentColor = p.text, scrimColor = Color.Black.copy(alpha = 0.6f),
+        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
+        dragHandle = { Box(Modifier.padding(top = 10.dp, bottom = 8.dp).size(width = 34.dp, height = 4.dp).clip(RoundedCornerShape(50)).background(p.border)) },
     ) { Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 12.dp), content = content) }
 }
 
@@ -210,7 +207,7 @@ fun StepText(s: Step, size: Int = 16) {
     }, style = Type.body.copy(fontSize = size.sp, lineHeight = (size + 6).sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
 }
 
-/** Grok's Thoughts sheet (frame 1:30): hugs its content; one 17sp line per step group — grey verb, white target (mono for files) — with the reasoning summary as bulb lines. */
+/** Dots Thoughts sheet: hugs its content; one 17sp line per step group — grey verb, white target (mono for files) — with the reasoning summary as bulb lines. */
 @Composable
 fun ThoughtsSheet(m: Message, onDismiss: () -> Unit) {
     val p = P

@@ -67,13 +67,13 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
- * THE one chat screen (2026-11-17 rebuild, Grok mock ChatFrame + ChatScreen):
+ * THE one chat screen (2026-11-17 rebuild; 2026-11-18 Dots re-skin):
  * mascot header, message list, composer, menu drawer. No tabs, no dock, no
  * Build mode. The real ChatViewModel drives everything (vm.messages,
  * vm.send(), vm.running, vm.draft); the chat starts empty — no seed lines.
  *
- * Sand + Fraunces/Outfit: colours come from SandTheme (P.*), the display
- * face is Type.display (Fraunces, wired by the fonts work).
+ * Dots (OpenDots/OpenFuse design, reimplemented in Compose): colours come
+ * from DotsTheme (P.*), system sans throughout (Type.*).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -232,13 +232,13 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
                                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp).padding(top = 1.dp))
                         }
                         Spacer(Modifier.weight(1f))
-                        Box(Modifier.height(36.dp).clip(RoundedCornerShape(50)).background(p.card).border(1.dp, p.border, RoundedCornerShape(50))
+                        Box(Modifier.height(36.dp).clip(RoundedCornerShape(24.dp)).background(p.card).border(1.dp, p.border, RoundedCornerShape(24.dp))
                             .clickable { inviteOpen = !inviteOpen }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
                             Text("Invite", style = Type.small.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium), color = p.text)
                         }
                     }
                     if (inviteOpen) {
-                        Column(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(16.dp)).background(p.card).padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(13.dp)).background(p.card).padding(horizontal = 16.dp, vertical = 12.dp)) {
                             Text("Invite", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = p.text)
                             Text("Share this chat when the account is connected.", style = Type.small, color = p.text2, modifier = Modifier.padding(top = 2.dp))
                             Text("Close", style = Type.small.copy(fontWeight = FontWeight.Medium), color = p.accent,
@@ -301,7 +301,7 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
                         }
                     }
                     vm.interruptedTask?.let { rec ->
-                        Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.card).border(1.dp, p.border, RoundedCornerShape(16.dp)).padding(12.dp),
+                        Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(p.card).border(1.dp, p.border, RoundedCornerShape(13.dp)).padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             GkIcon(Gk.history, null, 18.dp, p.text2); Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
@@ -323,7 +323,7 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
                         Text(sp.label(), style = Type.tiny, color = p.text2, maxLines = 1, modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp))
                     }
                     if (vm.viewingWorkerTranscript) {
-                        Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.card).border(1.dp, p.border, RoundedCornerShape(16.dp)).padding(12.dp),
+                        Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(p.card).border(1.dp, p.border, RoundedCornerShape(13.dp)).padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             GkIcon(Gk.agent, null, 18.dp, p.text2); Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
@@ -389,7 +389,7 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
             vm.pendingApproval?.let { pa ->
                 AlertDialog(
                     onDismissRequest = { vm.answerApproval(com.mazharansari.x.agent.ApprovalDecision.DENY) },
-                    containerColor = p.card, shape = RoundedCornerShape(24.dp),
+                    containerColor = p.card, shape = RoundedCornerShape(17.dp),
                     title = { Text("Allow this command?", style = Type.title, color = p.text) },
                     text = {
                         Column {
@@ -417,7 +417,7 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
             vm.pendingPaste?.let { pasted ->
                 AlertDialog(
                     onDismissRequest = { vm.dismissPaste() },
-                    containerColor = p.card, shape = RoundedCornerShape(24.dp),
+                    containerColor = p.card, shape = RoundedCornerShape(17.dp),
                     title = { Text("Send as a file?", style = Type.title, color = p.text) },
                     text = { Text("This message is very long (${pasted.length / 1000}k characters). As a file it stays fast and the model reads it in full; as text it may fail at the provider.", style = Type.small, color = p.text2) },
                     confirmButton = { TextButton(onClick = { vm.resolvePaste(true) }) { Text("Send as file", color = p.accent) } },
@@ -461,7 +461,7 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
                 DismissKeyboard()
                 Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f * drawerFrac)).clickable(remember { MutableInteractionSource() }, null) { drawerOpen = false })
                 Box(Modifier.fillMaxSize().graphicsLayer { translationX = -widthPx * (1f - drawerFrac) }) {
-                    Box(Modifier.fillMaxHeight().fillMaxWidth(0.84f).background(p.bg)) {
+                    Box(Modifier.fillMaxHeight().fillMaxWidth(0.84f).background(p.sidebar)) {
                         MenuDrawer(vm, onClose = { drawerOpen = false },
                             onOpen = { vm.open(it); drawerOpen = false },
                             onNew = { vm.newChat(); drawerOpen = false },
@@ -474,13 +474,11 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
     thoughts?.let { id -> messages.firstOrNull { it.id == id }?.let { ThoughtsSheet(it) { thoughts = null } } }
 }
 
-/** Mock thinking row: bubble bg + 3 animated dots + muted "Reading …". */
+/** Dots thinking row: plain, no bubble — animated dots + muted "Reading …". */
 @Composable
 private fun ThinkingRow() {
     val p = P
-    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 32.dp, top = 6.dp, bottom = 6.dp)
-        .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 4.dp, bottomEnd = 24.dp))
-        .background(p.surface2).padding(horizontal = 16.dp, vertical = 12.dp),
+    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically) {
         DotGrid()
         Spacer(Modifier.width(12.dp))
@@ -513,9 +511,9 @@ private fun EmptyChat(noKeys: Boolean, researchOn: Boolean, onResearch: () -> Un
 @Composable
 private fun SuggestionChip(icon: Int, label: String, blue: Boolean = false, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
-    val bg = if (blue) Color(0xFF0E2A63) else p.card
-    val fg = if (blue) Color(0xFF5B9BFF) else p.text
-    Row(Modifier.height(44.dp).clip(RoundedCornerShape(50)).background(bg).clickable(onClick = tap).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+    val bg = if (blue) p.accentSoft else p.card
+    val fg = if (blue) p.accent else p.text
+    Row(Modifier.height(44.dp).clip(RoundedCornerShape(20.dp)).background(bg).border(1.dp, if (blue) p.accent.copy(alpha = 0.35f) else p.border, RoundedCornerShape(20.dp)).clickable(onClick = tap).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         GkIcon(icon, null, 18.dp, fg); Spacer(Modifier.width(8.dp))
         Text(label, style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = fg, maxLines = 1)
     }
@@ -529,19 +527,20 @@ private fun BoxScope.UpdateBanner(vm: ChatViewModel, navigate: (Route) -> Unit) 
     if (vm.g.updater.dismissedCode == info.versionCode) return
     var hidden by remember(info.versionCode) { mutableStateOf(false) }
     if (hidden) return
-    Row(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).then(Modifier.zIndex(3f)).clip(RoundedCornerShape(50)).background(Color(0xFF1E3A24))
+    Row(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).then(Modifier.zIndex(3f)).clip(RoundedCornerShape(20.dp)).background(p.greenTint)
         .clickable { navigate(Route.About) }.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        GkIcon(Gk.download, null, 15.dp, Color(0xFF7CD4A0)); Spacer(Modifier.width(8.dp))
-        Text("Update available · ${info.versionName}", style = Type.small.copy(fontWeight = FontWeight.SemiBold), color = Color(0xFFD6F5E0))
+        GkIcon(Gk.download, null, 15.dp, p.statusDone); Spacer(Modifier.width(8.dp))
+        Text("Update available · ${info.versionName}", style = Type.small.copy(fontWeight = FontWeight.SemiBold), color = p.statusDone)
         Spacer(Modifier.width(4.dp))
-        IconTap(Gk.close, "Dismiss", 15.dp, Color(0xFF7CD4A0)) { hidden = true; vm.g.updater.dismissedCode = info.versionCode }
+        IconTap(Gk.close, "Dismiss", 15.dp, p.statusDone) { hidden = true; vm.g.updater.dismissedCode = info.versionCode }
     }
 }
 
 /**
- * Menu drawer (mock MenuSheet): "X" in Fraunces 36sp, real chat history with
- * search + pin/dot markers, config entries below the list (Settings, Bots,
- * Bot Store), bottom row Settings gear / Search pill / New chat pencil.
+ * Menu drawer (OpenDots sidebar as a phone drawer): "X" wordmark, real chat
+ * history with search + pin/dot markers, config entries below the list
+ * (Settings, Bots, Bot Store), bottom row Settings gear / Search pill /
+ * New chat pencil.
  */
 @Composable
 private fun MenuDrawer(vm: ChatViewModel, onClose: () -> Unit, onOpen: (String) -> Unit, onNew: () -> Unit, navigate: (Route) -> Unit) {
@@ -566,14 +565,14 @@ private fun MenuDrawer(vm: ChatViewModel, onClose: () -> Unit, onOpen: (String) 
                 }
             }
             if (connectors.isEmpty()) item(key = "banner") {
-                Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp).fillMaxWidth().height(60.dp).clip(RoundedCornerShape(50)).background(p.blue).clickable { navigate(Route.Connectors) }.padding(start = 18.dp, end = 10.dp),
+                Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp).fillMaxWidth().height(60.dp).clip(RoundedCornerShape(24.dp)).background(p.blue).clickable { navigate(Route.Connectors) }.padding(start = 18.dp, end = 10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     GkIcon(Gk.key, null, 20.dp, Color.White); Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text("Connect a free AI key", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Color.White)
                         Text("Gemini, Groq, OpenRouter and more", style = Type.tiny, color = Color.White.copy(alpha = 0.75f), maxLines = 1)
                     }
-                    Box(Modifier.height(38.dp).clip(RoundedCornerShape(50)).border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(50)).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.height(38.dp).clip(RoundedCornerShape(24.dp)).border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(24.dp)).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
                         Text("Connect", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = Color.White)
                     }
                 }
@@ -596,7 +595,7 @@ private fun MenuDrawer(vm: ChatViewModel, onClose: () -> Unit, onOpen: (String) 
         }
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Brush.verticalGradient(0f to Color.Transparent, 0.3f to p.bg))) {
             Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Row(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(50)).background(p.card).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(19.dp)).background(p.card).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                     GkIcon(Gk.search, null, 22.dp, p.text2); Spacer(Modifier.width(12.dp))
                     Box(Modifier.weight(1f)) {
                         if (q.isEmpty()) Text("Search", style = Type.body.copy(fontSize = 17.sp), color = p.text2)
@@ -620,10 +619,10 @@ private fun MenuDrawer(vm: ChatViewModel, onClose: () -> Unit, onOpen: (String) 
     }
     renaming?.let { c ->
         var t by remember(c.id) { mutableStateOf(c.title) }
-        AlertDialog(onDismissRequest = { renaming = null }, containerColor = p.card, shape = RoundedCornerShape(24.dp),
+        AlertDialog(onDismissRequest = { renaming = null }, containerColor = p.card, shape = RoundedCornerShape(17.dp),
             title = { Text("Rename", style = Type.title, color = p.text) },
             text = {
-                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(p.page2).padding(14.dp)) {
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(p.page2).padding(14.dp)) {
                     BasicTextField(t, { t = it }, singleLine = true, textStyle = Type.body.copy(color = p.text), cursorBrush = SolidColor(p.text), modifier = Modifier.fillMaxWidth())
                 }
             },
@@ -645,8 +644,8 @@ private fun DrawerTile(icon: Int, label: String, onClick: () -> Unit) {
 @Composable
 private fun DrawerHeader(label: String, collapsed: Boolean?, onToggle: () -> Unit) {
     val p = P
-    Row(Modifier.padding(top = 10.dp).fillMaxWidth().height(48.dp).background(if (p.isDark) Color(0xFF1F1F1F) else Color(0xFFEDEDED)).clickable(enabled = collapsed != null, onClick = onToggle).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = Type.body.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.text2, modifier = Modifier.weight(1f))
+    Row(Modifier.padding(top = 10.dp).fillMaxWidth().height(40.dp).clickable(enabled = collapsed != null, onClick = onToggle).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label.uppercase(), style = Type.small.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp), color = p.text2, modifier = Modifier.weight(1f))
         if (collapsed != null) GkIcon(Gk.chevronDown, null, 18.dp, p.text2, Modifier.graphicsLayer { rotationZ = if (collapsed) 0f else 180f })
     }
 }
@@ -656,7 +655,7 @@ private fun DrawerHeader(label: String, collapsed: Boolean?, onToggle: () -> Uni
 @Composable
 private fun ConvRow(c: ConversationMeta, selected: Boolean, working: Boolean, botLogo: String = "", onOpen: () -> Unit, onMenu: () -> Unit) {
     val p = P
-    Row(Modifier.fillMaxWidth().padding(horizontal = 9.dp).clip(RoundedCornerShape(12.dp)).background(if (selected) p.card else Color.Transparent)
+    Row(Modifier.fillMaxWidth().padding(horizontal = 9.dp).clip(RoundedCornerShape(13.dp)).background(if (selected) p.accentSoft else Color.Transparent)
         .combinedClickable(onClick = onOpen, onLongClick = onMenu).padding(start = 13.dp, end = 10.dp, top = 9.dp, bottom = 9.dp), verticalAlignment = Alignment.CenterVertically) {
         if (c.botId.isNotBlank()) com.mazharansari.x.ui.bots.BotLogoView(botLogo, c.botName.ifBlank { c.title }, 46.dp)
         else Avatar(c.title.ifBlank { "A" }, 46.dp)
@@ -676,7 +675,7 @@ private fun ConvRow(c: ConversationMeta, selected: Boolean, working: Boolean, bo
 }
 
 /**
- * Splash (mock): mascot 196dp + "X" Fraunces 48sp + glow, ~700ms, tap to
+ * Splash: mascot 196dp + "X" 48sp + periwinkle glow, ~700ms, tap to
  * skip, once per app start. Shown by AppRoot after the onboarding stages.
  */
 @Composable

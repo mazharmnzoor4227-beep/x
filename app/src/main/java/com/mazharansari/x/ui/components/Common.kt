@@ -1,7 +1,6 @@
 package com.mazharansari.x.ui.components
 
 import androidx.annotation.DrawableRes
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +21,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -94,30 +94,21 @@ fun IconTap(@DrawableRes icon: Int, desc: String, size: Dp = 20.dp, tint: Color 
     ) { GkIcon(icon, desc, size, tint) }
 }
 
-/** Grok's round top-bar buttons: 48dp, #1B1B1B fill, hairline #232323 rim, 24dp glyph. */
+/** Dots round top-bar buttons: 48dp, card fill, hairline line rim, 24dp glyph. */
 @Composable
-fun CircleButton(@DrawableRes icon: Int, desc: String, size: Dp = 48.dp, bg: Color = if (P.isDark) Color(0xFF1B1B1B) else Color(0xFFF2F2F2), tint: Color = P.text, iconSize: Dp = 24.dp, onClick: () -> Unit) {
+fun CircleButton(@DrawableRes icon: Int, desc: String, size: Dp = 48.dp, bg: Color = P.card, tint: Color = P.text, iconSize: Dp = 24.dp, onClick: () -> Unit) {
     val tap = rememberTap(onClick)
-    Box(Modifier.size(size).clip(CircleShape).background(bg).border(1.dp, if (P.isDark) Color(0xFF232323) else Color(0xFFE5E5E5), CircleShape).clickable(onClick = tap), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size).clip(CircleShape).background(bg).border(1.dp, P.border, CircleShape).clickable(onClick = tap), contentAlignment = Alignment.Center) {
         GkIcon(icon, desc, iconSize, tint)
     }
 }
 
-@Composable
-fun AxionMark(size: Dp, modifier: Modifier = Modifier, tint: Color? = null) {
-    Image(
-        painterResource(R.drawable.axion_mark), "Axion",
-        modifier = modifier.size(size),
-        colorFilter = tint?.let { androidx.compose.ui.graphics.ColorFilter.tint(it) } ?: if (!P.isDark) androidx.compose.ui.graphics.ColorFilter.tint(P.text) else null,
-    )
-}
-
-/** Outlined pill (Grok's chips: "Save 50%", template chips). */
+/** Dots chip (OpenFuse pill: radius 20). */
 @Composable
 fun Pill(text: String, modifier: Modifier = Modifier, @DrawableRes icon: Int? = null, filled: Boolean = false, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
     Row(
-        modifier.clip(RoundedCornerShape(50)).then(if (filled) Modifier.background(p.accent) else Modifier.border(1.dp, p.border, RoundedCornerShape(50)))
+        modifier.clip(RoundedCornerShape(20.dp)).then(if (filled) Modifier.background(p.accent) else Modifier.border(1.dp, p.border, RoundedCornerShape(20.dp)))
             .clickable(onClick = tap).padding(horizontal = 16.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -126,7 +117,7 @@ fun Pill(text: String, modifier: Modifier = Modifier, @DrawableRes icon: Int? = 
     }
 }
 
-/** Grok sub-page header (Settings frames): ← (or ✕ on the Settings root) 16dp in, title left-aligned at 56dp, 20sp SemiBold, 64dp tall. */
+/** Dots sub-page header: ← (or ✕ on the Settings root) 16dp in, title left-aligned at 56dp, 20sp SemiBold, 64dp tall, below the status bar. */
 @Composable
 fun ScreenHeader(title: String, onBack: () -> Unit, close: Boolean = false, trailing: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().statusBarsPadding().height(64.dp).padding(start = 6.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -137,24 +128,25 @@ fun ScreenHeader(title: String, onBack: () -> Unit, close: Boolean = false, trai
     }
 }
 
+/** Dots section label (OpenFuse label style: small caps). */
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier) =
-    Text(text, style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = P.text2, modifier = modifier.padding(start = 30.dp, top = 22.dp, bottom = 10.dp))
+    Text(text.uppercase(), style = Type.small.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp), color = P.text2, modifier = modifier.padding(start = 30.dp, top = 22.dp, bottom = 10.dp))
 
 /**
- * Grok's grouped list: each row is its own #242424 tile, 2dp apart, the group's outer corners 20dp and the inner
- * corners 6dp — measured off the Settings and Connectors frames (rows 56dp tall, 16dp side margins).
+ * Dots grouped list (OpenFuse card): each row is its own card tile, 2dp apart, the group's outer corners 13dp and the inner
+ * corners 6dp — rows 56dp tall, 16dp side margins.
  */
 class GroupScope internal constructor(val count: Int) { internal var index = 0 }
 
 @Composable
 fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)), verticalArrangement = Arrangement.spacedBy(2.dp), content = content)
+    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(13.dp)), verticalArrangement = Arrangement.spacedBy(2.dp), content = content)
 }
 
 fun tileShape(first: Boolean, last: Boolean): Shape = RoundedCornerShape(
-    topStart = if (first) 16.dp else 6.dp, topEnd = if (first) 16.dp else 6.dp,
-    bottomStart = if (last) 16.dp else 6.dp, bottomEnd = if (last) 16.dp else 6.dp,
+    topStart = if (first) 13.dp else 6.dp, topEnd = if (first) 13.dp else 6.dp,
+    bottomStart = if (last) 13.dp else 6.dp, bottomEnd = if (last) 13.dp else 6.dp,
 )
 
 @Composable
@@ -179,7 +171,7 @@ fun SettingsRow(
     }
 }
 
-/** Axion switch: indigo track when on, grey when off; white thumb. */
+/** Dots switch: periwinkle track when on, grey when off; white thumb. */
 @Composable
 fun AxionSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
     val p = P
@@ -201,7 +193,18 @@ fun Divider(start: Dp = 52.dp) = Box(Modifier.padding(start = start).fillMaxWidt
 @Composable
 fun Avatar(letter: String, size: Dp = 36.dp, bg: Color = P.accent.copy(alpha = 0.16f)) {
     Box(Modifier.size(size).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
-        Text(letter.take(1).uppercase(), color = P.accent, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.SemiBold, fontFamily = com.mazharansari.x.ui.theme.Outfit)
+        Text(letter.take(1).uppercase(), color = P.accent, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Default)
+    }
+}
+
+/** Dots button (OpenFuse: pill radius 24, min height 42; primary periwinkle, secondary soft grey). */
+@Composable
+fun DotsButton(text: String, onClick: () -> Unit, primary: Boolean = true, modifier: Modifier = Modifier) {
+    val p = P; val tap = rememberTap(onClick)
+    Box(modifier.heightIn(min = 42.dp).clip(RoundedCornerShape(24.dp))
+        .background(if (primary) p.send else p.chip).clickable(onClick = tap).padding(horizontal = 18.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center) {
+        Text(text, style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = if (primary) Color.White else p.text, maxLines = 1)
     }
 }
 

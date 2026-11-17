@@ -33,9 +33,10 @@ import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
 
 /**
- * Axion's composer (Phase 2: own design, not a copy): 8dp side margins, surface fill, 1dp border rim, 24dp corners,
- * 17sp "Ask anything" placeholder 16dp in, then one 36dp control row 6dp from the edge:
- * (+) circle · [⚡ Fast ⌄] chip ……… (mic) circle · [≋ Speak] accent pill → (↑) when there is text → (■) while running.
+ * Dots composer (OpenDots): white card, 13dp corners, 1dp line rim, soft
+ * shadow; 17sp "Ask anything" placeholder 16dp in, then one 36dp control row
+ * 6dp from the edge: (+) circle · [⚡ Fast ⌄] chip ……… (mic) circle ·
+ * [≋ Speak] periwinkle pill → (↑) when there is text → (■) while running.
  */
 @Composable
 fun Composer(
@@ -55,15 +56,15 @@ fun Composer(
     onFocus: () -> Unit = {},
 ) {
     val p = P
-    // Mock pill: paper bg, 32dp corners.
-    val shape = RoundedCornerShape(32.dp)
-    Column(modifier.fillMaxWidth().padding(horizontal = 8.dp).clip(shape).background(p.surface).border(1.dp, p.border, shape)) {
+    // Dots composer card: white, 13dp corners.
+    val shape = RoundedCornerShape(13.dp)
+    Column(modifier.fillMaxWidth().padding(horizontal = 8.dp).clip(shape).background(p.card).border(1.dp, p.border, shape)) {
         if (attachments.isNotEmpty()) {
             Row(Modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 attachments.forEach { a -> key(a.path) { AttachmentChip(a) { onRemoveAttachment(a) } } }
             }
         }
-        // Axion: text line 13 dp below the top, control row 16 dp under it, 7 dp from the bottom → 95 dp box.
+        // Dots: text line 13 dp below the top, control row 16 dp under it, 7 dp from the bottom → 95 dp box.
         Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 16.dp).heightIn(min = 24.dp, max = 168.dp)) {
             Field(text, onText, placeholder, listening, partial, maxLines = 7, onFocus = onFocus)
         }
@@ -125,7 +126,7 @@ fun RoundTool(icon: Int, desc: String, onClick: () -> Unit, active: Boolean = fa
 @Composable
 private fun ModeChip(label: String, open: Boolean, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
-    Row(Modifier.height(36.dp).clip(RoundedCornerShape(50)).background(if (open) p.surface2 else p.chip).clickable(onClick = tap).padding(start = 12.dp, end = 10.dp),
+    Row(Modifier.height(36.dp).clip(RoundedCornerShape(20.dp)).background(if (open) p.accentSoft else p.chip).clickable(onClick = tap).padding(start = 12.dp, end = 10.dp),
         verticalAlignment = Alignment.CenterVertically) {
         GkIcon(modeIcon(label), null, 18.dp, p.text)
         Spacer(Modifier.width(6.dp))
@@ -137,20 +138,20 @@ private fun ModeChip(label: String, open: Boolean, onClick: () -> Unit) {
 
 fun modeIcon(label: String) = when (label) { "Fast" -> Gk.bolt; "Expert" -> Gk.think; "Heavy" -> Gk.connectors; else -> Gk.rocket }
 
-/** 0 = Speak pill (empty, opens voice), 1 = send ↑ (mock: ink circle), 2 = stop ■, 3 = disabled send. */
+/** 0 = Speak pill (empty, opens voice), 1 = send ↑ (Dots: periwinkle circle), 2 = stop ■, 3 = disabled send. */
 @Composable
 private fun SendButton(state: Int, onSend: () -> Unit, onStop: () -> Unit, onVoice: () -> Unit) {
     val p = P
     val tap = rememberTap { when (state) { 0 -> onVoice(); 1 -> onSend(); 2 -> onStop(); else -> {} } }
-    val bg = when (state) { 1 -> p.text; 3 -> p.chip; else -> p.accent }
+    val bg = when (state) { 1 -> p.send; 3 -> p.chip; else -> p.accent }
     Row(
-        Modifier.height(36.dp).animateContentSize(tween(160)).clip(RoundedCornerShape(50)).background(bg).clickable(onClick = tap)
+        Modifier.height(36.dp).animateContentSize(tween(160)).clip(RoundedCornerShape(24.dp)).background(bg).clickable(onClick = tap)
             .padding(horizontal = if (state == 0) 14.dp else 0.dp).widthIn(min = 36.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
     ) {
         when (state) {
             0 -> { GkIcon(Gk.voice, "Voice mode", 18.dp, p.onAccent); Spacer(Modifier.width(6.dp)); Text("Speak", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.onAccent) }
-            1 -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { GkIcon(Gk.send, "Send", 20.dp, p.bg) }
+            1 -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { GkIcon(Gk.send, "Send", 20.dp, p.onAccent) }
             2 -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(p.onAccent)) }
             else -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { GkIcon(Gk.send, "Send", 20.dp, p.text3) }
         }
@@ -171,9 +172,9 @@ private fun SendButton(state: Int, onSend: () -> Unit, onStop: () -> Unit, onVoi
 private fun ToolChip(icon: Int, label: String, on: Boolean, onClick: () -> Unit, height: Dp = 36.dp, horizontalPadding: Dp = 12.dp) {
     val p = P; val tap = rememberTap(onClick)
     Row(
-        Modifier.height(height).clip(RoundedCornerShape(50))
+        Modifier.height(height).clip(RoundedCornerShape(20.dp))
             .background(if (on) p.accent else p.chip)
-            .border(1.dp, if (on) p.accent else p.border, RoundedCornerShape(50))
+            .border(1.dp, if (on) p.accent else p.border, RoundedCornerShape(20.dp))
             .clickable(onClick = tap).padding(start = horizontalPadding, end = horizontalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {

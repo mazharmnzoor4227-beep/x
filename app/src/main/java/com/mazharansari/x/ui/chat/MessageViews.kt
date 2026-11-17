@@ -50,7 +50,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Axion user bubble (mock): sky bg, on-sky text, 24dp corners with a 4dp bottom-right, 40dp start margin. */
+/** Dots user bubble (OpenDots): teal bg, white text, 17dp corners with a 4dp bottom-right, 40dp start margin. */
 @Composable
 fun UserBubble(m: Message, onLongPress: () -> Unit = {}) {
     val p = P
@@ -65,8 +65,8 @@ fun UserBubble(m: Message, onLongPress: () -> Unit = {}) {
         }
         if (text.isNotBlank()) {
             SelectionContainer {
-                Text(text, style = Type.body, color = p.onAccent,
-                    modifier = Modifier.clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 24.dp, bottomEnd = 4.dp)).background(p.accent)
+                Text(text, style = Type.body, color = Color.White,
+                    modifier = Modifier.clip(RoundedCornerShape(topStart = 17.dp, topEnd = 17.dp, bottomStart = 17.dp, bottomEnd = 4.dp)).background(p.teal)
                         .padding(horizontal = 16.dp, vertical = 12.dp))
             }
         }
@@ -78,9 +78,9 @@ fun AttachmentChip(a: Attachment, onRemove: (() -> Unit)? = null) {
     val p = P
     Box {
         if (a.mime.startsWith("image/")) {
-            AsyncImage(a.path, a.name, modifier = Modifier.size(64.dp).clip(RoundedCornerShape(14.dp)).background(p.card), contentScale = ContentScale.Crop)
+            AsyncImage(a.path, a.name, modifier = Modifier.size(64.dp).clip(RoundedCornerShape(13.dp)).background(p.card), contentScale = ContentScale.Crop)
         } else {
-            Row(Modifier.height(56.dp).widthIn(max = 230.dp).clip(RoundedCornerShape(14.dp)).background(p.card).padding(horizontal = 12.dp),
+            Row(Modifier.height(56.dp).widthIn(max = 230.dp).clip(RoundedCornerShape(13.dp)).background(p.card).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 GkIcon(if (a.mime.contains("pdf")) Gk.pdf else if (a.mime.contains("zip")) Gk.folder else Gk.file, null, 22.dp, if (a.mime.contains("pdf")) Color(0xFFFF4245) else p.text2)
                 Spacer(Modifier.width(10.dp))
@@ -131,8 +131,8 @@ internal fun runLabel(r: StepRun): String {
     }
 }
 
-/** Axion assistant turn (mock AgentBubble): bubble bg, 24dp corners with a 4dp bottom-left, 32dp end margin.
- * Thinking header → grouped steps → Bash cards → answer → actions, all inside the bubble. */
+/** Dots assistant turn (OpenDots transcript): NO bubble — plain text on the page, full width.
+ * Thinking header → grouped steps → Bash cards → answer → actions. */
 @Composable
 fun AssistantMessage(
     m: Message, isLast: Boolean, speaking: Boolean,
@@ -146,9 +146,7 @@ fun AssistantMessage(
     // Phase 2: decode before anything else — a URL-encoded answer renders as its text,
     // and the Sources extraction runs on the decoded text too.
     val text = remember(m.text) { MessageText.decodeIfEncoded(m.text) }
-    Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 32.dp, top = 6.dp, bottom = 6.dp)
-        .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 4.dp, bottomEnd = 24.dp))
-        .background(p.surface2).padding(horizontal = 16.dp, vertical = 12.dp)) {
+    Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 6.dp)) {
         if (m.plan.isNotEmpty()) { PlanCard(m.plan); Spacer(Modifier.height(10.dp)) }   // axion-p2
         if (m.steps.isNotEmpty() || m.reasoning.isNotBlank() || streaming) ThoughtsHeader(m, onOpenThoughts)
         if (streaming && m.notice.isNotBlank()) Text(m.notice, style = Type.small, color = p.text2, maxLines = 1, modifier = Modifier.padding(start = 30.dp, top = 2.dp))
@@ -246,6 +244,19 @@ fun ShimmerText(text: String) {
         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 300.dp))
 }
 
+/** OpenDots run status pill: completed / running / failed / paused. */
+enum class StatusKind { Done, Running, Failed, Paused }
+
+@Composable
+fun StatusPill(text: String, kind: StatusKind) {
+    val p = P
+    val c = when (kind) { StatusKind.Done -> p.statusDone; StatusKind.Running -> p.statusRunning; StatusKind.Failed -> p.statusFailed; StatusKind.Paused -> p.statusPaused }
+    Row(Modifier.clip(RoundedCornerShape(50)).background(c.copy(alpha = 0.14f)).padding(horizontal = 9.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (kind == StatusKind.Running) { PulseDot(); Spacer(Modifier.width(6.dp)) }
+        Text(text, style = Type.small.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium), color = c)
+    }
+}
+
 @Composable
 internal fun PulseDot() {
     if (com.mazharansari.x.ui.AnimationGate.inTestRuntime) {
@@ -267,30 +278,25 @@ fun StepLine(s: Step, compact: Boolean = false) {
 }
 
 /**
- * Axion's Bash card: hairline-rimmed #111111 card, 14dp corners, "▢ Bash" header with copy at right, then the
+ * Dots Bash card: a dark code card in BOTH themes (GitHub-style), 13dp corners, "▢ Bash" header with copy at right, then the
  * script in Google Sans Code (shell lines khaki #CACBB2, code/strings salmon #B38F82) clipped to ~6 lines with
  * a fade; tap to expand. The command ran hidden in the sandbox — this card is only the record.
  */
 @Composable
 fun BashCard(s: Step) {
-    val p = P
     var open by rememberSaveable(s.id) { mutableStateOf(false) }
     val clip = androidx.compose.ui.platform.LocalClipboardManager.current
-    val shape = RoundedCornerShape(14.dp)
-    Column(Modifier.fillMaxWidth().clip(shape).background(p.code).border(1.dp, if (p.isDark) Color(0xFF222222) else p.border, shape)) {
+    val shape = RoundedCornerShape(13.dp)
+    Column(Modifier.fillMaxWidth().clip(shape).background(Color(0xFF17181C)).border(1.dp, Color(0xFF26262B), shape)) {
         Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            GkIcon(Gk.terminal, null, 16.dp, p.text)
+            GkIcon(Gk.terminal, null, 16.dp, Color(0xFFF2F1EE))
             Spacer(Modifier.width(8.dp))
-            Text("Bash", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.text, modifier = Modifier.weight(1f))
+            Text("Bash", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = Color(0xFFF2F1EE), modifier = Modifier.weight(1f))
             // axion-p1.4: explicit result chip — Running… / Done · exit 0 / Failed · exit N / Timed out / Stopped
             val st = remember(s.status, s.exitCode, s.output) { com.mazharansari.x.agent.CommandStatusLogic.status(s.status, s.exitCode, s.output) }
-            val chipColor = when (st.kind) { com.mazharansari.x.agent.CommandStatusLogic.Kind.OK -> Color(0xFF3FB950); com.mazharansari.x.agent.CommandStatusLogic.Kind.RUNNING -> p.text2
-                com.mazharansari.x.agent.CommandStatusLogic.Kind.STOPPED -> p.text2; else -> p.danger }
-            Row(Modifier.clip(RoundedCornerShape(50)).background(chipColor.copy(alpha = 0.14f)).padding(horizontal = 9.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (st.kind == com.mazharansari.x.agent.CommandStatusLogic.Kind.RUNNING) { PulseDot(); Spacer(Modifier.width(6.dp)) }
-                Text(st.label, style = Type.small.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium), color = chipColor)
-            }
-            IconTap(Gk.copy, "Copy", 18.dp, p.text2, 36.dp) { clip.setText(androidx.compose.ui.text.AnnotatedString(s.target + if (s.output.isNotBlank()) "\n\n" + com.mazharansari.x.agent.CommandStatusLogic.body(s.output) else "")) }
+            val kind = when (st.kind) { com.mazharansari.x.agent.CommandStatusLogic.Kind.OK -> StatusKind.Done; com.mazharansari.x.agent.CommandStatusLogic.Kind.RUNNING -> StatusKind.Running; com.mazharansari.x.agent.CommandStatusLogic.Kind.STOPPED -> StatusKind.Paused; else -> StatusKind.Failed }
+            StatusPill(st.label, kind)
+            IconTap(Gk.copy, "Copy", 18.dp, Color(0xFFA9AAB2), 36.dp) { clip.setText(androidx.compose.ui.text.AnnotatedString(s.target + if (s.output.isNotBlank()) "\n\n" + com.mazharansari.x.agent.CommandStatusLogic.body(s.output) else "")) }
         }
         val code = remember(s.target, s.output) {
             buildAnnotatedString {
@@ -324,7 +330,7 @@ fun BashCard(s: Step) {
 @Composable
 private fun SourcesPill(pages: Int, onClick: () -> Unit) {
     val p = P
-    Row(Modifier.height(36.dp).clip(RoundedCornerShape(50)).background(p.surface).clickable(onClick = onClick).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.height(36.dp).clip(RoundedCornerShape(50)).background(p.card).border(1.dp, p.border, RoundedCornerShape(50)).clickable(onClick = onClick).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(20.dp).clip(CircleShape).background(p.chip), contentAlignment = Alignment.Center) { GkIcon(Gk.globe, null, 13.dp, p.text) }
         Spacer(Modifier.width(8.dp))
         Text("$pages page${if (pages > 1) "s" else ""}", style = Type.small.copy(fontSize = 15.sp), color = p.text)
@@ -339,7 +345,7 @@ private fun SourcesPill(pages: Int, onClick: () -> Unit) {
 @Composable
 private fun SourcesList(sources: List<CitationCheck.CitedSource>) {
     val p = P
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.surface).padding(horizontal = 14.dp, vertical = 12.dp)) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(p.card).border(1.dp, p.border, RoundedCornerShape(13.dp)).padding(horizontal = 14.dp, vertical = 12.dp)) {
         Text("Sources", style = Type.label, color = p.text)
         Spacer(Modifier.height(8.dp))
         sources.forEach { s ->
@@ -377,8 +383,8 @@ fun ArtifactCard(a: Artifact, onOpen: () -> Unit, onDownload: () -> Unit) {
         }
         return
     }
-    val shape = RoundedCornerShape(18.dp)
-    Column(Modifier.fillMaxWidth().clip(shape).background(p.surface).border(1.dp, p.border, shape).clickable(onClick = onOpen)) {
+    val shape = RoundedCornerShape(13.dp)
+    Column(Modifier.fillMaxWidth().clip(shape).background(p.card).border(1.dp, p.border, shape).clickable(onClick = onOpen)) {
         Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             GkIcon(Gk.file, null, 22.dp, p.accent)
             Spacer(Modifier.width(10.dp))
@@ -422,7 +428,7 @@ fun pdfPageCount(path: String): Int {
 fun ImageArtifact(a: Artifact, onOpen: () -> Unit, onDownload: () -> Unit) {
     Box(Modifier.fillMaxWidth(0.82f)) {
         AsyncImage(a.path, a.name, contentScale = ContentScale.FillWidth,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(P.surface).clickable(onClick = onOpen))
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(P.surface).clickable(onClick = onOpen))
         Row(Modifier.align(Alignment.BottomEnd).padding(8.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.55f))) {
             IconTap(Gk.download, "Save", tint = Color.White, onClick = onDownload)
         }
@@ -435,7 +441,7 @@ private fun ErrorCard(msg: String) {
     // v0.3: one friendly line; the provider's own words only behind "Details" (format: "line\u0001details").
     val line = msg.substringBefore('\u0001'); val details = msg.substringAfter('\u0001', "")
     var open by remember { mutableStateOf(false) }
-    Row(Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, p.border, RoundedCornerShape(14.dp)).padding(12.dp)) {
+    Row(Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(p.danger.copy(alpha = 0.08f)).border(1.dp, p.border, RoundedCornerShape(13.dp)).padding(12.dp)) {
         GkIcon(Gk.info, null, 18.dp, p.danger)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {

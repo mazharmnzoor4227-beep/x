@@ -47,12 +47,13 @@ import com.mazharansari.x.ui.Route
 import com.mazharansari.x.ui.chat.ArtifactCard
 import com.mazharansari.x.ui.chat.sizeLabel
 import com.mazharansari.x.ui.components.*
+import com.mazharansari.x.ui.mascot.MascotLogo
 import com.mazharansari.x.ui.home.FileActions
 import com.mazharansari.x.ui.home.openFile
 import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
 
-/** Grok settings page (mock settings-screen.tsx): centred Fraunces 24sp title, back chevron at left, paper cards. */
+/** Dots settings page: centred 24sp title, back chevron at left, white cards. */
 @Composable
 fun SettingsPage(title: String, onBack: () -> Unit, close: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxSize().background(P.page2)) {
@@ -91,8 +92,8 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
                 Text(if (s.userName.isBlank()) "Add your name" else "Edit profile", style = Type.small.copy(fontSize = 15.sp), color = p.text2)
             }
         }
-        // Grok's Premium card → Axion's providers card (same layout, blue pill button)
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.card).padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+        // Dots providers card (same layout, blue pill button)
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(p.card).padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically) {
             GkIcon(Gk.connectors, null, 24.dp, p.text)
             Spacer(Modifier.width(14.dp))
@@ -100,7 +101,7 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
                 Text(if (keys.isEmpty()) "Connect a free AI key" else "${keys.size} AI key${if (keys.size > 1) "s" else ""} connected", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = p.text)
                 Text(if (keys.isEmpty()) "Gemini, Groq, OpenRouter & more" else "Auto-switch when a limit hits", style = Type.tiny.copy(fontSize = 13.sp), color = p.text2)
             }
-            Box(Modifier.height(30.dp).clip(RoundedCornerShape(50)).background(Color(0xFF1A5EFF)).clickable { nav(Route.Connectors) }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.height(30.dp).clip(RoundedCornerShape(24.dp)).background(p.blue).clickable { nav(Route.Connectors) }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
                 Text(if (keys.isEmpty()) "Connect" else "Manage", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = Color.White)
             }
         }
@@ -405,9 +406,9 @@ fun AboutScreen(vm: ChatViewModel, back: () -> Unit, nav: (Route) -> Unit = {}) 
     if (deleteAll) DeleteAllDialog(vm) { deleteAll = false; vm.debugDeleteAll = false }
     SettingsPage("About", back) {
         Column(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            AxionMark(72.dp)
+            MascotLogo(72.dp, thinking = false)
             Spacer(Modifier.height(12.dp))
-            Text("Axion", style = Type.title.copy(fontSize = 24.sp), color = p.text)
+            Text("X", style = Type.title.copy(fontSize = 24.sp), color = p.text)
             Text("Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", style = Type.small, color = p.text2)
             Text("Developer: Mazhar Ansari", style = Type.small, color = p.text2)
         }

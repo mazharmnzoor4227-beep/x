@@ -148,7 +148,7 @@ internal fun ToolBadge(t: Toolchain, size: Dp = 40.dp) {
         Toolchain.ANDROIDSDK -> Color(0xFF2E7D32) to "apk"; Toolchain.GO -> Color(0xFF00897B) to "Go"; Toolchain.RUST -> Color(0xFF8D4E2A) to "Rs"
     }
     Box(Modifier.size(size).clip(RoundedCornerShape(12.dp)).background(bg), contentAlignment = Alignment.Center) {
-        Text(label, color = Color.White, fontSize = (size.value * 0.33f).sp, fontWeight = FontWeight.Bold, fontFamily = com.mazharansari.x.ui.theme.Outfit)
+        Text(label, color = Color.White, fontSize = (size.value * 0.33f).sp, fontWeight = FontWeight.Bold, fontFamily = androidx.compose.ui.text.font.FontFamily.Default)
     }
 }
 

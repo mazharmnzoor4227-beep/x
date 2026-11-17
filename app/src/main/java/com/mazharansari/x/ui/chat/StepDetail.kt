@@ -81,7 +81,7 @@ fun ExpandableStep(s: Step, size: Int = 15, startOpen: Boolean = false, onOpenWo
 fun CodeBox(header: String, code: String, lang: String, modifier: Modifier = Modifier) {
     val p = P
     val clip = androidx.compose.ui.platform.LocalClipboardManager.current
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(13.dp)
     val text = remember(code, lang) { highlight(code.take(60_000), lang) }
     Column(modifier.fillMaxWidth().clip(shape).background(p.code).border(1.dp, if (p.isDark) Color(0xFF222222) else p.border, shape)) {
         Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {

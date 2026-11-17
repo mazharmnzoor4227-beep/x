@@ -222,9 +222,10 @@ private fun GuideStep(n: Int, title: String, body: String?, code: String? = null
         body?.let { Text(it, style = Type.small.copy(fontSize = 13.5.sp, lineHeight = 19.sp), color = p.text2, modifier = Modifier.padding(top = 8.dp)) }
         code?.let { c ->
             Box(Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(p.code)) {
-                Text(c, style = Type.mono.copy(fontSize = 12.sp, lineHeight = 18.sp), color = p.text, softWrap = false,
+                // Code boxes stay dark in both themes (Dots code surface), so the text is light.
+                Text(c, style = Type.mono.copy(fontSize = 12.sp, lineHeight = 18.sp), color = Color(0xFFF2F1EE), softWrap = false,
                     modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = 12.dp, end = 44.dp, top = 10.dp, bottom = 10.dp))
-                Box(Modifier.align(Alignment.TopEnd)) { IconTap(Gk.copy, "Copy", 16.dp, p.text2) { clip.setText(AnnotatedString(c.lines().filterNot { it.startsWith("#") }.joinToString("\n"))) } }
+                Box(Modifier.align(Alignment.TopEnd)) { IconTap(Gk.copy, "Copy", 16.dp, Color(0xFFA9AAB2)) { clip.setText(AnnotatedString(c.lines().filterNot { it.startsWith("#") }.joinToString("\n"))) } }
             }
         }
     }
