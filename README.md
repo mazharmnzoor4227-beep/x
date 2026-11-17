@@ -8,10 +8,11 @@ a new series from the v0.9.7 donor brain + the Grok Sand design reference.
 change it later). Package `com.mazharansari.x`, version **1.0 / versionCode 1**.
 Donor was Axion v0.9.7 (see Provenance below).
 
-**Status: FOUNDATION ONLY.** This tree is a local copy + theme + maps. It has
-NOT been compiled, NOT been published, and there is NO GitHub repo yet.
-Compile verification needs GitHub Actions CI after the repo is created
-(Gradle hangs in this sandbox — do not run `./gradlew` here).
+**Status: FIRST BUILD (2026-11-17).** Sand theme wired (live in
+`AppRoot.kt`), 24-agent roster (23 seeds in `BotCatalog.kt`), 30 skill packs,
+19/19 Grok screens, CI fixes (setup-gradle, google-services removed). NOT
+compiled yet — first verification is GitHub Actions CI after push (Gradle
+hangs in this sandbox — do not run `./gradlew` here).
 
 ## Provenance (donor — DO NOT MODIFY the donor)
 
@@ -27,8 +28,8 @@ Compile verification needs GitHub Actions CI after the repo is created
 
 - `app/src/main/java/com/mazharansari/x/ui/theme/SandTheme.kt` — Grok Sand
   tokens as `SandLightPalette` / `SandDarkPalette` + `SandTheme()` composable.
-  ADDITIVE ONLY: `Theme.kt` is untouched and still the live theme; nothing
-  calls `SandTheme` yet.
+  SandTheme is now the LIVE theme (called from `AppRoot.kt`); `Theme.kt` is
+  kept as fallback.
 - `THEME-MAPPING.md` — token-by-token Grok → Compose mapping + font gap
   (Fraunces/Outfit not bundled yet) + mascot/splash notes.
 - `FEATURE-MAP.md` — all 19 Grok screens mapped to donor capability:
@@ -46,10 +47,11 @@ Compile verification needs GitHub Actions CI after the repo is created
    package is now `com.mazharansari.x`, `versionName` **1.0** / `versionCode` 1,
    app display name **"X"** (temporary — he will change it later). Renaming
    the package breaks install-over updates from the donor Axion, which is
-   intended for a new series. Repo name still pending (NOT created yet).
-2. **GitHub repo creation:** NOT created (local only, per instructions).
-   When created, push this tree as the first commit, then verify with
-   GitHub Actions CI.
+   intended for a new series. Repo: https://github.com/mazharmnzoor4227-beep/x
+   (public, created 2026-11-17).
+2. **GitHub repo creation:** DONE 2026-11-17 — repo exists; this tree is
+   pushed as the first content (README landed first via the Contents API,
+   full tree follows via the PAT-backed bulk push).
 3. **Signing:** no keystore in this tree (donor signing reads
    `../keys/keystore.properties`, outside the source). Release signing must be
    set up for the new series; never reuse the donor keystore without his word.

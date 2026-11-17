@@ -1,0 +1,74 @@
+package com.mazharansari.x.agent
+
+import com.mazharansari.x.data.Artifact
+import com.mazharansari.x.data.StepKind
+import com.mazharansari.x.llm.ToolSpec
+import kotlinx.serialization.json.JsonObject
+
+data class ToolOutput(
+    /** What the model reads. */
+    val forModel: String,
+    /** What the collapsible step card shows (defaults to forModel, trimmed). */
+    val display: String = forModel,
+    val artifact: Artifact? = null,
+    val isError: Boolean = false,
+    /** Optional replacement for the step title once finished, e.g. "Browsed 3 pages". */
+    val doneTitle: String? = null,
+    /** axion-p1.4: exit code for run_command (-1 = timed out). */
+    val exitCode: Int? = null,
+)
+
+data class StepLabel(val kind: StepKind, val title: String, val target: String)
+
+interface Tool {
+    val spec: ToolSpec
+    fun label(args: JsonObject): StepLabel
+    suspend fun run(args: JsonObject, ctx: ToolContext): ToolOutput
+}
+
+class ToolContext(
+    val workspace: Workspace,
+    val skills: com.mazharansari.x.skills.SkillRepo,
+    /** v0.10 learning loop: the agent-curated persistent memory (null in surfaces without it, e.g. live calls). */
+    val memory: com.mazharansari.x.data.MemoryStore? = null,
+    /** v0.10 learning loop: saved conversations, for the session_search tool. */
+    val chats: com.mazharansari.x.data.ConversationStore? = null,
+    /** v0.12 scheduler: the user's scheduled tasks, for the schedule_* tools (null in surfaces without them). */
+    val schedules: com.mazharansari.x.data.SchedulesStore? = null,
+    /** v0.12 scheduler: application context, so a tool can arm WorkManager. */
+    val appCtx: android.content.Context? = null,
+    /**
+     * v0.11 deep research: one plain prompt → one plain answer from the same models that serve the
+     * chat (the agent wires its attempts in). Null in surfaces with no model behind them (live calls),
+     * where tools must degrade to deterministic behaviour.
+     */
+    val ask: (suspend (prompt: String) -> String)? = null,
+    /**
+     * P1-3 Turbo (server): the composer toggle for this task. When true AND the user's server is
+     * set up in Settings, run_command / shell_session run on their own server; otherwise the
+     * on-device Linux is used exactly as before.
+     */
+    val turbo: Boolean = false,
+    /**
+     * Swarm (Phase 1): live updates from worker runs — one card per worker in the chat.
+     * The agent wires it to the step sink; surfaces without a UI leave the default (no-op).
+     */
+    val onWorker: (WorkerUpdate) -> Unit = {},
+    /** Swarm (Phase 1): the CEO conversation id — links every worker update to its CEO run in the Bots section. */
+    val swarmParentId: String? = null,
+    /**
+     * Brain (Phase 1): per-worker model routing — "fast" for cheap, single-purpose steps
+     * (research, tests), "strong" for the hard ones (coding, reviewing). The agent wires it
+     * to the ranked attempts; a worker whose hint has no route falls back to [ask].
+     */
+    val askWith: (suspend (hint: String, prompt: String) -> String)? = null,
+    /**
+     * Swarm (Phase 1): a worker's step note, keyed by worker task id — promotes its card
+     * STARTING → WORKING and appends the line to its transcript. No-op without a UI.
+     */
+    val onWorkerProgress: (workerId: String, stepsUsed: Int, note: String) -> Unit = { _, _, _ -> },
+    /** Live output for long commands (shown in the open Bash card). Kept LAST: call sites pass it as a trailing lambda. */
+    val progress: (String) -> Unit = {},
+)
+
+fun String.clip(max: Int): String = if (length <= max) this else take(max) + "\n…[${length - max} more characters cut]"
