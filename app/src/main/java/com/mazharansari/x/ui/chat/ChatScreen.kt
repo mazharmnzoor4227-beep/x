@@ -522,6 +522,7 @@ private fun SuggestionChip(icon: Int, label: String, blue: Boolean = false, onCl
 /** A small "Update available" pill under the header after the daily check finds a newer build. */
 @Composable
 private fun BoxScope.UpdateBanner(vm: ChatViewModel, navigate: (Route) -> Unit) {
+    val p = P
     val st by vm.g.updater.state.collectAsState()
     val info = (st as? com.mazharansari.x.update.UpdateState.Available)?.info ?: return
     if (vm.g.updater.dismissedCode == info.versionCode) return
