@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -74,6 +75,7 @@ import java.io.File
  * Sand + Fraunces/Outfit: colours come from SandTheme (P.*), the display
  * face is Type.display (Fraunces, wired by the fonts work).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
     val p = P
@@ -445,7 +447,7 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
                         takePhoto.launch(FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f))
                     }
                 },
-                onGallery = { pickImages.launch(ActivityResultContracts.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                onGallery = { pickImages.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 onFiles = { pickFiles.launch(arrayOf("*/*")) },
                 onSkills = { navigate(Route.Skills) },
                 onConnectors = { navigate(Route.Connectors) },

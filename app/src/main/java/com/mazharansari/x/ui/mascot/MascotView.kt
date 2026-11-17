@@ -13,12 +13,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.awaitPointerEvent
-import androidx.compose.ui.input.pointer.awaitPointerEventScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
@@ -37,6 +36,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * The X mascot logo, rendered as still frames from the real 3D GLB
@@ -109,17 +109,26 @@ fun MascotLogo(size: Dp, thinking: Boolean, modifier: Modifier = Modifier, onTap
     // runtime: a continuous frame loop keeps recomposing forever there, so the Compose
     // test rule never reaches idle and screen tests die with AppNotIdle — the same
     // rule as the orb, the thinking ribbon and shimmer/pulse (AnimationGate).
-    val bobPhase = if (com.mazharansari.x.ui.AnimationGate.inTestRuntime) 0f else rememberInfiniteTransition(label = "mascotBob").animateFloat(
-        initialValue = 0f,
-        targetValue = (2f * Math.PI).toFloat(),
-        animationSpec = infiniteRepeatable(tween(4330, easing = LinearEasing)),
-        label = "bobPhase",
-    ).value
+    // The transition lives on a local val (same shape as MessageViews' shimmer/pulse):
+    // chaining animateFloat straight off rememberInfiniteTransition inside the
+    // if-expression does not resolve (CI: Unresolved reference 'animateFloat').
+    val bobPhase = if (com.mazharansari.x.ui.AnimationGate.inTestRuntime) {
+        0f
+    } else {
+        val bobTransition = rememberInfiniteTransition(label = "mascotBob")
+        bobTransition.animateFloat(
+            0f,
+            (2f * Math.PI).toFloat(),
+            infiniteRepeatable(tween(4330, easing = LinearEasing)),
+            label = "bobPhase",
+        ).value
+    }
     val density = LocalDensity.current
     val bobYPx = with(density) { sin(bobPhase) * 1.5f.dp.toPx() }
     val bobRollDeg = sin(bobPhase * 0.5f) * 0.7f
 
     val touchSlop = LocalViewConfiguration.current.touchSlop
+    val scope = rememberCoroutineScope()
 
     // Frame selection. Gaze/blink frames are front-only renders, so they only
     // apply near the front yaw; at an angle the yaw frame is shown instead.
@@ -157,6 +166,9 @@ fun MascotLogo(size: Dp, thinking: Boolean, modifier: Modifier = Modifier, onTap
             // the gestures never fight each other. Events are not consumed,
             // so the hover loop below still sees them.
             .pointerInput(Unit) {
+                // PointerInputScope.size (px) — captured here because the composable's
+                // `size: Dp` parameter shadows it inside awaitPointerEventScope.
+                val pxSize = size
                 awaitPointerEventScope {
                     var downX = 0f
                     var downY = 0f
@@ -187,14 +199,16 @@ fun MascotLogo(size: Dp, thinking: Boolean, modifier: Modifier = Modifier, onTap
                                 }
                                 if (isDragging) {
                                     // A full-width swipe covers all 5 yaw frames.
-                                    yaw.snapTo((yaw.value + dx * 4f / size.width).coerceIn(0f, 4f))
+                                    // snapTo is suspending and the awaitPointerEventScope block is
+                                    // restricted — launch it on the composition scope instead.
+                                    scope.launch { yaw.snapTo((yaw.value + dx * 4f / pxSize.width).coerceIn(0f, 4f)) }
                                 } else {
                                     // Finger held still: eyes follow it (mock gaze).
-                                    gazeTargetX = ((pos.x / size.width) * 2f - 1f).coerceIn(-1f, 1f)
-                                    gazeTargetY = (1f - (pos.y / size.height) * 2f).coerceIn(-1f, 1f)
+                                    gazeTargetX = ((pos.x / pxSize.width) * 2f - 1f).coerceIn(-1f, 1f)
+                                    gazeTargetY = (1f - (pos.y / pxSize.height) * 2f).coerceIn(-1f, 1f)
                                 }
                             }
-                            PointerEventType.Release, PointerEventType.Cancel -> {
+                            PointerEventType.Release -> {
                                 val up = event.changes.firstOrNull()
                                 val moved = if (up != null) {
                                     abs(up.position.x - downX) + abs(up.position.y - downY)
@@ -219,6 +233,7 @@ fun MascotLogo(size: Dp, thinking: Boolean, modifier: Modifier = Modifier, onTap
             // Mouse hover (desktop): eyes follow the pointer without pressing.
             // On touch devices there is no hover; the press-move path above covers it.
             .pointerInput(Unit) {
+                val pxSize = size
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
@@ -226,8 +241,8 @@ fun MascotLogo(size: Dp, thinking: Boolean, modifier: Modifier = Modifier, onTap
                             PointerEventType.Move -> {
                                 if (pointerDown) continue
                                 val pos = event.changes.firstOrNull()?.position ?: continue
-                                gazeTargetX = ((pos.x / size.width) * 2f - 1f).coerceIn(-1f, 1f)
-                                gazeTargetY = (1f - (pos.y / size.height) * 2f).coerceIn(-1f, 1f)
+                                gazeTargetX = ((pos.x / pxSize.width) * 2f - 1f).coerceIn(-1f, 1f)
+                                gazeTargetY = (1f - (pos.y / pxSize.height) * 2f).coerceIn(-1f, 1f)
                             }
                             PointerEventType.Exit -> {
                                 gazeTargetX = 0f

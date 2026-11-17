@@ -30,6 +30,7 @@ import com.mazharansari.x.ui.Route
 import com.mazharansari.x.ui.components.Gk
 import com.mazharansari.x.ui.components.GkIcon
 import com.mazharansari.x.ui.components.ScreenHeader
+import com.mazharansari.x.ui.components.SectionLabel
 import com.mazharansari.x.ui.components.rememberTap
 import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
@@ -60,13 +61,13 @@ fun CliPairScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit
 
     Column(Modifier.fillMaxSize().background(p.bg)) {
         ScreenHeader("CLI Pair", back)
-        LazyColumn(Modifier.weight(1f).navigationBarsPadding(), contentPadding = PaddingValues(bottom = DOCK_CLEARANCE)) {
+        LazyColumn(Modifier.weight(1f).navigationBarsPadding(), contentPadding = PaddingValues(bottom = 32.dp)) {
             item {
                 Text("Pair Antigravity — the phone does not run the CLI. It runs inside Linux on this phone; you sign in with Google and paste the one-time code Google shows.",
                     style = Type.small.copy(fontSize = 14.sp, lineHeight = 20.sp), color = p.text2,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
             }
-            item { SectionHead("Paired accounts") }
+            item { SectionLabel("Paired accounts") }
             if (accounts.isEmpty()) {
                 item {
                     Text("Not paired. No Antigravity account is signed in on this phone yet.",
@@ -87,7 +88,7 @@ fun CliPairScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit
                     if (g.agy.hasToken(a)) GkIcon(Gk.check, "Has token", 20.dp, p.accent)
                 }
             }
-            item { SectionHead("Pair a new account") }
+            item { SectionLabel("Pair a new account") }
             item {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(20.dp)).background(p.card).padding(16.dp)) {
                     when (st) {
