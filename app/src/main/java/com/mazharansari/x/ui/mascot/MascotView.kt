@@ -2,6 +2,7 @@ package com.mazharansari.x.ui.mascot
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -109,9 +110,10 @@ fun MascotLogo(size: Dp, thinking: Boolean, modifier: Modifier = Modifier, onTap
     // runtime: a continuous frame loop keeps recomposing forever there, so the Compose
     // test rule never reaches idle and screen tests die with AppNotIdle — the same
     // rule as the orb, the thinking ribbon and shimmer/pulse (AnimationGate).
-    // The transition lives on a local val (same shape as MessageViews' shimmer/pulse):
-    // chaining animateFloat straight off rememberInfiniteTransition inside the
-    // if-expression does not resolve (CI: Unresolved reference 'animateFloat').
+    // The transition lives on a local val (same shape as MessageViews' shimmer/pulse).
+    // NOTE: InfiniteTransition.animateFloat is an extension in
+    // androidx.compose.animation.core — it needs its own import (CI: unresolved
+    // without it; MessageViews compiles only because it imports the package .*).
     val bobPhase = if (com.mazharansari.x.ui.AnimationGate.inTestRuntime) {
         0f
     } else {
@@ -166,9 +168,11 @@ fun MascotLogo(size: Dp, thinking: Boolean, modifier: Modifier = Modifier, onTap
             // the gestures never fight each other. Events are not consumed,
             // so the hover loop below still sees them.
             .pointerInput(Unit) {
-                // PointerInputScope.size (px) — captured here because the composable's
-                // `size: Dp` parameter shadows it inside awaitPointerEventScope.
-                val pxSize = size
+                // Pixel size of the (square) mascot, from the composable's
+                // `size: Dp` via the local density. PointerInputScope.size is
+                // shadowed by the `size` parameter here (CI: pxSize did
+                // not resolve), so derive it from the Dp instead.
+                val pxSize = with(density) { size.toPx() }
                 awaitPointerEventScope {
                     var downX = 0f
                     var downY = 0f
@@ -201,11 +205,11 @@ fun MascotLogo(size: Dp, thinking: Boolean, modifier: Modifier = Modifier, onTap
                                     // A full-width swipe covers all 5 yaw frames.
                                     // snapTo is suspending and the awaitPointerEventScope block is
                                     // restricted — launch it on the composition scope instead.
-                                    scope.launch { yaw.snapTo((yaw.value + dx * 4f / pxSize.width).coerceIn(0f, 4f)) }
+                                    scope.launch { yaw.snapTo((yaw.value + dx * 4f / pxSize).coerceIn(0f, 4f)) }
                                 } else {
                                     // Finger held still: eyes follow it (mock gaze).
-                                    gazeTargetX = ((pos.x / pxSize.width) * 2f - 1f).coerceIn(-1f, 1f)
-                                    gazeTargetY = (1f - (pos.y / pxSize.height) * 2f).coerceIn(-1f, 1f)
+                                    gazeTargetX = ((pos.x / pxSize) * 2f - 1f).coerceIn(-1f, 1f)
+                                    gazeTargetY = (1f - (pos.y / pxSize) * 2f).coerceIn(-1f, 1f)
                                 }
                             }
                             PointerEventType.Release -> {
@@ -233,7 +237,7 @@ fun MascotLogo(size: Dp, thinking: Boolean, modifier: Modifier = Modifier, onTap
             // Mouse hover (desktop): eyes follow the pointer without pressing.
             // On touch devices there is no hover; the press-move path above covers it.
             .pointerInput(Unit) {
-                val pxSize = size
+                val pxSize = with(density) { size.toPx() }
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
@@ -241,8 +245,8 @@ fun MascotLogo(size: Dp, thinking: Boolean, modifier: Modifier = Modifier, onTap
                             PointerEventType.Move -> {
                                 if (pointerDown) continue
                                 val pos = event.changes.firstOrNull()?.position ?: continue
-                                gazeTargetX = ((pos.x / pxSize.width) * 2f - 1f).coerceIn(-1f, 1f)
-                                gazeTargetY = (1f - (pos.y / pxSize.height) * 2f).coerceIn(-1f, 1f)
+                                gazeTargetX = ((pos.x / pxSize) * 2f - 1f).coerceIn(-1f, 1f)
+                                gazeTargetY = (1f - (pos.y / pxSize) * 2f).coerceIn(-1f, 1f)
                             }
                             PointerEventType.Exit -> {
                                 gazeTargetX = 0f
