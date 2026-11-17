@@ -13,11 +13,9 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import com.mazharansari.x.data.*
 import com.mazharansari.x.linux.*
 import com.mazharansari.x.ui.ChatViewModel
-import com.mazharansari.x.ui.home.ChatGap
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
-import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,8 +25,9 @@ import org.robolectric.annotation.GraphicsMode
 import java.io.File
 
 /**
- * v0.5.1 chat ↔ composer gap, before/after, at mazhar's exact screen (720×1600 px, 1.75x = 411×914 dp).
- * "before" = the v0.5.0 spacing (ChatGap.debugLegacy), "after" = this release. Keyboard = real IME insets (582 px,
+ * v0.5.1 chat ↔ composer gap at mazhar's exact screen (720×1600 px, 1.75x = 411×914 dp).
+ * The v0.5.0 legacy gap is gone with the single chat screen —
+ * the "before"/"after" shots now both capture the current spacing. Keyboard = real IME insets (582 px,
  * the height measured in his Grok recording); the keyboard itself isn't drawn by Robolectric.
  */
 @OptIn(ExperimentalRoborazziApi::class, ExperimentalTestApi::class)
@@ -41,8 +40,6 @@ class V051ScreensTest {
     private val app get() = ApplicationProvider.getApplicationContext<AxionApp>()
     @Suppress("UNCHECKED_CAST")
     private fun <T> flow(o: Any, name: String) = o.javaClass.getDeclaredField(name).apply { isAccessible = true }.get(o) as MutableStateFlow<T>
-
-    @After fun reset() { ChatGap.debugLegacy = false }
 
     private fun seed() {
         val fd = app.filesDir
@@ -94,8 +91,8 @@ class V051ScreensTest {
         }
     }
 
-    private fun shot(name: String, state: String, legacy: Boolean, ime: Int, build: Boolean = false) {
-        seed(); ChatGap.debugLegacy = legacy
+    private fun shot(name: String, state: String, ime: Int, build: Boolean = false) {
+        seed()
         val project = if (build) app.graph.build.store.let { store -> store.list.value.forEach { p -> store.delete(p.id) }; store.create("Clawora Beauty", "web") } else null
         val sc = ActivityScenario.launch(MainActivity::class.java)
         compose.waitForIdle(); insets(sc, ime)
@@ -115,17 +112,17 @@ class V051ScreensTest {
 
     private val KB = 582
 
-    @Test fun askThinkingBefore() = shot("ask_thinking_kbclosed_before", "thinking", true, 0)
-    @Test fun askThinkingAfter() = shot("ask_thinking_kbclosed_after", "thinking", false, 0)
-    @Test fun askThinkingKbBefore() = shot("ask_thinking_kbopen_before", "thinking", true, KB)
-    @Test fun askThinkingKbAfter() = shot("ask_thinking_kbopen_after", "thinking", false, KB)
-    @Test fun askDoneBefore() = shot("ask_answer_kbclosed_before", "done", true, 0)
-    @Test fun askDoneAfter() = shot("ask_answer_kbclosed_after", "done", false, 0)
-    @Test fun askDoneKbBefore() = shot("ask_answer_kbopen_before", "done", true, KB)
-    @Test fun askDoneKbAfter() = shot("ask_answer_kbopen_after", "done", false, KB)
-    @Test fun askSwitching() = shot("ask_switching_model_after", "switching", false, 0)
-    @Test fun buildThinkingBefore() = shot("build_thinking_kbopen_before", "thinking", true, KB, build = true)
-    @Test fun buildThinkingAfter() = shot("build_thinking_kbopen_after", "thinking", false, KB, build = true)
-    @Test fun buildDoneAfter() = shot("build_answer_kbclosed_after", "done", false, 0, build = true)
+    @Test fun askThinkingBefore() = shot("ask_thinking_kbclosed_before", "thinking", 0)
+    @Test fun askThinkingAfter() = shot("ask_thinking_kbclosed_after", "thinking", 0)
+    @Test fun askThinkingKbBefore() = shot("ask_thinking_kbopen_before", "thinking", KB)
+    @Test fun askThinkingKbAfter() = shot("ask_thinking_kbopen_after", "thinking", KB)
+    @Test fun askDoneBefore() = shot("ask_answer_kbclosed_before", "done", 0)
+    @Test fun askDoneAfter() = shot("ask_answer_kbclosed_after", "done", 0)
+    @Test fun askDoneKbBefore() = shot("ask_answer_kbopen_before", "done", KB)
+    @Test fun askDoneKbAfter() = shot("ask_answer_kbopen_after", "done", KB)
+    @Test fun askSwitching() = shot("ask_switching_model_after", "switching", 0)
+    @Test fun buildThinkingBefore() = shot("build_thinking_kbopen_before", "thinking", KB, build = true)
+    @Test fun buildThinkingAfter() = shot("build_thinking_kbopen_after", "thinking", KB, build = true)
+    @Test fun buildDoneAfter() = shot("build_answer_kbclosed_after", "done", 0, build = true)
 }
 

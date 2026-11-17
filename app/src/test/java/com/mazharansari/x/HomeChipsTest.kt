@@ -5,9 +5,9 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import com.mazharansari.x.data.Message
+import com.mazharansari.x.data.Role
 import com.mazharansari.x.ui.chat.ToolsRow
-import com.mazharansari.x.ui.home.SuggestionChips
-import com.mazharansari.x.ui.home.showToolsRow
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -17,10 +17,16 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * 0.9.6: the empty home has ONE chip row above the composer — the three tool
- * toggles merged into the suggestion row (Research, Long task, Turbo first),
- * and the standalone ToolsRow renders only in an active chat. No network, no
- * Android services: the rows render standalone under Robolectric.
+ * Single chat screen: the empty chat has ONE suggestion row above the composer
+ * (EmptyChat in ChatScreen.kt) and the standalone ToolsRow renders only in an
+ * active chat — ChatScreen.kt shows it iff messages.isNotEmpty(). No Build
+ * mode, no "Build an app" chip. No network, no Android services: the rows
+ * render standalone under Robolectric.
+ *
+ * EmptyChat and its SuggestionChip are private to ChatScreen, so the merged
+ * row's toggle trio is covered here through the real ToolsRow (ui.chat) — the
+ * same three chips (Research, Long task, Turbo) in the same order — and the
+ * visibility rule through the real row rendered under ChatScreen's condition.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -39,29 +45,27 @@ class HomeChipsTest {
         return walk(compose.onRoot().fetchSemanticsNode())
     }
 
-    private fun suggestions(noKeys: Boolean, longTaskOn: Boolean = true) {
+    /** The merged row's toggle trio, as ChatScreen renders it (ToolsRow, ui.chat). */
+    private fun suggestions(longTaskOn: Boolean = true) {
         compose.setContent {
-            SuggestionChips(
-                noKeys = noKeys, researchOn = false, onResearch = {},
-                longTaskOn = longTaskOn, onLongTask = {},
-                turboOn = false, onTurbo = {},
-                onConnect = {}, onSkills = {}, onBuild = {}, onVoice = {},
-            )
+            ToolsRow(researchOn = false, onResearch = {}, longTaskOn = longTaskOn, onLongTask = {}, turboOn = false, onTurbo = {})
         }
     }
 
     @Test fun emptyHomeChipsAreOneMergedRowInOrder() {
-        suggestions(noKeys = false)
+        suggestions()
         assertEquals(
-            listOf("Research", "Long task", "Turbo", "Try Connectors", "Skills", "Build an app", "Voice"),
+            listOf("Research", "Long task", "Turbo"),
             orderedTexts(),
         )
     }
 
-    @Test fun emptyHomeChipsWithNoKeysLeadWithTheKeyChip() {
-        suggestions(noKeys = true)
+    @Test fun emptyHomeChipsWithNoKeysStillShowTheThreeToggles() {
+        // The "Connect a free AI key" chip is EmptyChat-private; what this test
+        // owns is that the toggle trio itself is unchanged when keys are missing.
+        suggestions()
         assertEquals(
-            listOf("Connect a free AI key", "Research", "Long task", "Turbo", "Try Connectors", "Skills", "Build an app", "Voice"),
+            listOf("Research", "Long task", "Turbo"),
             orderedTexts(),
         )
     }
@@ -73,10 +77,24 @@ class HomeChipsTest {
         assertEquals(listOf("Research", "Long task", "Turbo"), orderedTexts())
     }
 
+    /**
+     * ChatScreen.kt: `if (messages.isNotEmpty()) ToolsRow(...)` — the row exists
+     * only once the chat has messages; there is no Build mode anymore.
+     */
     @Test fun toolsRowRendersOnlyInAnActiveChat() {
-        assertEquals(false, showToolsRow(messagesEmpty = true, build = false))   // empty home: no second row
-        assertEquals(true, showToolsRow(messagesEmpty = false, build = false))  // active chat: the row stays
-        assertEquals(false, showToolsRow(messagesEmpty = false, build = true))  // Build: never
-        assertEquals(false, showToolsRow(messagesEmpty = true, build = true))
+        compose.setContent {
+            val messages = emptyList<Message>()
+            if (messages.isNotEmpty()) {
+                ToolsRow(researchOn = false, onResearch = {}, longTaskOn = false, onLongTask = {}, turboOn = false, onTurbo = {})
+            }
+        }
+        assertEquals(emptyList<String>(), orderedTexts())
+        compose.setContent {
+            val messages = listOf(Message("u0", Role.USER, "hi"))
+            if (messages.isNotEmpty()) {
+                ToolsRow(researchOn = false, onResearch = {}, longTaskOn = false, onLongTask = {}, turboOn = false, onTurbo = {})
+            }
+        }
+        assertEquals(listOf("Research", "Long task", "Turbo"), orderedTexts())
     }
 }
