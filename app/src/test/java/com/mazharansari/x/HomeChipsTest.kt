@@ -1,5 +1,6 @@
 package com.mazharansari.x
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -82,19 +83,18 @@ class HomeChipsTest {
      * only once the chat has messages; there is no Build mode anymore.
      */
     @Test fun toolsRowRendersOnlyInAnActiveChat() {
+        // setContent may only be called once per test ("Cannot call setContent
+        // twice per test!") — drive both states through one composition with a
+        // state list instead of re-setting content.
+        val messages = mutableStateOf<List<Message>>(emptyList())
         compose.setContent {
-            val messages = emptyList<Message>()
-            if (messages.isNotEmpty()) {
+            if (messages.value.isNotEmpty()) {
                 ToolsRow(researchOn = false, onResearch = {}, longTaskOn = false, onLongTask = {}, turboOn = false, onTurbo = {})
             }
         }
         assertEquals(emptyList<String>(), orderedTexts())
-        compose.setContent {
-            val messages = listOf(Message("u0", Role.USER, "hi"))
-            if (messages.isNotEmpty()) {
-                ToolsRow(researchOn = false, onResearch = {}, longTaskOn = false, onLongTask = {}, turboOn = false, onTurbo = {})
-            }
-        }
+        messages.value = listOf(Message("u0", Role.USER, "hi"))
+        compose.waitForIdle()
         assertEquals(listOf("Research", "Long task", "Turbo"), orderedTexts())
     }
 }

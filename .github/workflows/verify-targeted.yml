@@ -41,9 +41,11 @@ jobs:
           gradle testDebugUnitTest --no-daemon --stacktrace --tests "com.mazharansari.x.V03ScreensTest" --tests "com.mazharansari.x.V053AuthStorageTest" || { echo "FAILED: Legacy composer UI classes (V03ScreensTest / V053AuthStorageTest)" >> $GITHUB_STEP_SUMMARY; echo "AXION_CI_FAILED=1" >> $GITHUB_ENV; }
       - name: Unrun classes, one by one
         run: |
-          for c in ChangeGateTest CommandStatusTest FaultToleranceTest HistoryCompressionTest PlanningTest V05LogicTest V05ScreensTest V06ScreensTest VideoCommandTest VoiceLogicTest VoiceSelectionTest; do
+          # Six of these live in subpackages, not top-level com.mazharansari.x —
+          # list them by fully-qualified name (the --tests filter is exact).
+          for c in com.mazharansari.x.build.ChangeGateTest com.mazharansari.x.agent.CommandStatusTest com.mazharansari.x.agent.FaultToleranceTest com.mazharansari.x.agent.HistoryCompressionTest com.mazharansari.x.agent.PlanningTest com.mazharansari.x.V05LogicTest com.mazharansari.x.V05ScreensTest com.mazharansari.x.V06ScreensTest com.mazharansari.x.agent.VideoCommandTest com.mazharansari.x.VoiceLogicTest com.mazharansari.x.VoiceSelectionTest; do
             echo "===== CLASS $c ====="
-            timeout 480 gradle testDebugUnitTest --no-daemon --tests "com.mazharansari.x.$c" || { echo "FAILED: $c (exit $?)" >> $GITHUB_STEP_SUMMARY; echo "AXION_CI_FAILED=1" >> $GITHUB_ENV; }
+            timeout 480 gradle testDebugUnitTest --no-daemon --tests "$c" || { echo "FAILED: $c (exit $?)" >> $GITHUB_STEP_SUMMARY; echo "AXION_CI_FAILED=1" >> $GITHUB_ENV; }
           done
       - name: P0 roadmap tests, one by one
         run: |
@@ -59,9 +61,11 @@ jobs:
           done
       - name: P2 roadmap tests, one by one
         run: |
-          for c in P2SessionTest P2JobsTest P2LocalToolUseTest P2BuildDemoTest P2CustomVoiceTest P2AgyNextRunTest P2StatusServerTest P2PluginApiTest P2TelegramTest P2DigestTest; do
+          # P2SessionTest is com.mazharansari.x.agent, P2JobsTest is
+          # com.mazharansari.x.data — fully-qualified names (see above).
+          for c in com.mazharansari.x.agent.P2SessionTest com.mazharansari.x.data.P2JobsTest com.mazharansari.x.P2LocalToolUseTest com.mazharansari.x.P2BuildDemoTest com.mazharansari.x.P2CustomVoiceTest com.mazharansari.x.P2AgyNextRunTest com.mazharansari.x.P2StatusServerTest com.mazharansari.x.P2PluginApiTest com.mazharansari.x.P2TelegramTest com.mazharansari.x.P2DigestTest; do
             echo "===== CLASS $c ====="
-            timeout 480 gradle testDebugUnitTest --no-daemon --tests "com.mazharansari.x.$c" || { echo "FAILED: $c (exit $?)" >> $GITHUB_STEP_SUMMARY; echo "AXION_CI_FAILED=1" >> $GITHUB_ENV; }
+            timeout 480 gradle testDebugUnitTest --no-daemon --tests "$c" || { echo "FAILED: $c (exit $?)" >> $GITHUB_STEP_SUMMARY; echo "AXION_CI_FAILED=1" >> $GITHUB_ENV; }
           done
       - name: Fail job if any class failed
         if: always()

@@ -41,6 +41,15 @@ class V03ScreensTest {
     private val shots = File(System.getProperty("user.dir"), "build/screens_v3").apply { mkdirs() }
     private fun shot(name: String) { compose.waitForIdle(); captureScreenRoboImage(File(shots, "$name.png").path, RoborazziOptions()) }
 
+    /** Screenshot without waitForIdle — the synthetic IME dispatch leaves the runtime non-idle (see popoverWithKeyboard). */
+    private fun shotNoIdle(name: String) { compose.mainClock.advanceTimeBy(300); captureScreenRoboImage(File(shots, "$name.png").path, RoborazziOptions()) }
+
+    /** V051 pattern: set the ViewModel's messages directly (its setter is private). */
+    private fun setMessages(vm: com.mazharansari.x.ui.ChatViewModel, list: List<com.mazharansari.x.data.Message>) {
+        val f = vm.javaClass.getDeclaredField("messages\$delegate").apply { isAccessible = true }
+        @Suppress("UNCHECKED_CAST") (f.get(vm) as androidx.compose.runtime.MutableState<List<com.mazharansari.x.data.Message>>).value = list
+    }
+
     private fun seed() {
         val fd = ApplicationProvider.getApplicationContext<AxionApp>().filesDir
         File(fd, "settings.json").writeText("""{"userName":"Mazhar Ansari","theme":"dark","mode":"AUTO"}""")
@@ -87,7 +96,10 @@ class V03ScreensTest {
         seed()
         ActivityScenario.launch(MainActivity::class.java).use {
             compose.waitForIdle()
-            compose.onNodeWithContentDescription("Menu").performClick()
+            // The single-chat-screen menu drawer has no "Connectors" entry (the
+            // banner that linked there only shows when no key is saved, and
+            // seed() saves one) — reach Connectors through the + popover instead.
+            compose.onNodeWithContentDescription("Attach").performClick(); compose.waitForIdle(); Thread.sleep(300)
             compose.onNodeWithText("Connectors").performClick(); compose.waitForIdle(); Thread.sleep(300)
             shot("v3_connectors_logos")
             compose.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText("xAI Grok")); compose.waitForIdle()
@@ -98,7 +110,6 @@ class V03ScreensTest {
 
     @Test fun expandableSteps() {
         seed()
-        val fd = ApplicationProvider.getApplicationContext<AxionApp>().filesDir
         val t0 = System.currentTimeMillis() - 60_000
         val html = "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <title>Clawora Beauty</title>\n  <style>\n    /* mobile-first */\n    body { font-family: system-ui; margin: 0; background: #fff7f9; }\n    .hero { padding: 48px 20px; text-align: center; }\n  </style>\n</head>\n<body>\n  <section class=\"hero\">\n    <h1>Original Korean Skincare</h1>\n    <p>Cash on Delivery all over Pakistan</p>\n    <a class=\"btn\" href=\"#shop\">Shop now</a>\n  </section>\n  <script>\n    const year = new Date().getFullYear(); // footer year\n    document.title = 'Clawora ' + year;\n  </script>\n</body>\n</html>"
         fun st(k: com.mazharansari.x.data.StepKind, title: String, target: String, out: String = "", detail: String = "") =
@@ -113,10 +124,14 @@ class V03ScreensTest {
                 steps = steps, reasoning = "User ne Clawora Beauty ke liye simple landing page manga hai. Pehle folder banata hoon, phir mobile-first index.html likhta hoon.",
                 thinkingMs = 9_000, model = "Groq · openai/gpt-oss-120b", createdAt = t0 + 9_000),
         ), createdAt = t0, updatedAt = System.currentTimeMillis())
-        File(fd, "chats").mkdirs(); File(fd, "chats/demo2.json").writeText(Json.encodeToString(com.mazharansari.x.data.Conversation.serializer(), conv))
+        // The file-load path (vm.open) is covered by V031ScreensTest.open();
+        // this test is about the steps UI, and open()'s async IO load races
+        // waitUntil's virtual clock under Robolectric (the 5 s budget can burn
+        // before the real-time IO thread lands), so set the conversation
+        // directly — the same reflection the V051 screenshot tests use.
         ActivityScenario.launch(MainActivity::class.java).use { sc ->
             compose.waitForIdle()
-            sc.onActivity { androidx.lifecycle.ViewModelProvider(it)[com.mazharansari.x.ui.ChatViewModel::class.java].open("demo2") }
+            sc.onActivity { act -> setMessages(androidx.lifecycle.ViewModelProvider(act)[com.mazharansari.x.ui.ChatViewModel::class.java], conv.messages) }
             compose.waitUntil(5000) { compose.onAllNodesWithText("Thought for", substring = true).fetchSemanticsNodes().isNotEmpty() }
             shot("v3_steps_collapsed")
             compose.onNodeWithContentDescription("Expand").performClick(); compose.waitForIdle(); Thread.sleep(400)
@@ -141,12 +156,19 @@ class V03ScreensTest {
                     .build()
                 ViewCompat.dispatchApplyWindowInsets(root, ins)
             }
-            compose.waitForIdle()
-            compose.onNodeWithText("Auto").performClick(); compose.waitForIdle(); Thread.sleep(400)
-            shot("v3_model_popover_keyboard")
-            androidx.test.espresso.Espresso.pressBack(); compose.waitForIdle()
-            compose.onNodeWithContentDescription("Attach").performClick(); compose.waitForIdle(); Thread.sleep(400)
-            shot("v3_plus_popover_keyboard")
+            // waitForIdle() never returns after the synthetic IME dispatch
+            // under Robolectric (this test failed on the donor too); every
+            // other screen test advances the clock after dispatching insets
+            // instead — do that here, and capture without waiting for idle
+            // (V031's cap() pattern). Espresso.pressBack is gone for the same
+            // reason (it waits for idle); the + button closes the model
+            // popover itself (Composer onPlus sets model=false), so no back
+            // press is needed to reach the plus popover.
+            compose.mainClock.advanceTimeBy(500)
+            compose.onNodeWithText("Auto").performClick(); compose.mainClock.advanceTimeBy(400)
+            shotNoIdle("v3_model_popover_keyboard")
+            compose.onNodeWithContentDescription("Attach").performClick(); compose.mainClock.advanceTimeBy(400)
+            shotNoIdle("v3_plus_popover_keyboard")
         }
     }
 }
