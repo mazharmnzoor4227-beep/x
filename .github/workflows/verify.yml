@@ -43,29 +43,7 @@ jobs:
           {
             echo "## Test results"
             if ls app/build/test-results/testDebugUnitTest/*.xml >/dev/null 2>&1; then
-              python3 - <<'PY'
-              import glob, xml.etree.ElementTree as ET
-              total = failures = 0
-              failed = []
-              for f in glob.glob("app/build/test-results/testDebugUnitTest/*.xml"):
-                  try:
-                      root = ET.parse(f).getroot()
-                  except Exception:
-                      continue
-                  for ts in root.iter("testsuite"):
-                      total += int(ts.get("tests", 0))
-                      failures += int(ts.get("failures", 0)) + int(ts.get("errors", 0))
-                      for tc in ts.iter("testcase"):
-                          if tc.find("failure") is not None or tc.find("error") is not None:
-                              failed.append(f"{tc.get('classname', '')}.{tc.get('name', '')}")
-              print(f"- Tests run: {total}, failed: {failures}")
-              if failed:
-                  print("- Failing tests:")
-                  for name in sorted(set(failed)):
-                      print(f"  - {name}")
-              else:
-                  print("- No failing tests.")
-              PY
+              python3 .github/workflows/summarize-tests.py
             else
               echo "No test result XML found — the test step did not produce reports."
             fi
