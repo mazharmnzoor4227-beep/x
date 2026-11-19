@@ -36,6 +36,10 @@ jobs:
           yes | $SDKM --licenses > /dev/null 2>&1 || true
           $SDKM "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;26.3.11579264"
       - name: Run unit tests
+        env:
+          # LiveAgentTest.skillsFromGitHub hits the GitHub API; without a token the shared
+          # runner IP exhausts the unauthenticated 60/hr limit and the test 403s.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gradle testDebugUnitTest --no-daemon --stacktrace
       - name: Summarise failures
         if: always()

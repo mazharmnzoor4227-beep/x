@@ -195,8 +195,14 @@ class SkillRepo(private val ctx: Context?, private val dir: File) {
     }
 
     private fun get(url: String): String {
-        val r = Request.Builder().url(url).header("User-Agent", Http.UA).header("Accept", "application/vnd.github+json").build()
-        Http.quick.newCall(r).execute().use { if (!it.isSuccessful) error("GitHub HTTP ${it.code}"); return it.body!!.string() }
+        val b = Request.Builder().url(url).header("User-Agent", Http.UA).header("Accept", "application/vnd.github+json")
+        // CI runs the live GitHub import test unauthenticated and hits the 60/hr shared-IP
+        // limit (HTTP 403). When a token is available (GITHUB_TOKEN in CI), authenticate so
+        // the limit is 5,000/hr. No token is ever committed; on a phone this is unset.
+        if (url.contains("api.github.com")) {
+            (System.getenv("GITHUB_TOKEN") ?: System.getProperty("github.token"))?.takeIf { it.isNotBlank() }?.let { b.header("Authorization", "Bearer $it") }
+        }
+        Http.quick.newCall(b.build()).execute().use { if (!it.isSuccessful) error("GitHub HTTP ${it.code}"); return it.body!!.string() }
     }
 
     companion object {

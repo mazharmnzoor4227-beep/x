@@ -95,7 +95,14 @@ class LiveAgentTest {
     @Test fun skillsFromGitHub() {
         val app = ApplicationProvider.getApplicationContext<AxionApp>()
         val repo = com.mazharansari.x.skills.SkillRepo(app, File(app.filesDir, "skills"))
-        val found = runBlocking { repo.scanGitHub("https://github.com/anthropics/skills") }
+        val found = try {
+            runBlocking { repo.scanGitHub("https://github.com/anthropics/skills") }
+        } catch (e: IllegalStateException) {
+            // Live GitHub API, unauthenticated quota is 60/hr per shared CI egress IP — a 403
+            // means the environment is rate-limited, not that the import path is broken.
+            assumeTrue("GitHub API rate-limited (HTTP 403) — skipping live import check", !e.message.orEmpty().contains("GitHub HTTP 403"))
+            throw e
+        }
         println("SKILLS FOUND: ${found.size}: " + found.take(12).joinToString { it.name })
         val installed = runBlocking { repo.install(found.filter { it.name in setOf("pdf", "docx", "frontend-design") }, "https://github.com/anthropics/skills") }
         println("INSTALLED: " + installed.joinToString { it.name + " (" + it.description.take(50) + ")" })
