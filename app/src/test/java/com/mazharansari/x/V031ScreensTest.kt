@@ -132,11 +132,20 @@ Clawora Beauty — original Korean skincare, Cash on Delivery all over Pakistan.
         // chat screen first, then open the conversation into it.
         sc.onActivity { vm = ViewModelProvider(it)[ChatViewModel::class.java]; vm!!.debugStart = Route.Chat; vm!!.open(id) }
         // vm.open() loads the conversation on a real IO thread, which the virtual
-        // clock cannot advance — give it real time to land, then drive the clock
-        // so the scroll animation runs.
-        Thread.sleep(1000)
-        compose.mainClock.advanceTimeBy(800)
-        compose.waitUntil(5000) { compose.onAllNodesWithText("Thought for", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        // clock cannot advance — and waitUntil's 5000 ms budget is virtual time
+        // that burns in milliseconds of real time, so a slow load in the loaded
+        // full-suite JVM times it out (ComposeTimeoutException on 010ad0fe,
+        // while pdfCard passed — pure race). Poll in REAL time instead: sleep,
+        // drive the clock, check the nodes, until the conversation lands or
+        // 10 s pass. fetchSemanticsNodes() waits for idle internally, which
+        // also idles the main looper so the load's Main-thread resume runs.
+        var found = false
+        for (i in 0 until 50) {
+            compose.mainClock.advanceTimeBy(200)
+            Thread.sleep(200)
+            if (compose.onAllNodesWithText("Thought for", substring = true).fetchSemanticsNodes().isNotEmpty()) { found = true; break }
+        }
+        check(found) { "Thought for never appeared — the seeded conversation did not load" }
         return sc to vm!!
     }
 

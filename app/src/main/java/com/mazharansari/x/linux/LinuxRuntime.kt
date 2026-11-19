@@ -418,6 +418,33 @@ class LinuxRuntime(private val ctx: Context) {
             return md.digest().joinToString("") { "%02x".format(it) }
         }
 
+        /**
+         * The directory a [name] entry's bytes (or link) must be created in,
+         * resolving symlinks in the parent chain by hand. File.canonicalPath
+         * does NOT follow a symlink whose target does not exist yet (verified
+         * with a standalone repro: canonicalPath of dest/evil/pwned.txt stays
+         * lexical when dest/evil -> a not-yet-created dir), so mkdirs() on the
+         * canonical parent silently no-ops and the write fails with
+         * FileNotFoundException — the TarExtractSecurityTest case (a rewritten
+         * absolute link pointing at a path inside dest that no entry created
+         * yet). Files.readSymbolicLink works on dangling links, so walk the
+         * components and follow them. The result stays inside [dest] because
+         * every planted link was validated to stay inside it.
+         */
+        private fun resolvedParentDir(dest: File, name: String): File {
+            var cur = dest.toPath().toAbsolutePath().normalize()
+            for (part in name.split('/').dropLast(1)) {
+                if (part.isEmpty() || part == ".") continue
+                cur = if (part == "..") cur.parent ?: cur else cur.resolve(part)
+                var hops = 0
+                while (java.nio.file.Files.isSymbolicLink(cur) && hops++ < 40) {
+                    val t = java.nio.file.Files.readSymbolicLink(cur)
+                    cur = if (t.isAbsolute) t.normalize() else cur.parent.resolve(t).normalize()
+                }
+            }
+            return cur.toFile()
+        }
+
         /** tar.gz → dir with symlinks, hard links and modes kept.
          * Symlink policy (redesign round 2, Addendum A): an absolute target is REWRITTEN to a
          * path relative to the link's parent inside [dest] — rootfs tarballs legitimately
@@ -467,11 +494,8 @@ class LinuxRuntime(private val ctx: Context) {
                                 }
                                 if (stored != null) {
                                     // A parent reached through a rewritten symlink may not
-                                    // exist yet (the link points at a path inside dest that
-                                    // no entry created): mkdirs the RESOLVED parent, not the
-                                    // lexical one — target.canonicalPath was already checked
-                                    // to be inside dest above.
-                                    File(target.canonicalPath).parentFile?.mkdirs(); target.delete()
+                                    // exist yet — resolve it by hand (see resolvedParentDir).
+                                    resolvedParentDir(dest, name).mkdirs(); target.delete()
                                     // Os.symlink is a silent no-op in JVM unit tests (returnDefaultValues),
                                     // so verify the link really exists and fall back to the NIO call.
                                     val linked = runCatching { Os.symlink(stored, target.absolutePath) }.isSuccess &&
@@ -491,11 +515,11 @@ class LinuxRuntime(private val ctx: Context) {
                             }
                             e.isFile -> {
                                 // Same as the symlink branch: a parent reached through a
-                                // rewritten symlink may not exist yet, so mkdirs the
-                                // RESOLVED parent — otherwise a file written through such
-                                // a link fails with FileNotFoundException even though the
-                                // path is safely inside dest (TarExtractSecurityTest).
-                                File(target.canonicalPath).parentFile?.mkdirs()
+                                // rewritten symlink may not exist yet — resolve it by hand
+                                // (see resolvedParentDir), or the write fails with
+                                // FileNotFoundException even though the path is safely
+                                // inside dest (TarExtractSecurityTest).
+                                resolvedParentDir(dest, name).mkdirs()
                                 FileOutputStream(target).use { tar.copyTo(it, 1 shl 16) }
                                 runCatching { Os.chmod(target.absolutePath, e.mode and "7777".toInt(8)) }.onFailure { target.setExecutable(e.mode and 0b001001001 != 0, false) }
                             }
@@ -508,7 +532,7 @@ class LinuxRuntime(private val ctx: Context) {
             hardLinks.forEach { (link, src) ->
                 // Re-check now that every entry exists: the source's real location (through any symlink) must still be inside dest.
                 require(inside(src.canonicalPath)) { "Unsafe hard link target in archive: ${src.path}" }
-                File(link.canonicalPath).parentFile?.mkdirs(); link.delete()
+                resolvedParentDir(dest, link.toRelativeString(dest)).mkdirs(); link.delete()
                 // Os.link is a silent no-op in JVM unit tests (returnDefaultValues) — verify
                 // the link really exists and fall back to copying the source's bytes.
                 val linked = runCatching { Os.link(src.absolutePath, link.absolutePath) }.isSuccess && link.exists()
