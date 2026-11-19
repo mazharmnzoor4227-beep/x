@@ -85,7 +85,12 @@ class V03ScreensTest {
             compose.waitForIdle()
             sc.onActivity { androidx.lifecycle.ViewModelProvider(it)[com.mazharansari.x.ui.ChatViewModel::class.java].debugCall =
                 com.mazharansari.x.voice.SameVoiceCall.State(userText = "Aaj Karachi ka mausam kaisa hai?", replyText = "Aaj Karachi mein dhoop hai, takreeban 31 degree. Shaam ko thodi thandi hawa chalegi.") }
-            compose.onNodeWithContentDescription("Voice mode").performClick()
+            // The old composer "Voice mode" button is gone in the redesign;
+            // the voice call is now the composer's mic long-press
+            // (Composer.kt: "Dictate — long-press for a voice call" ->
+            // onVoiceCall -> Route.VoiceCall).
+            compose.onNodeWithContentDescription("Dictate — long-press for a voice call")
+                .performTouchInput { longClick() }
             compose.mainClock.autoAdvance = false; compose.mainClock.advanceTimeBy(900)
             captureScreenRoboImage(File(shots, "v3_call_same_voice.png").path)
             compose.mainClock.autoAdvance = true

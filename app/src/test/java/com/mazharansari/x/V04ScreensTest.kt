@@ -205,7 +205,10 @@ class V04ScreensTest {
         val field = compose.onAllNodes(hasSetTextAction()).onFirst()
         field.performClick(); compose.mainClock.advanceTimeBy(300)
         field.assertIsFocused()
-        compose.onNodeWithContentDescription("Menu").performClick()
+        // Redesign: the header menu button is now labelled "Open menu"
+        // (ChatScreen.kt header); the drawer still dismisses the keyboard
+        // via DismissKeyboard() while it is open.
+        compose.onNodeWithContentDescription("Open menu").performClick()
         compose.mainClock.advanceTimeBy(800)
         compose.onAllNodes(hasSetTextAction()).onFirst().assertIsNotFocused()
         cap("08_drawer_keyboard_closed"); sc.close()
