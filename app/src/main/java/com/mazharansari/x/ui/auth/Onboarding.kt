@@ -78,7 +78,7 @@ fun IntroScreen(onDone: () -> Unit) {
     Box(Modifier.fillMaxSize().background(Color(0xFF000000)).clickable(remember { MutableInteractionSource() }, null) { finish() }) {
         Canvas(Modifier.fillMaxSize()) {
             val c = Offset(size.width / 2, size.height * 0.42f)
-            drawCircle(Brush.radialGradient(listOf(Color(0xFF7285D5).copy(alpha = 0.38f * glow), Color(0xFF35766F).copy(alpha = 0.16f * glow), Color.Transparent), c, size.minDimension * 0.62f), size.minDimension * 0.62f, c)
+            drawCircle(Brush.radialGradient(listOf(Color(0xFF4F46E5).copy(alpha = 0.28f * glow), Color.Transparent), c, size.minDimension * 0.62f), size.minDimension * 0.62f, c)
         }
         Column(Modifier.fillMaxWidth().align(Alignment.Center).offset(y = (-40).dp), horizontalAlignment = Alignment.CenterHorizontally) {
             MascotLogo(96.dp, thinking = false, Modifier.graphicsLayer { alpha = markIn; scaleX = 0.6f + 0.4f * markIn; scaleY = 0.6f + 0.4f * markIn; rotationZ = -18f * (1f - markIn) })

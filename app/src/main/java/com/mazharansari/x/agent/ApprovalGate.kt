@@ -5,7 +5,13 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 /** What the user (or the headless default) decided about one gated action. */
-enum class ApprovalDecision { ALLOW_ONCE, ALLOW_REMEMBER, DENY }
+enum class ApprovalDecision {
+    ALLOW_ONCE,
+    ALLOW_REMEMBER,
+    DENY,
+    /** 2026-11-19 (spec §9.1): allow this kind of command for this chat only — never stored, forgotten when the chat is left. */
+    ALLOW_CHAT,
+}
 
 /**
  * One action that needs the user's OK before it runs.

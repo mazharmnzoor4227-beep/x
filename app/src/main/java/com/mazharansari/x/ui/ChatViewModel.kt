@@ -72,11 +72,20 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     data class PendingApproval(val req: GateRequest, val deferred: CompletableDeferred<ApprovalDecision>)
     var pendingApproval by mutableStateOf<PendingApproval?>(null); private set
     fun answerApproval(d: ApprovalDecision) { pendingApproval?.deferred?.complete(d) }
+    /** 2026-11-19 (spec §9.1): "This chat" approvals — command kinds allowed for
+     * the open chat only. In-memory only, never written to ApprovalsStore, and
+     * cleared whenever the user leaves the chat (newChat / open / openProject). */
+    private val chatApprovedPatterns = mutableSetOf<String>()
     private val approver = object : Approver {
         override suspend fun decide(req: GateRequest): ApprovalDecision {
+            if (!req.hard && req.pattern.isNotBlank() && req.pattern in chatApprovedPatterns) return ApprovalDecision.ALLOW_ONCE
             val deferred = CompletableDeferred<ApprovalDecision>()
             withContext(Dispatchers.Main.immediate) { pendingApproval = PendingApproval(req, deferred) }
-            try { return deferred.await() }
+            try {
+                val d = deferred.await()
+                if (d == ApprovalDecision.ALLOW_CHAT && req.pattern.isNotBlank()) chatApprovedPatterns.add(req.pattern)
+                return if (d == ApprovalDecision.ALLOW_CHAT) ApprovalDecision.ALLOW_ONCE else d
+            }
             finally { withContext(NonCancellable + Dispatchers.Main.immediate) { if (pendingApproval?.deferred === deferred) pendingApproval = null } }
         }
     }
@@ -184,6 +193,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         viewingWorkerTranscript = false; workerReturnToId = null; workerReturnToName = null; activeBot = null
         contextUsage = null   // P2-2: the indicator belongs to the conversation just left
         projectId = null
+        chatApprovedPatterns.clear()   // "This chat" approvals end with the chat
         refreshRunning()
     }
 
@@ -219,6 +229,48 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun reviewTexts(c: com.mazharansari.x.build.ChangeGate.FileChange): Pair<String?, String?> {
         val p = g.build.store.get(pendingReview?.projectId) ?: return null to null
         return com.mazharansari.x.build.ChangeGate.texts(pendingDir(p), c)
+    }
+    /** Code-diff screen (2026-11-19): the waiting ChangeSet for one project, read from disk. */
+    fun changeSetFor(projectId: String): com.mazharansari.x.build.ChangeGate.ChangeSet? {
+        val p = g.build.store.get(projectId) ?: return null
+        return com.mazharansari.x.build.ChangeGate.load(pendingDir(p))
+    }
+    fun diffTextsFor(projectId: String, c: com.mazharansari.x.build.ChangeGate.FileChange): Pair<String?, String?> {
+        val p = g.build.store.get(projectId) ?: return null to null
+        return com.mazharansari.x.build.ChangeGate.texts(pendingDir(p), c)
+    }
+    /** Code-diff screen: apply one project's waiting changes (all of [selected], or all when null). */
+    fun approveReviewFor(projectId: String, selected: Set<String>? = null) {
+        val p = g.build.store.get(projectId) ?: return
+        val set = pendingReview?.takeIf { it.projectId == projectId }?.set ?: changeSetFor(projectId) ?: return
+        val sel = selected ?: set.changes.map { it.path }.toSet()
+        val dir = pendingDir(p); val folder = g.build.folder(p)
+        viewModelScope.launch(Dispatchers.IO) {
+            val before = com.mazharansari.x.build.ProjectFiles.snapshot(folder)
+            val rejected = set.changes.map { it.path }.filter { it !in sel }
+            val applied = runCatching { com.mazharansari.x.build.ChangeGate.apply(folder, dir, set, sel) }
+            if (applied.isFailure) { withContext(Dispatchers.Main) { toast = "Could not apply the changes: ${applied.exceptionOrNull()?.message}" }; return@launch }
+            com.mazharansari.x.build.ChangeGate.discard(dir)
+            withContext(Dispatchers.Main) {
+                if (pendingReview?.projectId == projectId) pendingReview = null
+                if (applied.getOrThrow().isNotEmpty()) { undoPoints[p.id] = before; undoAvailable = projectId == p.id; previewEpoch++ }
+                reviewNote = if (rejected.isEmpty()) null else "(The user did NOT approve your changes to: ${rejected.take(12).joinToString()}. Those files are exactly as they were before your last turn; re-read them before editing.)"
+                toast = "Applied ${applied.getOrThrow().size} file${if (applied.getOrThrow().size == 1) "" else "s"}"
+            }
+        }
+    }
+    /** Code-diff screen: throw one project's waiting changes away. */
+    fun rejectReviewFor(projectId: String) {
+        val p = g.build.store.get(projectId) ?: return
+        val dir = pendingDir(p)
+        viewModelScope.launch(Dispatchers.IO) {
+            com.mazharansari.x.build.ChangeGate.discard(dir)
+            withContext(Dispatchers.Main) {
+                if (pendingReview?.projectId == projectId) pendingReview = null
+                reviewNote = "(The user REJECTED your last changes. The project is exactly as it was before that turn; nothing you wrote was kept. Re-read files before editing.)"
+                toast = "Changes rejected — project unchanged"
+            }
+        }
     }
     /** Opening a project: restore it if a turn was cut off mid-way, and bring back a review that was still waiting. */
     private fun loadPending(p: com.mazharansari.x.data.Project) = viewModelScope.launch(Dispatchers.IO) {
@@ -266,7 +318,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         // Phase 2: the draft stays with the chat being left; Build chats are never bot chats.
         drafts.save(conversationId, draft)
         activeBot = null
-        projectId = id; section = Section.BUILD; undoAvailable = undoPoints.containsKey(id); pendingReview = null; loadPending(p)   // axion-p1.2
+        projectId = id; section = Section.ASK; undoAvailable = undoPoints.containsKey(id); pendingReview = null; chatApprovedPatterns.clear(); loadPending(p)   // 2026-11-19: no Build mode — project chats are normal chats; build turns key off projectId
         conversationId = null; title = p.name; messages = emptyList(); pending.clear(); draft = ""
         refreshRunning()
         // v0.8.0: this project's turn is still running — show its live messages, not a stale saved copy.
@@ -319,18 +371,19 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         // v0.8.0: no stop() — the chat being left keeps working in the background.
         // Phase 2: its half-typed draft stays with it.
         drafts.save(conversationId, draft)
+        chatApprovedPatterns.clear()   // "This chat" approvals end with the chat
         opening = id
         val sess = sessions[id]
         if (sess != null) {
             // This chat is still working — show its live messages, not the last saved copy.
             opening = null
             conversationId = sess.convId; title = sess.title; messages = sess.msgs; createdAt = sess.createdAt
-            section = sess.section
+            section = Section.ASK   // 2026-11-19: no Build mode — a live project run keeps its projectId below, not a section
             viewingWorkerTranscript = false
             // Phase 2: a live run keeps the bot it started as; a saved chat restores its bot below.
             activeBot = sess.bot
             draft = drafts.restore(sess.convId)
-            projectId = if (sess.section == Section.BUILD) sess.ownerId else null
+            projectId = sess.pid
             undoAvailable = projectId?.let { undoPoints.containsKey(it) } == true
             pendingReview = null; projectId?.let { pid -> g.build.store.get(pid)?.let { loadPending(it) } }   // axion-p1.2
             refreshRunning()
@@ -341,14 +394,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             if (opening != id) return@launch   // v0.5.2: two quick taps in the drawer — the last one wins
             opening = null
             conversationId = c.id; title = c.title; messages = c.messages; createdAt = c.createdAt
-            section = Section.of(c.section)
+            section = Section.ASK   // 2026-11-19: saved "build" conversations open as normal chats; the project (if any) is re-attached below
             // A worker transcript (section "worker") opens read-only; a normal chat clears it.
             viewingWorkerTranscript = c.section == "worker"
             // Phase 2: the bot this chat ran as is restored from the saved conversation,
             // so reopening a bot chat keeps working as that bot (its logo shows in the row).
             activeBot = if (viewingWorkerTranscript) null else botFor(c.botId)
             draft = drafts.restore(c.id)
-            projectId = if (section == Section.BUILD) g.build.store.projectFor(c.id)?.id else null
+            projectId = g.build.store.projectFor(c.id)?.id
             undoAvailable = projectId?.let { undoPoints.containsKey(it) } == true
             pendingReview = null; projectId?.let { id -> g.build.store.get(id)?.let { loadPending(it) } }   // axion-p1.2
             refreshRunning()
@@ -441,7 +494,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         if (viewingWorkerTranscript) return   // a worker transcript is read-only
         var text = textIn.trim()
         if ((text.isEmpty() && pending.isEmpty()) || running) return
-        if (section == Section.BUILD && pendingReview != null) { toast = "Review the waiting changes first — Approve or Reject."; reviewRequested++; return }   // axion-p1.2
+        if (projectId != null && pendingReview != null) { toast = "Review the waiting changes first — Approve or Reject."; reviewRequested++; return }   // 2026-11-19: keyed off the open project, not a Build section
         sendTappedAt = System.currentTimeMillis()
         // v0.5.2 security: an API key pasted into the chat is never sent to the AI or saved — it's masked (gsk_••••abcd).
         if (com.mazharansari.x.security.SecretScanner.contains(text)) {
@@ -472,12 +525,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val user = Message(UUID.randomUUID().toString(), Role.USER, text, attachments = pending.toList(), createdAt = System.currentTimeMillis())
         pending.clear(); draft = ""
         drafts.clear(conversationId)
-        if (section == Section.BUILD && projectId == null) {
-            // v0.5: every Build chat lives in a project — name it from the request, the user can rename it.
-            val name = text.lineSequence().first().removePrefix("Build ").removePrefix("build ").take(36).trim().ifBlank { "New project" }.replaceFirstChar { it.uppercase() }
-            val p = g.build.create(name, if (Regex("(?i)\\b(android app|apk|mobile app)\\b").containsMatchIn(text)) "android" else "web")
-            projectId = p.id
-        }
         if (conversationId == null) {
             conversationId = UUID.randomUUID().toString(); createdAt = System.currentTimeMillis()
             title = text.ifBlank { user.attachments.firstOrNull()?.name ?: "New chat" }.lineSequence().first().take(48)
@@ -609,7 +656,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val longTaskOn = sec == Section.ASK && s.longTask
         // Phase 2 (background): EVERY run gets a durable record (kind long/ask/build),
         // so a swipe-away or process death leaves a one-tap resume instead of silence.
-        val runKind = if (longTaskOn) "long" else if (sec == Section.BUILD) "build" else "ask"
+        val runKind = if (longTaskOn) "long" else if (projectId != null) "build" else "ask"
         // P1-3 Turbo (server): this task's shell work runs on the user's own server when set up.
         val turboOn = sec == Section.ASK && s.turbo
         val quick = sec == Section.ASK && !researchOn && com.mazharansari.x.agent.IntentGate.isSmallTalk(u.text, intent)
@@ -622,8 +669,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val convId = conversationId ?: return
         val sess = RunSession(
             aid = aid, convId = convId,
-            kind = if (sec == Section.BUILD) com.mazharansari.x.work.RunRegistry.Kind.BUILD else com.mazharansari.x.work.RunRegistry.Kind.ASK,
-            ownerId = if (sec == Section.BUILD) projectId else convId,
+            kind = if (projectId != null) com.mazharansari.x.work.RunRegistry.Kind.BUILD else com.mazharansari.x.work.RunRegistry.Kind.ASK,
+            ownerId = if (projectId != null) projectId else convId,
             title = title, section = sec, createdAt = createdAt, pid = projectId,
             bot = activeBot,
             buf = StreamBuffer(),
@@ -700,7 +747,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             var status = MsgStatus.DONE; var error = ""
             try {
                 val pid = sess.pid
-                if (sec == Section.BUILD && pid != null) withContext(Dispatchers.Default) { runBuildTurn(pid, u, sink) }
+                if (pid != null) withContext(Dispatchers.Default) { runBuildTurn(pid, u, sink) }   // 2026-11-19: a project chat runs build turns; no Build mode
                 else withContext(Dispatchers.Default) {
                     // P2-2: the run measures its context usage against the real window (local model ctx
                     // when LOCAL mode is on) and reports it so the chat shows a context indicator.
@@ -717,9 +764,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         Agent(g.workspace, g.skills, baseTools = Agent.defaultTools() + GenerateImageTool(g.imageGen), extraTools = { g.mcp.tools() }, toolSwitches = { bot?.let { com.mazharansari.x.data.switchesForBot(it) } ?: g.settings.state.value.toolSwitches }, memory = g.memory, conversations = g.chats, researchMode = researchOn,
                             approvals = g.approvals, approver = approver, longTask = longTaskOn, turbo = turboOn, schedules = g.schedules, appCtx = getApplication(),
                             contextBudget = ctxBudget, onContextUsage = { u -> viewModelScope.launch(Dispatchers.Main.immediate) { contextUsage = u } }).run(
-                            history, userItem, attempts = { if (sec == Section.BUILD) buildAttempts() else com.mazharansari.x.data.preferProvider(attempts(runMode, quick, onFreeWait = { secs -> freeWaitNotice(buf, secs) }), bot?.suggestedProvider) }, sink = sink,
+                            history, userItem, attempts = { if (pid != null) buildAttempts() else com.mazharansari.x.data.preferProvider(attempts(runMode, quick, onFreeWait = { secs -> freeWaitNotice(buf, secs) }), bot?.suggestedProvider) }, sink = sink,
                             profile = Profile(botName, s.userName, s.replyLanguage, s.instructions),
-                            intent = if (sec == Section.BUILD) com.mazharansari.x.agent.Intent.CHAT else intent,   // agy brings its own tools
+                            intent = if (pid != null) com.mazharansari.x.agent.Intent.CHAT else intent,   // agy brings its own tools
                             swarmParentId = convId, fastAttempts = { attempts(Mode.FAST, quick) },
                             systemExtra = bot?.promptBlock(),
                         )

@@ -47,6 +47,9 @@ fun ApprovalsScreen(vm: ChatViewModel, back: () -> Unit) {
                 Text("Banking and payment commands, and commands that could wipe storage, are never remembered — those ask every time.",
                     style = Type.small.copy(fontSize = 14.sp, lineHeight = 20.sp), color = p.text2,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
+                Text("\"This chat\" is the middle scope: it allows a kind of command until you leave the chat, and is never stored here — leaving the chat forgets it.",
+                    style = Type.small.copy(fontSize = 14.sp, lineHeight = 20.sp), color = p.text2,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
             }
             if (rules.isEmpty()) {
                 item {

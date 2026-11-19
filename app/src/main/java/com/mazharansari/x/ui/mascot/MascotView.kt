@@ -259,3 +259,28 @@ fun MascotLogo(size: Dp, thinking: Boolean, modifier: Modifier = Modifier, onTap
             },
     )
 }
+
+/**
+ * 2026-11-19 (X-NEW-UI-SPEC §5.1/§5.5): the mascot as a STATIC logo mark —
+ * the front frame only, no bob, no blink, no drag, no auto-rotate. This is
+ * the only mascot form on the chat screen (36dp header), splash (72dp),
+ * drawer (32dp) and empty chat (48dp). The animated [MascotLogo] behaviour
+ * (blink / drag-to-turn / gaze / thinking auto-rotate) is kept intact for
+ * the ThinkingOrb screen, where the mascot behaviour lives — it is not a
+ * screen of its own and never appears as a big character scene.
+ */
+@Composable
+fun LogoMark(size: Dp, modifier: Modifier = Modifier, alpha: Float = 1f, onTap: (() -> Unit)? = null) {
+    Image(
+        painter = painterResource(R.drawable.mascot_yaw_0),
+        contentDescription = "X logo",
+        modifier = modifier
+            .size(size)
+            .graphicsLayer { this.alpha = alpha }
+            .semantics {
+                this.contentDescription = "X logo"
+                role = Role.Image
+                if (onTap != null) { onClick(action = { onTap(); true }) }
+            },
+    )
+}

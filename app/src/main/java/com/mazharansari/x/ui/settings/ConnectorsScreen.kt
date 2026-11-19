@@ -321,8 +321,8 @@ private fun open(ctx: android.content.Context, url: String) = runCatching { ctx.
 /** Brand badge: Grok shows each connector's logo in a 32dp rounded square; Axion draws a brand-coloured monogram (real logos are trademarks). */
 private val brand = mapOf(
     "gemini" to Color(0xFF4C8DF6), "groq" to Color(0xFFF55036), "cerebras" to Color(0xFFF15A29), "mistral" to Color(0xFFFA520F),
-    "openrouter" to Color(0xFF6467F2), "github" to Color(0xFF2B3137), "huggingface" to Color(0xFFFFB000), "nvidia" to Color(0xFF76B900),
-    "sambanova" to Color(0xFFEE7624), "cohere" to Color(0xFF39594D), "together" to Color(0xFF0F6FFF), "openai" to Color(0xFF10A37F),
+    "openrouter" to Color(0xFF6467F2), "github" to Color(0xFF2B3137), "huggingface" to Color(0xFFFFB000), "nvidia" to Color(0xFF555555),
+    "sambanova" to Color(0xFFEE7624), "cohere" to Color(0xFF8A8A8E), "together" to Color(0xFF0F6FFF), "openai" to Color(0xFF6B7280),
     "deepseek" to Color(0xFF4D6BFE), "xai" to Color(0xFF111111),
 )
 

@@ -1,11 +1,12 @@
 package com.mazharansari.x.ui
 
 /**
- * One chat screen (2026-11-17 rebuild): the stack starts at [Route.Chat].
- * Build mode and the dock screens are gone — Home, Feed, Ideas, Goals,
- * Library, Activity, Computer, Mark and CodeDiff were deleted with their
- * screens. Everything below stays as a stack destination, reached only
- * from the chat menu / settings / chat actions, never from a dock.
+ * One chat screen (2026-11-17 rebuild; 2026-11-19 new UI): the stack starts
+ * at [Route.Chat]. There is no Build mode and no dock. Feed, Ideas, Goals,
+ * Library, Activity, Computer and CodeDiff are stack destinations again
+ * (X-NEW-UI-SPEC §6), reached only from the drawer or from chat. Everything
+ * else stays as a stack destination, reached only from the chat menu /
+ * settings / chat actions, never from a dock.
  */
 sealed interface Route {
     data object Chat : Route
@@ -53,6 +54,16 @@ sealed interface Route {
     data object Bots : Route
     // Config, reachable from Antigravity/menu.
     data object CliPair : Route
+    // 2026-11-19 (X-NEW-UI-SPEC §6): Workspace stack destinations — reached
+    // from the drawer or from chat, never from a dock or home tab.
+    data object Feed : Route
+    data object Ideas : Route
+    data object Goals : Route
+    data object Library : Route
+    data object Activity : Route
+    data object Computer : Route
+    /** Code-diff review for one project (real ChangeGate ChangeSet). */
+    data class CodeDiff(val projectId: String) : Route
 }
 
 /** v0.5.2: routes shown with FLAG_SECURE (a key, token or password can be typed or shown on them). */

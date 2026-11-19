@@ -7,16 +7,26 @@
 sandbox, so no compile or test run was possible here. First verification is
 GitHub Actions CI after the push (see "First CI build" below).
 
-**Counts (verified 2026-11-17):** 206 main Kotlin files (donor 194 + 12 new) ·
-287 Kotlin files total · **23 bot seeds** (donor 6 + 17 new) · **30 skill packs**
-(donor 18 + 12 new) · 41 routes (donor 32 + 9 new) · 1,335 files in tree.
+**Counts (re-verified 2026-11-19, after the UI rebuild):** 194 main Kotlin
+files (`find app/src/main/java -name '*.kt'`) · **23 bot seeds**
+(`BotCatalog.kt`: 23 `BotDefinition(`) · **30 skill packs** (audit count —
+the old "56" was wrong) · 40 routes (`Route.kt`: 39 data objects +
+`CodeDiff`). The 2026-11-17 counts above (206 files / 41 routes) were stale;
+see `docs/X-REBUILD-2026-11-19.md` for the rebuild. The rest of this file
+describes the 2026-11-17 first build unless marked otherwise.
 
 ## 1. What was built in this session
 
-### Theme — Sand is live
-- `ui/AppRoot.kt`: `AxionTheme(...)` → `SandTheme(look, textScale)` (string
-  setting "system"|"dark"|"light" mapped to `SandLook`). `AxionTheme()` kept
-  intact in `Theme.kt` as fallback.
+### Theme — Sand is DEAD (superseded 2026-11-19)
+- **2026-11-19 rebuild:** the Sand theme and the DotsTheme are deleted.
+  `ui/theme/DotsTheme.kt` removed; `ui/theme/Theme.kt` rewritten as the X
+  theme (light `#FFFFFF`/`#F7F7F8`/`#171717`, dark `#171717`/`#212121`/`#ECECEC`,
+  accent indigo `#4F46E5` light / `#818CF8` dark; no green anywhere — verified
+  by grep). `ui/AppRoot.kt` now uses `XTheme` / `XLook`. `AxionTheme()` kept
+  intact in `Theme.kt` as fallback (the test suite wraps screens in it).
+  The Sand paragraph below is kept as history only — do not re-apply it.
+- (2026-11-17, history) `ui/AppRoot.kt`: `AxionTheme(...)` → `SandTheme(look, textScale)` (string
+  setting "system"|"dark"|"light" mapped to `SandLook`).
 - Appearance screen: System/Dark/Light tiles already write the same string
   setting and use palette colours — no change needed.
 - Hardcoded-accent sweep: **0 replacements needed** — no hardcoded brand
@@ -56,7 +66,7 @@ Groq / OpenRouter / xAI Grok / null (never OpenAI, never Antigravity).
 | 21 | Teacher | 🟡 Seed written | Guided-setup persona (definition only) |
 | 22 | Memory Keeper | 🟡 Seed written | Memory store already existed |
 | 23 | Guard (Sentinel) | 🟡 Seed written | Approval gate + quota already existed; toolGroups empty (internal machinery) |
-| 24 | Idea Catcher | 🆕 Seed written | **Now unblocked:** Ideas/Goals tabs exist (this session) |
+| 24 | Idea Catcher | 🆕 Seed written | **2026-11-19:** Ideas + Goals are now real drawer destinations wired to `data/IdeasStore.kt` / `data/GoalsStore.kt` (see `docs/X-REBUILD-2026-11-19.md`). |
 
 Swarm caps (unchanged, honest limits): max 4 parallel workers, 8 steps each,
 depth 2, 6 workers per run. Workers never do GitHub / posting / installing /

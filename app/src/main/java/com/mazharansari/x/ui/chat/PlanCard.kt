@@ -37,7 +37,7 @@ fun PlanCard(steps: List<PlanStep>, modifier: Modifier = Modifier) {
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
                 Box(Modifier.padding(top = 2.dp).size(20.dp), contentAlignment = Alignment.Center) {
                     when (s.status) {
-                        PlanStatus.DONE -> GkIcon(Gk.check, "done", 16.dp, Color(0xFF3FB950))
+                        PlanStatus.DONE -> GkIcon(Gk.check, "done", 16.dp, p.textSecondary)
                         PlanStatus.FAILED -> GkIcon(Gk.close, "failed", 15.dp, p.danger)
                         PlanStatus.RUNNING -> PulseDot()
                         PlanStatus.SKIPPED -> GkIcon(Gk.close, "skipped", 13.dp, p.text3)

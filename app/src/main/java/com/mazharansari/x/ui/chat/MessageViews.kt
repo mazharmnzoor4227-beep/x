@@ -50,13 +50,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Dots user bubble (OpenDots): teal bg, white text, 17dp corners with a 4dp bottom-right, 40dp start margin. */
+//** X user bubble (spec §5.2): right-aligned, userBubble bg, text colour, 20dp corners with a 4dp bottom-right, 48dp start margin, max 80% wide. */
 @Composable
 fun UserBubble(m: Message, onLongPress: () -> Unit = {}) {
     val p = P
     // Phase 2: a pasted or model-echoed message that arrives URL-encoded renders decoded.
     val text = remember(m.text) { MessageText.decodeIfEncoded(m.text) }
-    Column(Modifier.fillMaxWidth().padding(start = 40.dp, end = 16.dp, top = 10.dp, bottom = 6.dp), horizontalAlignment = Alignment.End) {
+    Column(Modifier.fillMaxWidth().padding(start = 48.dp, end = 16.dp, top = 10.dp, bottom = 6.dp), horizontalAlignment = Alignment.End) {
         if (m.attachments.isNotEmpty()) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 m.attachments.forEach { AttachmentChip(it) }
@@ -64,9 +64,9 @@ fun UserBubble(m: Message, onLongPress: () -> Unit = {}) {
             Spacer(Modifier.height(6.dp))
         }
         if (text.isNotBlank()) {
-            SelectionContainer {
-                Text(text, style = Type.body, color = Color.White,
-                    modifier = Modifier.clip(RoundedCornerShape(topStart = 17.dp, topEnd = 17.dp, bottomStart = 17.dp, bottomEnd = 4.dp)).background(p.teal)
+            SelectionContainer(Modifier.fillMaxWidth(0.8f)) {
+                Text(text, style = Type.body.copy(fontSize = 15.sp, lineHeight = 22.sp), color = p.text,
+                    modifier = Modifier.clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 4.dp)).background(p.userBubble)
                         .padding(horizontal = 16.dp, vertical = 12.dp))
             }
         }
@@ -131,7 +131,7 @@ internal fun runLabel(r: StepRun): String {
     }
 }
 
-/** Dots assistant turn (OpenDots transcript): NO bubble — plain text on the page, full width.
+/** X assistant turn: NO bubble — plain text on the page, full width.
  * Thinking header → grouped steps → Bash cards → answer → actions. */
 @Composable
 fun AssistantMessage(
@@ -244,7 +244,7 @@ fun ShimmerText(text: String) {
         maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 300.dp))
 }
 
-/** OpenDots run status pill: completed / running / failed / paused. */
+/** X run status pill: completed / running / failed / paused (neutral colours — never green). */
 enum class StatusKind { Done, Running, Failed, Paused }
 
 @Composable
@@ -278,7 +278,7 @@ fun StepLine(s: Step, compact: Boolean = false) {
 }
 
 /**
- * Dots Bash card: a dark code card in BOTH themes (GitHub-style), 13dp corners, "▢ Bash" header with copy at right, then the
+ * X Bash card: a dark code card in BOTH themes, 13dp corners, "▢ Bash" header with copy at right, then the
  * script in Google Sans Code (shell lines khaki #CACBB2, code/strings salmon #B38F82) clipped to ~6 lines with
  * a fade; tap to expand. The command ran hidden in the sandbox — this card is only the record.
  */

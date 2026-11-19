@@ -30,6 +30,9 @@ class AxionApp : Application() {
         // P2-3: jobs that were still "running" when the app died are interrupted now (their process is gone); their logs stay.
         Thread { runCatching { graph.jobs.reconcile() } }.start()
         com.mazharansari.x.voice.ReadAloudPlayer.geminiKeys = { graph.geminiKeys() }
+        // 2026-11-19: the standing natural voice preference + Piper pack store (see voice/PiperVoice.kt).
+        com.mazharansari.x.voice.ReadAloudPlayer.voicePref = { graph.settings.state.value.voicePref }
+        com.mazharansari.x.voice.ReadAloudPlayer.piperStore = { graph.piperVoices }
         com.mazharansari.x.voice.ReadAloudPlayer.customVoice = { graph.customVoice.current.value }
         com.mazharansari.x.agent.Agent.pluginTools = { graph.plugins.allTools() }
         // P2-1: resume Telegram control after a restart when it was left on.
@@ -63,6 +66,8 @@ class Graph(val app: Application) {
     val mcp by lazy { McpRepo(app.filesDir, linux = { linux }) }
     /** P1-1 (§6.1): the connected GitHub account (KeyVault-encrypted token) + its audit log. */
     val github by lazy { com.mazharansari.x.github.GitHubStore(File(app.filesDir, "github")) }
+    /** 2026-11-19: Piper voice packs (Aegis/Fasih/Kokoro) — files in <filesDir>/piper-voices. */
+    val piperVoices by lazy { com.mazharansari.x.voice.PiperVoiceStore(app) }
     val speaker by lazy { Speaker(app) }
     /** P2-1: Telegram bot control — OFF by default; the user supplies his own bot token in Settings. */
     val telegram by lazy { com.mazharansari.x.telegram.TelegramStore(app) }

@@ -47,7 +47,11 @@ import com.mazharansari.x.ui.Route
 import com.mazharansari.x.ui.chat.ArtifactCard
 import com.mazharansari.x.ui.chat.sizeLabel
 import com.mazharansari.x.ui.components.*
-import com.mazharansari.x.ui.mascot.MascotLogo
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.provider.OpenableColumns
+import com.mazharansari.x.ui.mascot.LogoMark
+import com.mazharansari.x.voice.PiperPack
 import com.mazharansari.x.ui.home.FileActions
 import com.mazharansari.x.ui.home.openFile
 import com.mazharansari.x.ui.theme.P
@@ -108,6 +112,7 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
         SectionLabel("App")
         SettingsGroup {
             SettingsRow(Gk.theme, "Appearance", subtitle = s.theme.replaceFirstChar { it.uppercase() }) { nav(Route.Appearance) }
+            SettingsRow(Gk.voice, "Voice & Language", subtitle = PiperPack.of(s.voicePref).displayName) { nav(Route.Language) }
             SettingsRow(Gk.sliders, "Advanced") { nav(Route.Advanced) }
         }
         SectionLabel("Axion")
@@ -141,7 +146,7 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
             SettingsRow(Gk.info, "About Axion") { nav(Route.About) }
             SettingsRow(Gk.help, "Report a problem") { nav(Route.About) }
         }
-        Text("Axion ${BuildConfig.VERSION_NAME}", style = Type.small.copy(fontSize = 15.sp), color = p.text2, modifier = Modifier.fillMaxWidth().padding(top = 26.dp), textAlign = TextAlign.Center)
+        Text("X ${BuildConfig.VERSION_NAME}", style = Type.small.copy(fontSize = 15.sp), color = p.text2, modifier = Modifier.fillMaxWidth().padding(top = 26.dp), textAlign = TextAlign.Center)
         Text("by Mazhar Ansari", style = Type.tiny, color = p.text3, modifier = Modifier.fillMaxWidth().padding(top = 2.dp), textAlign = TextAlign.Center)
     }
 }
@@ -179,10 +184,62 @@ fun AppearanceScreen(vm: ChatViewModel, back: () -> Unit) {
  * which is out of scope, so the fake picker is REMOVED. What remains is the speech
  * language, which genuinely works (dictation + voice calls read it).
  */
+/**
+ * Voice & Language (spec §10.10): the read-aloud / voice-call voice
+ * preference. First pick is Piper Urdu Aegis (offline, on-device) — see
+ * voice/PiperVoice.kt. Until the Piper engine (sherpa-onnx) is bundled, a
+ * Piper pick reads in the phone's built-in Urdu/Hindi voice; the screen
+ * says so plainly and shows each pack's real download state.
+ */
 @Composable
 fun LanguageScreen(vm: ChatViewModel, back: () -> Unit) {
     val s = settingsOf(vm)
-    SettingsPage("Speech language", back) {
+    val ctx = LocalContext.current
+    val store = vm.g.piperVoices
+    var imported by remember { mutableStateOf(0) }
+    val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        var n = 0
+        uris.forEach { uri ->
+            val name = runCatching {
+                ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                    if (c.moveToFirst()) c.getString(0) else null
+                }
+            }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/') ?: ""
+            if (store.importFile(ctx, uri, name) != null) n++
+        }
+        if (n > 0) { imported++; vm.toast = "Imported $n voice file${if (n == 1) "" else "s"}" }
+        else vm.toast = "Those files are not a Piper voice pack — pick the .onnx and .json files"
+    }
+    SettingsPage("Voice & Language", back) {
+        SectionLabel("Voice (read-aloud + voice calls)")
+        SettingsGroup {
+            listOf(
+                PiperPack.AEGIS.id to "Piper Urdu Aegis — female",
+                PiperPack.FASIH.id to "Piper Urdu Fasih — male",
+                PiperPack.KOKORO_HINDI.id to "Kokoro Hindi — alternative",
+                "system" to "System phone voice",
+            ).forEach { (id, l) ->
+                SettingsRow(null, l, chevron = false, trailing = { Check(s.voicePref == id) }) { vm.g.settings.update { it.copy(voicePref = id) } }
+            }
+        }
+        SectionLabel("Piper voice packs (offline)")
+        key(imported) {
+            SettingsGroup {
+                listOf(PiperPack.AEGIS, PiperPack.FASIH).forEach { pack ->
+                    val st = store.status(pack)
+                    SettingsRow(null, pack.displayName,
+                        subtitle = if (st.downloaded) "Downloaded · ${st.bytes / 1_048_576} MB on this phone" else "Not downloaded — import the .onnx + .json files",
+                        chevron = false,
+                        trailing = { if (st.downloaded) GkIcon(Gk.check, "Downloaded", 22.dp, P.text) }) { }
+                }
+            }
+        }
+        Text("The Piper engine is not installed yet, so a Piper pick reads in the phone's built-in Urdu/Hindi voice for now. Import a pack's two files (Files → pick the .onnx and the .json) and it will be ready the day the engine lands.",
+            style = Type.small.copy(fontSize = 13.sp, lineHeight = 19.sp), color = P.text2,
+            modifier = Modifier.padding(start = 30.dp, end = 24.dp, top = 10.dp))
+        SettingsGroup {
+            SettingsRow(Gk.uploadImage, "Import voice pack files", subtitle = "Pick the .onnx and .json files", chevron = false) { pickFiles.launch(arrayOf("*/*")) }
+        }
         SectionLabel("Speech language (mic + voice calls)")
         SettingsGroup {
             listOf("ur-PK" to "Urdu (Pakistan)", "hi-IN" to "Hindi", "en-US" to "English").forEach { (id, l) ->
@@ -406,7 +463,7 @@ fun AboutScreen(vm: ChatViewModel, back: () -> Unit, nav: (Route) -> Unit = {}) 
     if (deleteAll) DeleteAllDialog(vm) { deleteAll = false; vm.debugDeleteAll = false }
     SettingsPage("About", back) {
         Column(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            MascotLogo(72.dp, thinking = false)
+            LogoMark(72.dp)
             Spacer(Modifier.height(12.dp))
             Text("X", style = Type.title.copy(fontSize = 24.sp), color = p.text)
             Text("Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", style = Type.small, color = p.text2)
@@ -443,7 +500,6 @@ private fun UpdateCard(vm: ChatViewModel) {
         life.lifecycle.addObserver(o); onDispose { life.lifecycle.removeObserver(o) }
     }
     fun installNow(f: java.io.File) { if (!up.canInstall()) needPermission = true else runCatching { up.install(f) }.onFailure { vm.toast = it.message } }
-    val green = Color(0xFF3FB950)
     Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.card).padding(16.dp)) {
         when (val s = st) {
             UpdateState.Idle -> Text("Axion checks for a new version once a day. You can check now too.", style = Type.small, color = p.text2)
@@ -452,7 +508,7 @@ private fun UpdateCard(vm: ChatViewModel) {
                 Text("Checking for updates…", style = Type.small, color = p.text2)
             }
             is UpdateState.UpToDate -> Row(verticalAlignment = Alignment.CenterVertically) {
-                GkIcon(Gk.check, null, 18.dp, green); Spacer(Modifier.width(8.dp))
+                GkIcon(Gk.check, null, 18.dp, p.textSecondary); Spacer(Modifier.width(8.dp))
                 Text("You're on the latest version (${BuildConfig.VERSION_NAME}).", style = Type.small, color = p.text)
             }
             is UpdateState.Available -> UpdateInfoBlock(s.info)
@@ -462,7 +518,7 @@ private fun UpdateCard(vm: ChatViewModel) {
                 Text("Downloading ${UpdateRules.mb(s.done)} of ${UpdateRules.mb(s.total)}", style = Type.tiny, color = p.text2, modifier = Modifier.padding(top = 6.dp))
             }
             is UpdateState.Verifying -> { UpdateInfoBlock(s.info); Text("Checking the download (checksum and signing key)…", style = Type.small, color = p.text2, modifier = Modifier.padding(top = 10.dp)) }
-            is UpdateState.Ready -> { UpdateInfoBlock(s.info); Text("Downloaded and verified: checksum matches and it's signed with Axion's key.", style = Type.small, color = green, modifier = Modifier.padding(top = 10.dp)) }
+            is UpdateState.Ready -> { UpdateInfoBlock(s.info); Text("Downloaded and verified: checksum matches and it's signed with Axion's key.", style = Type.small, color = p.textSecondary, modifier = Modifier.padding(top = 10.dp)) }
             is UpdateState.Failed -> { s.info?.let { UpdateInfoBlock(it) }; Text(s.message, style = Type.small, color = Color(0xFFF04438), modifier = Modifier.padding(top = if (s.info != null) 10.dp else 0.dp)) }
         }
         if (needPermission) {
@@ -489,7 +545,7 @@ private fun UpdateInfoBlock(info: UpdateInfo) {
     val p = P
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("Axion ${info.versionName}", style = Type.row, color = p.text, modifier = Modifier.weight(1f))
-        Badge("New", Color(0xFF3FB950))
+        Badge("New", p.accent)
     }
     if (info.notes.isNotBlank()) Text(info.notes, style = Type.small.copy(fontSize = 13.5.sp, lineHeight = 19.sp), color = p.text2, modifier = Modifier.padding(top = 6.dp))
 }

@@ -33,7 +33,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val OGreen = Color(0xFF3FB950)
 private val OAmber = Color(0xFFF5A524)
 private val ORed = Color(0xFFF04438)
 
@@ -85,8 +84,8 @@ fun LocalModelsScreen(vm: ChatViewModel, back: () -> Unit) {
                             Text("${m.params} · ${mb(m.bytes / 1024)} · needs ${m.minRamGb} GB+ RAM", style = Type.tiny, color = p.text2)
                         }
                         when {
-                            active == m.id -> Badge("In use", OGreen)
-                            st == DlState.Ready -> Badge("Downloaded", OGreen)
+                            active == m.id -> Badge("In use", p.accent)
+                            st == DlState.Ready -> Badge("Downloaded", p.accent)
                         }
                     }
                     Text(m.blurb, style = Type.small.copy(fontSize = 13.sp), color = p.text2, modifier = Modifier.padding(top = 8.dp))
@@ -161,7 +160,7 @@ fun MyServerScreen(vm: ChatViewModel, back: () -> Unit, nav: (Route) -> Unit) {
                     }
                     if (testing) CircularProgressIndicator(Modifier.size(18.dp), color = p.text2, strokeWidth = 2.dp)
                 }
-                result?.let { r -> Text(r.message, style = Type.small, color = if (r.ok) OGreen else ORed, modifier = Modifier.padding(top = 10.dp)) }
+                result?.let { r -> Text(r.message, style = Type.small, color = if (r.ok) p.accent else ORed, modifier = Modifier.padding(top = 10.dp)) }
             }
             if (models.isNotEmpty()) {
                 SectionLabel("Model")

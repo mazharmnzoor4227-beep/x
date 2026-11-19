@@ -48,7 +48,7 @@ val LocalHaze = staticCompositionLocalOf<HazeState?> { null }
 private val PopShape = RoundedCornerShape(13.dp)
 
 /**
- * Dots anchored popover (OpenDots): a white card that grows out of the composer's bottom-left corner
+ * X anchored popover: a card that grows out of the composer's bottom-left corner
  * (scale 0.92→1 + fade, ~150 ms), sits 12dp from the screen edge, and a tap outside
  * closes it. [bottomGap] is the distance from the screen bottom (inside the composer's box) to the popover's bottom.
  */
@@ -125,14 +125,14 @@ fun BoxScope.PlusPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp,
 
 /**
  * Model picker: the same popover, 283dp wide, rows "title / grey description" with the chosen mode on a
- * lavender pill and a check at the right. The top block holds the providers (same layout: title, one grey line, a periwinkle pill button).
+ * accent-tinted pill and a check at the right. The top block holds the providers (same layout: title, one grey line, an accent pill button).
  */
 @Composable
 fun BoxScope.ModelPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp, maxHeight: Dp = Dp.Unspecified, mode: String, connectors: List<Connector>, onPick: (String) -> Unit, onConnectors: () -> Unit) {
     val p = P
     GlassPopover(visible, onDismiss, bottomGap, 283.dp, maxHeight) {
         val on = connectors.filter { it.enabled }
-        // Dots providers block (icon + title, one grey line, periwinkle pill button)
+        // Providers block (icon + title, one grey line, accent pill button)
         Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 GkIcon(Gk.connectors, null, 22.dp, p.text); Spacer(Modifier.width(8.dp))

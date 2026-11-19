@@ -16,8 +16,8 @@ import com.mazharansari.x.ui.AnimationGate
 import com.mazharansari.x.ui.chat.ChatScreen
 import com.mazharansari.x.ui.chat.SplashScreen
 import com.mazharansari.x.ui.settings.*
-import com.mazharansari.x.ui.theme.DotsLook
-import com.mazharansari.x.ui.theme.DotsTheme
+import com.mazharansari.x.ui.theme.XLook
+import com.mazharansari.x.ui.theme.XTheme
 import com.mazharansari.x.ui.theme.P
 
 @Composable
@@ -28,7 +28,7 @@ fun AppRoot(vm: ChatViewModel) {
     var splashDone by remember { mutableStateOf(AnimationGate.inTestRuntime) }
     val ctx = LocalContext.current
     LaunchedEffect(vm.toast) { vm.toast?.let { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show(); vm.toast = null } }
-    DotsTheme(when (settings.theme) { "light" -> DotsLook.Light; "system" -> DotsLook.System; else -> DotsLook.Dark }, settings.textScale) {
+    XTheme(when (settings.theme) { "light" -> XLook.Light; "system" -> XLook.System; else -> XLook.Dark }, settings.textScale) {
         val onboarding = com.mazharansari.x.ui.auth.Onboarding.enabled
         // First run: intro → permissions → the app, cross-faded. No sign-in: the app opens straight in.
         val stage = when {
@@ -98,6 +98,13 @@ fun AppRoot(vm: ChatViewModel) {
                         Route.BotStore -> com.mazharansari.x.ui.bots.BotStoreScreen(vm, back)
                         Route.Bots -> com.mazharansari.x.ui.bots.BotsScreen(vm, nav, back)
                         Route.CliPair -> com.mazharansari.x.ui.home.CliPairScreen(vm, back, nav)
+                        Route.Feed -> com.mazharansari.x.ui.workspace.FeedScreen(vm, back, nav)
+                        Route.Ideas -> com.mazharansari.x.ui.workspace.IdeasScreen(vm, back, nav)
+                        Route.Goals -> com.mazharansari.x.ui.workspace.GoalsScreen(vm, back, nav)
+                        Route.Library -> com.mazharansari.x.ui.workspace.LibraryScreen(vm, back, nav)
+                        Route.Activity -> com.mazharansari.x.ui.workspace.ActivityScreen(vm, back)
+                        Route.Computer -> com.mazharansari.x.ui.workspace.ComputerScreen(vm, back, nav)
+                        is Route.CodeDiff -> com.mazharansari.x.ui.workspace.CodeDiffScreen(vm, r.projectId, back)
                     } }
                 }
                 // v0.8.3: while a Live call is held by the view model and the call screen is not

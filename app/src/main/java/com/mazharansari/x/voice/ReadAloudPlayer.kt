@@ -83,6 +83,10 @@ object ReadAloudPlayer {
 
     /** P2-6: the user's own voice slot (set by the app); null when nothing is set up. */
     var customVoice: () -> CustomVoice? = { null }
+    /** 2026-11-19: the voice preference (AppSettings.voicePref, set by the app). */
+    var voicePref: () -> String = { "piper-aegis" }
+    /** 2026-11-19: the Piper voice-pack store (set by the app); null in tests. */
+    var piperStore: () -> PiperVoiceStore? = { null }
     private var geminiPlayer: com.mazharansari.x.livecall.LiveAudioPlayer? = null
     private val missingNoticeShown = HashSet<String>()
 
@@ -125,7 +129,83 @@ object ReadAloudPlayer {
                 postNotice(app, "Your own voice is set up, but no voice engine for it is installed yet — reading in ${chosen.name} instead.")
             }
         }
+        // 2026-11-19: the standing natural voice — Piper Urdu Aegis first pick
+        // (voice/PiperVoice.kt). A voiceOverride (e.g. a Live-call voice) skips
+        // this: it asked for a specific voice. Otherwise the preference wins
+        // over the Edge/Gemini chain below, which stays as the online fallback.
+        if (voiceOverride == null && PiperPack.isPiperPick(voicePref())) {
+            val pack = PiperPack.of(voicePref())
+            val store = piperStore()
+            val status = store?.status(pack)
+            val engine = PiperVoiceEngines.engine
+            if (engine != null && status?.downloaded == true) {
+                playJob = scope.launch {
+                    val ok = runCatching { engine.speak(app, pack, plain) }.getOrDefault(false)
+                    if (ok) {
+                        provenance = "Piper · ${pack.displayName}"
+                        finish(my)
+                    } else {
+                        postNotice(app, "Piper ${pack.displayName} could not read this — reading in the phone's ${if (pack.phoneLocale == "hi-IN") "Hindi" else "Urdu"} voice instead.")
+                        speakPhoneLocale(app, plain, my, pack)
+                    }
+                }
+                return
+            }
+            // No Piper engine bundled yet (honest state — see PiperVoice.kt):
+            // the phone's built-in Urdu/Hindi voice reads instead, offline.
+            // The notice names exactly what is missing (engine / voice pack).
+            if (missingNoticeShown.add("piper:$pack")) {
+                val missing = if (engine == null && status?.downloaded != true) "the Piper engine is not installed yet and the ${pack.displayName} voice pack is not downloaded"
+                    else if (engine == null) "the Piper engine is not installed yet"
+                    else "the ${pack.displayName} voice pack is not downloaded"
+                postNotice(app, "Piper ${pack.displayName} is picked, but $missing — reading in the phone's ${if (pack.phoneLocale == "hi-IN") "Hindi" else "Urdu"} voice instead. See Settings → Voice & Language.")
+            }
+            provenance = "Phone · ${if (pack.phoneLocale == "hi-IN") "Hindi" else "Urdu"}"
+            speakPhoneLocale(app, plain, my, pack)
+            return
+        }
         playJob = scope.launch { speakWithChain(app, chosen, plain, my) }
+    }
+
+    /**
+     * Offline phone-voice path for the Piper picks: the phone's built-in
+     * Urdu/Hindi TextToSpeech voice, by locale — no voice-name resolution,
+     * so no misleading "voice isn't installed" notice when the text is
+     * Latin script (the phone's default voice reads that). Chunks and
+     * finish signalling mirror [speakOnDevice].
+     */
+    private fun speakPhoneLocale(context: Context, text: String, my: Int, pack: PiperPack) {
+        val locale = java.util.Locale.forLanguageTag(pack.phoneLocale)
+        val engine = tts
+        if (engine == null || !ttsReady) {
+            pendingSpeak = { if (session == my) speakPhoneLocale(context, text, my, pack) }
+            if (engine == null) {
+                val listener = TextToSpeech.OnInitListener { status ->
+                    val pending = pendingSpeak; pendingSpeak = null
+                    if (status == TextToSpeech.SUCCESS) { ttsReady = true; pending?.invoke() }
+                    else { tts = null; scope.launch { finish(my) } }
+                }
+                tts = if (hasGoogleTts(context)) TextToSpeech(context, listener, GOOGLE_TTS) else TextToSpeech(context, listener)
+            }
+            return
+        }
+        runCatching {
+            engine.language = locale
+            engine.setSpeechRate(VoicePrefs.pace(context))
+            engine.setPitch(1.0f)
+        }
+        val chunks = chunkText(text, 1100)
+        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) = Unit
+            override fun onDone(utteranceId: String?) {
+                if (utteranceId == "axion-$my-${chunks.size - 1}") scope.launch { finish(my) }
+            }
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) { scope.launch { finish(my) } }
+        })
+        chunks.forEachIndexed { index, chunk ->
+            engine.speak(chunk, if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD, null, "axion-$my-$index")
+        }
     }
 
     /** The normal read-aloud chain: picked voice, Edge → Gemini twin → phone fallback. */

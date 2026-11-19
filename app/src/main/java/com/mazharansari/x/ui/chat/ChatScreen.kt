@@ -58,7 +58,7 @@ import com.mazharansari.x.ui.components.*
 import com.mazharansari.x.ui.home.FileActions
 import com.mazharansari.x.ui.home.openFile
 import com.mazharansari.x.ui.home.shareFile
-import com.mazharansari.x.ui.mascot.MascotLogo
+import com.mazharansari.x.ui.mascot.LogoMark
 import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
 import dev.chrisbanes.haze.HazeState
@@ -67,13 +67,13 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
- * THE one chat screen (2026-11-17 rebuild; 2026-11-18 Dots re-skin):
- * mascot header, message list, composer, menu drawer. No tabs, no dock, no
- * Build mode. The real ChatViewModel drives everything (vm.messages,
- * vm.send(), vm.running, vm.draft); the chat starts empty — no seed lines.
- *
- * Dots (OpenDots/OpenFuse design, reimplemented in Compose): colours come
- * from DotsTheme (P.*), system sans throughout (Type.*).
+ * THE one chat screen (2026-11-19 new UI, docs/X-NEW-UI-SPEC.md §5):
+ * 36dp logo mark + "X" header, plain-text assistant messages, right-aligned
+ * user bubbles, run-steps timeline, 28dp composer with ToolsRow, drawer-only
+ * navigation. No tabs, no dock, no Build mode, no Invite pill. The real
+ * ChatViewModel drives everything (vm.messages, vm.send(), vm.running,
+ * vm.draft); the chat starts empty — no seed lines. Colours come from
+ * XTheme (P.*), system sans throughout (Type.*).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -91,7 +91,8 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
     LaunchedEffect(dictation.error) { dictation.error?.let { vm.toast = it } }
     val speakingId by g.speaker.speakingId.collectAsState()
     var drawerOpen by remember { mutableStateOf(false) }
-    var inviteOpen by remember { mutableStateOf(false) }
+    var overflowOpen by remember { mutableStateOf(false) }
+    var renamingChat by remember { mutableStateOf(false) }
     var plus by remember { mutableStateOf(vm.debugPopover == 1) }
     var model by remember { mutableStateOf(vm.debugPopover == 2) }
     LaunchedEffect(vm.debugPopover) { if (vm.debugPopover == 1) plus = true; if (vm.debugPopover == 2) model = true }
@@ -214,35 +215,29 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
     CompositionLocalProvider(LocalHaze provides haze) {
         Box(Modifier.fillMaxSize().background(p.bg).imePadding().onGloballyPositioned { val b = it.boundsInRoot(); boxBottomPx = b.bottom; boxTopPx = b.top }) {
             Column(Modifier.fillMaxSize()) {
-                // ── Header (mock ChatFrame): menu | mascot + X + status | Invite ──
+                // ── Header (spec §5.1): menu | logo 36dp + X + status | new chat + overflow ──
+                // No Invite pill: it was mock-only (no share path behind it) and is deleted.
                 Column(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(44.dp).clip(CircleShape).background(p.card).border(1.dp, p.border, CircleShape)
-                            .clickable { drawerOpen = true }, contentAlignment = Alignment.Center) {
-                            GkIcon(Gk.menu, "Menu", 20.dp, p.text)
+                    Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(44.dp).clip(CircleShape).clickable { drawerOpen = true }, contentAlignment = Alignment.Center) {
+                            GkIcon(Gk.menu, "Open menu", 20.dp, p.text)
                         }
                         Spacer(Modifier.weight(1f))
-                        Column(Modifier.clickable(remember { MutableInteractionSource() }, null) { drawerOpen = true },
+                        Column(Modifier.clickable(remember { MutableInteractionSource() }, null) { model = true },
                             horizontalAlignment = Alignment.CenterHorizontally) {
-                            MascotLogo(size = 64.dp, thinking = vm.running)
-                            Text("X", style = Type.display.copy(fontSize = 16.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold), color = p.text,
-                                modifier = Modifier.padding(top = 4.dp))
-                            Text(if (vm.running) "Thinking" else vm.title.ifBlank { "New chat" },
+                            LogoMark(size = 36.dp)
+                            Text("X", style = Type.display.copy(fontSize = 17.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold), color = p.text,
+                                modifier = Modifier.padding(top = 2.dp))
+                            Text(if (vm.running) "Thinking…" else vm.title.ifBlank { "New chat" },
                                 style = Type.small.copy(fontSize = 12.sp, lineHeight = 16.sp), color = p.text2,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp).padding(top = 1.dp))
+                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp))
                         }
                         Spacer(Modifier.weight(1f))
-                        Box(Modifier.height(36.dp).clip(RoundedCornerShape(24.dp)).background(p.card).border(1.dp, p.border, RoundedCornerShape(24.dp))
-                            .clickable { inviteOpen = !inviteOpen }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
-                            Text("Invite", style = Type.small.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium), color = p.text)
+                        Box(Modifier.size(44.dp).clip(CircleShape).clickable { vm.newChat() }, contentAlignment = Alignment.Center) {
+                            GkIcon(Gk.newChat, "New chat", 20.dp, p.text)
                         }
-                    }
-                    if (inviteOpen) {
-                        Column(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(13.dp)).background(p.card).padding(horizontal = 16.dp, vertical = 12.dp)) {
-                            Text("Invite", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = p.text)
-                            Text("Share this chat when the account is connected.", style = Type.small, color = p.text2, modifier = Modifier.padding(top = 2.dp))
-                            Text("Close", style = Type.small.copy(fontWeight = FontWeight.Medium), color = p.accent,
-                                modifier = Modifier.padding(top = 8.dp).clickable { inviteOpen = false })
+                        Box(Modifier.size(44.dp).clip(CircleShape).clickable { overflowOpen = true }, contentAlignment = Alignment.Center) {
+                            GkIcon(Gk.more, "More options", 20.dp, p.text)
                         }
                     }
                 }
@@ -341,10 +336,23 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
                                 TextButton(onClick = { vm.exitBot() }) { Text("Exit bot", color = p.text2, style = Type.tiny) }
                             }
                         }
+                        vm.pendingReview?.let { review ->
+                            Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.surface).border(1.dp, p.border, RoundedCornerShape(16.dp)).padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                GkIcon(Gk.codeBlock, null, 20.dp, p.accent); Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text("${review.set.changes.size} file change${if (review.set.changes.size == 1) "" else "s"} waiting for review", style = Type.small.copy(fontWeight = FontWeight.SemiBold), color = p.text)
+                                    Text("+${review.set.totalAdded} −${review.set.totalRemoved} · Nothing is applied until you approve.", style = Type.tiny, color = p.text2)
+                                }
+                                TextButton(onClick = { navigate(Route.CodeDiff(review.projectId)) }) { Text("Review", color = p.accent) }
+                                TextButton(onClick = { vm.approveReview(review.set.changes.map { it.path }.toSet()) }) { Text("Apply", color = p.text) }
+                            }
+                        }
                         if (messages.isNotEmpty()) ToolsRow(
                             researchOn = settings.deepResearch, onResearch = onResearch,
                             longTaskOn = settings.longTask, onLongTask = onLongTask,
                             turboOn = settings.turbo, onTurbo = onTurbo,
+                            modelLabel = settings.mode, onModel = { plus = false; model = true },
                             modifier = Modifier.padding(bottom = 8.dp),
                         )
                         Composer(
@@ -399,16 +407,22 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
                                 Text(pa.req.hardReason + " This kind can never be remembered — Axion will ask every time.", style = Type.small, color = p.danger)
                             } else if (pa.req.pattern.isNotBlank()) {
                                 Spacer(Modifier.height(10.dp))
-                                Text("\"Always allow\" remembers this kind of command (${pa.req.pattern}) — revoke it any time in Settings → Approvals.", style = Type.small, color = p.text2)
+                                Text("\"Always allow\" remembers this kind of command (${pa.req.pattern}) — revoke it any time in Settings → Approvals. \"This chat\" allows it only until you leave this chat, and is never stored.", style = Type.small, color = p.text2)
                             }
                         }
                     },
                     confirmButton = {
-                        Row {
-                            TextButton(onClick = { vm.answerApproval(com.mazharansari.x.agent.ApprovalDecision.DENY) }) { Text("Deny", color = p.danger) }
-                            if (!pa.req.hard && pa.req.pattern.isNotBlank())
-                                TextButton(onClick = { vm.answerApproval(com.mazharansari.x.agent.ApprovalDecision.ALLOW_REMEMBER) }) { Text("Always allow", color = p.text) }
-                            TextButton(onClick = { vm.answerApproval(com.mazharansari.x.agent.ApprovalDecision.ALLOW_ONCE) }) { Text("Allow once", color = p.accent) }
+                        Column {
+                            Row {
+                                TextButton(onClick = { vm.answerApproval(com.mazharansari.x.agent.ApprovalDecision.ALLOW_ONCE) }) { Text("Allow once", color = p.accent) }
+                                if (!pa.req.hard && pa.req.pattern.isNotBlank())
+                                    TextButton(onClick = { vm.answerApproval(com.mazharansari.x.agent.ApprovalDecision.ALLOW_CHAT) }) { Text("This chat", color = p.text) }
+                            }
+                            Row {
+                                if (!pa.req.hard && pa.req.pattern.isNotBlank())
+                                    TextButton(onClick = { vm.answerApproval(com.mazharansari.x.agent.ApprovalDecision.ALLOW_REMEMBER) }) { Text("Always allow", color = p.text) }
+                                TextButton(onClick = { vm.answerApproval(com.mazharansari.x.agent.ApprovalDecision.DENY) }) { Text("Decline", color = p.danger) }
+                            }
                         }
                     },
                     dismissButton = {},
@@ -454,14 +468,33 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
                 onUploadSkill = { pickSkill.launch(arrayOf("*/*")) })
             ModelPopover(model, { model = false }, bottomGap = popBottom, maxHeight = popMax, mode = settings.mode, connectors = connectors,
                 onPick = { m -> g.settings.update { it.copy(mode = m) } }, onConnectors = { navigate(Route.Connectors) })
-            // ── Menu drawer (mock MenuSheet): slides in from the left, 84% wide ──
+            if (overflowOpen) {
+                AxionSheet({ overflowOpen = false }) {
+                    SheetRow(Gk.pencil, "Rename", onClick = { overflowOpen = false; renamingChat = true })
+                    SheetRow(Gk.share, "Share", onClick = { overflowOpen = false; vm.conversationId?.let { vm.shareConversation(it) } ?: run { vm.toast = "Nothing to share yet" } })
+                    SheetRow(Gk.trash, "Delete", color = p.danger, onClick = { overflowOpen = false; vm.conversationId?.let { vm.g.chats.delete(it) }; vm.newChat() })
+                }
+            }
+            if (renamingChat) {
+                var t by remember { mutableStateOf(vm.title) }
+                AlertDialog(onDismissRequest = { renamingChat = false }, containerColor = p.card, shape = RoundedCornerShape(17.dp),
+                    title = { Text("Rename", style = Type.title, color = p.text) },
+                    text = {
+                        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(p.page2).padding(14.dp)) {
+                            BasicTextField(t, { t = it }, singleLine = true, textStyle = Type.body.copy(color = p.text), cursorBrush = SolidColor(p.text), modifier = Modifier.fillMaxWidth())
+                        }
+                    },
+                    confirmButton = { TextButton({ vm.conversationId?.let { vm.g.chats.rename(it, t.trim().ifBlank { vm.title }); vm.title = t }; renamingChat = false }) { Text("Save", color = p.text, style = Type.label) } },
+                    dismissButton = { TextButton({ renamingChat = false }) { Text("Cancel", color = p.text2, style = Type.label) } })
+            }
+            // ── Menu drawer (spec §7): slides in from the left, 84% wide, max 320dp ──
             val widthPx = with(LocalDensity.current) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
             val drawerFrac by animateFloatAsState(if (drawerOpen) 1f else 0f, tween(280, easing = FastOutSlowInEasing), label = "drawer")
             if (drawerOpen || drawerFrac > 0f) {
                 DismissKeyboard()
                 Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f * drawerFrac)).clickable(remember { MutableInteractionSource() }, null) { drawerOpen = false })
                 Box(Modifier.fillMaxSize().graphicsLayer { translationX = -widthPx * (1f - drawerFrac) }) {
-                    Box(Modifier.fillMaxHeight().fillMaxWidth(0.84f).background(p.sidebar)) {
+                    Box(Modifier.fillMaxHeight().fillMaxWidth(0.84f).widthIn(max = 320.dp).background(p.sidebar)) {
                         MenuDrawer(vm, onClose = { drawerOpen = false },
                             onOpen = { vm.open(it); drawerOpen = false },
                             onNew = { vm.newChat(); drawerOpen = false },
@@ -474,7 +507,7 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
     thoughts?.let { id -> messages.firstOrNull { it.id == id }?.let { ThoughtsSheet(it) { thoughts = null } } }
 }
 
-/** Dots thinking row: plain, no bubble — animated dots + muted "Reading …". */
+/** X thinking row: plain, no bubble — animated dots + muted "Reading …". */
 @Composable
 private fun ThinkingRow() {
     val p = P
@@ -492,9 +525,9 @@ private fun EmptyChat(noKeys: Boolean, researchOn: Boolean, onResearch: () -> Un
     val p = P
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.weight(1f))
-        MascotLogo(size = 120.dp, thinking = false)
-        Text("X", style = Type.display.copy(fontSize = 24.sp, fontWeight = FontWeight.SemiBold), color = p.text, modifier = Modifier.padding(top = 12.dp))
-        Text("Ask anything to start", style = Type.body.copy(fontSize = 16.sp), color = p.text2, modifier = Modifier.padding(top = 6.dp))
+        LogoMark(size = 48.dp, alpha = 0.4f)
+        Text("X", style = Type.display.copy(fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold), color = p.text, modifier = Modifier.padding(top = 12.dp))
+        Text("Ask anything, or tell X to do something.", style = Type.body.copy(fontSize = 15.sp), color = p.text2, modifier = Modifier.padding(top = 6.dp))
         Spacer(Modifier.weight(1f))
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 8.dp, end = 8.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (noKeys) SuggestionChip(Gk.key, "Connect a free AI key", blue = true, onClick = onConnect)
@@ -528,17 +561,17 @@ private fun BoxScope.UpdateBanner(vm: ChatViewModel, navigate: (Route) -> Unit) 
     if (vm.g.updater.dismissedCode == info.versionCode) return
     var hidden by remember(info.versionCode) { mutableStateOf(false) }
     if (hidden) return
-    Row(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).then(Modifier.zIndex(3f)).clip(RoundedCornerShape(20.dp)).background(p.greenTint)
+    Row(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).then(Modifier.zIndex(3f)).clip(RoundedCornerShape(20.dp)).background(p.accentSoft)
         .clickable { navigate(Route.About) }.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        GkIcon(Gk.download, null, 15.dp, p.statusDone); Spacer(Modifier.width(8.dp))
-        Text("Update available · ${info.versionName}", style = Type.small.copy(fontWeight = FontWeight.SemiBold), color = p.statusDone)
+        GkIcon(Gk.download, null, 15.dp, p.accent); Spacer(Modifier.width(8.dp))
+        Text("Update available · ${info.versionName}", style = Type.small.copy(fontWeight = FontWeight.SemiBold), color = p.accent)
         Spacer(Modifier.width(4.dp))
-        IconTap(Gk.close, "Dismiss", 15.dp, p.statusDone) { hidden = true; vm.g.updater.dismissedCode = info.versionCode }
+        IconTap(Gk.close, "Dismiss", 15.dp, p.accent) { hidden = true; vm.g.updater.dismissedCode = info.versionCode }
     }
 }
 
 /**
- * Menu drawer (OpenDots sidebar as a phone drawer): "X" wordmark, real chat
+ * Menu drawer (spec §7): logo mark + "X", real chat
  * history with search + pin/dot markers, config entries below the list
  * (Settings, Bots, Bot Store), bottom row Settings gear / Search pill /
  * New chat pencil.
@@ -552,6 +585,10 @@ private fun MenuDrawer(vm: ChatViewModel, onClose: () -> Unit, onOpen: (String) 
     var menuFor by remember { mutableStateOf<ConversationMeta?>(null) }
     var renaming by remember { mutableStateOf<ConversationMeta?>(null) }
     val activeRuns by vm.g.runs.active.collectAsState()
+    val ideaCount by vm.g.ideas.ideas.collectAsState()
+    val goalCount by vm.g.goals.goals.collectAsState()
+    val runRecords by vm.g.taskRuns.records.collectAsState()
+    val feedCount = (if (vm.pendingApproval != null) 1 else 0) + runRecords.count { it.status == "running" }
     var collapsed by remember { mutableStateOf(false) }
     val myBots by vm.g.botStore.definitions.collectAsState()
     val logoByBot = remember(myBots) { myBots.associate { it.id to it.logo } }
@@ -561,7 +598,9 @@ private fun MenuDrawer(vm: ChatViewModel, onClose: () -> Unit, onOpen: (String) 
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(), bottom = 120.dp)) {
             item(key = "head") {
                 Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("X", style = Type.display.copy(fontSize = 36.sp, fontWeight = FontWeight.SemiBold), color = p.text, modifier = Modifier.weight(1f))
+                    LogoMark(size = 32.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text("X", style = Type.display.copy(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold), color = p.text, modifier = Modifier.weight(1f))
                     CircleButton(Gk.arrowsRight, "Close", bg = p.card, onClick = onClose)
                 }
             }
@@ -582,15 +621,36 @@ private fun MenuDrawer(vm: ChatViewModel, onClose: () -> Unit, onOpen: (String) 
                 item(key = "h_pinned") { DrawerHeader("Pinned", null) {} }
                 items(pinned, key = { "p" + it.id }) { c -> ConvRow(c, c.id == vm.conversationId, activeRuns.any { it.ownerId == c.id }, logoByBot[c.botId].orEmpty(), { onOpen(c.id) }, { menuFor = c }) }
             }
-            item(key = "h_conv") { DrawerHeader("Conversations", collapsed) { collapsed = !collapsed } }
+            item(key = "h_conv") { DrawerHeader("Chats", collapsed) { collapsed = !collapsed } }
             if (!collapsed) items(rest, key = { it.id }) { c -> ConvRow(c, c.id == vm.conversationId, activeRuns.any { it.ownerId == c.id }, logoByBot[c.botId].orEmpty(), { onOpen(c.id) }, { menuFor = c }) }
             if (index.isEmpty()) item { Text("Your conversations will appear here", style = Type.small.copy(fontSize = 15.sp), color = p.text3, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) }
-            item(key = "h_config") { DrawerHeader("Settings", null) {} }
+            item(key = "h_ws") { DrawerHeader("Workspace", null) {} }
+            item(key = "ws") {
+                SettingsGroup {
+                    DrawerTile(Gk.history, "Feed", badge = feedCount.takeIf { it > 0 }?.toString()) { navigate(Route.Feed) }
+                    DrawerTile(Gk.sparkles, "Ideas", badge = ideaCount.size.takeIf { it > 0 }?.toString()) { navigate(Route.Ideas) }
+                    DrawerTile(Gk.circleCheck, "Goals", badge = goalCount.size.takeIf { it > 0 }?.toString()) { navigate(Route.Goals) }
+                    DrawerTile(Gk.library, "Library") { navigate(Route.Library) }
+                    DrawerTile(Gk.clock, "Activity") { navigate(Route.Activity) }
+                    DrawerTile(Gk.terminal, "Computer") { navigate(Route.Computer) }
+                }
+            }
+            item(key = "h_config") { DrawerHeader("Configure", null) {} }
             item(key = "cfg") {
                 SettingsGroup {
                     DrawerTile(Gk.settings, "Settings") { navigate(Route.Settings) }
                     DrawerTile(Gk.agent, "Bots") { navigate(Route.Bots) }
                     DrawerTile(Gk.grid, "Bot Store") { navigate(Route.BotStore) }
+                    DrawerTile(Gk.skills, "Skills") { navigate(Route.Skills) }
+                    DrawerTile(Gk.brain, "Memory") { navigate(Route.Memory) }
+                    DrawerTile(Gk.connectors, "Connections") { navigate(Route.Connectors) }
+                    DrawerTile(Gk.globe, "MCP Servers") { navigate(Route.Connectors) }
+                    DrawerTile(Gk.rocket, "Antigravity / CLI Pair") { navigate(Route.Antigravity) }
+                    DrawerTile(Gk.shield, "Approvals") { navigate(Route.Approvals) }
+                    DrawerTile(Gk.clock, "Schedules") { navigate(Route.Schedules) }
+                    DrawerTile(Gk.github, "GitHub") { navigate(Route.GitHub) }
+                    DrawerTile(Gk.terminal, "Terminal") { navigate(Route.Terminal) }
+                    DrawerTile(Gk.globe, "Browser") { navigate(Route.Browser) }
                 }
             }
         }
@@ -633,12 +693,17 @@ private fun MenuDrawer(vm: ChatViewModel, onClose: () -> Unit, onOpen: (String) 
 }
 
 @Composable
-private fun DrawerTile(icon: Int, label: String, onClick: () -> Unit) {
+private fun DrawerTile(icon: Int, label: String, badge: String? = null, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
-    Row(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(6.dp)).background(p.card).clickable(onClick = tap).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-        GkIcon(icon, null, 22.dp, p.text)
+    Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(6.dp)).background(p.card).clickable(onClick = tap).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+        GkIcon(icon, null, 20.dp, p.text)
         Spacer(Modifier.width(16.dp))
-        Text(label, style = Type.row, color = p.text)
+        Text(label, style = Type.row, color = p.text, modifier = Modifier.weight(1f))
+        if (badge != null) {
+            Box(Modifier.clip(RoundedCornerShape(12.dp)).background(p.accentSoft).padding(horizontal = 8.dp, vertical = 3.dp), contentAlignment = Alignment.Center) {
+                Text(badge, style = Type.label.copy(fontSize = 11.sp), color = p.accent)
+            }
+        }
     }
 }
 
@@ -676,8 +741,9 @@ private fun ConvRow(c: ConversationMeta, selected: Boolean, working: Boolean, bo
 }
 
 /**
- * Splash: mascot 196dp + "X" 48sp + periwinkle glow, ~700ms, tap to
- * skip, once per app start. Shown by AppRoot after the onboarding stages.
+ * Splash (spec §5.5): centred logo mark 72dp + "X" 28sp on bg, ~700ms,
+ * tap to skip, once per app start. No glow, no mascot scene, no tagline.
+ * Shown by AppRoot after the onboarding stages.
  */
 @Composable
 fun SplashScreen(onDone: () -> Unit) {
@@ -688,10 +754,9 @@ fun SplashScreen(onDone: () -> Unit) {
     }
     Box(Modifier.fillMaxSize().background(p.bg).clickable(remember { MutableInteractionSource() }, null) { onDone() },
         contentAlignment = Alignment.Center) {
-        Box(Modifier.size(340.dp).background(Brush.radialGradient(listOf(p.accent.copy(alpha = 0.28f), Color.Transparent)), shape = CircleShape))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            MascotLogo(size = 196.dp, thinking = false, onTap = onDone)
-            Text("X", style = Type.display.copy(fontSize = 48.sp, lineHeight = 52.sp, letterSpacing = (-1.44).sp, fontWeight = FontWeight.SemiBold),
+            LogoMark(size = 72.dp, onTap = onDone)
+            Text("X", style = Type.display.copy(fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold),
                 color = p.text, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp))
         }
     }

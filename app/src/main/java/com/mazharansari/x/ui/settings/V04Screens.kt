@@ -56,7 +56,6 @@ import java.util.Locale
 
 private val Amber = Color(0xFFF5A524)
 private val Red = Color(0xFFF04438)
-private val Green = Color(0xFF3FB950)
 
 fun mb(kb: Long) = if (kb >= 1024 * 1024) "%.1f GB".format(kb / 1048576.0) else "${(kb / 1024).coerceAtLeast(1)} MB"
 fun timeOf(ms: Long): String = SimpleDateFormat(if (ms - System.currentTimeMillis() > 20 * 3600_000L) "EEE h:mm a" else "h:mm a", Locale.ENGLISH).format(Date(ms))
@@ -201,7 +200,7 @@ fun DevToolsScreen(vm: ChatViewModel, back: () -> Unit, initialSheet: Toolchain?
                     }
                     Text(sub, style = Type.small, color = if (linuxState is LinuxState.Failed) Red else p.text2)
                 }
-                if (linuxState == LinuxState.Ready) Badge("Ready", Green)
+                if (linuxState == LinuxState.Ready) Badge("Ready", p.accent)
             }
             (linuxState as? LinuxState.Installing)?.let { QuotaBar(it.p.fraction.toDouble(), Modifier.padding(top = 12.dp)) }
             if (linuxState !is LinuxState.Ready) {
@@ -232,7 +231,7 @@ fun DevToolsScreen(vm: ChatViewModel, back: () -> Unit, initialSheet: Toolchain?
                                 installed -> "Ready in PRoot · ${rec!!.version} · ${mb(rec.sizeKb)}"
                                 else -> "Not installed · ~${t.downloadMb} MB download"
                             }
-                            Text(line, style = Type.tiny.copy(fontSize = 12.5.sp), color = when { st is ToolStatus.Failed -> Red; installed -> Green; else -> p.text3 }, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+                            Text(line, style = Type.tiny.copy(fontSize = 12.5.sp), color = when { st is ToolStatus.Failed -> Red; installed -> p.accent; else -> p.text3 }, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
                         }
                         Spacer(Modifier.width(8.dp))
                         when {
@@ -296,7 +295,7 @@ fun ToolSheet(vm: ChatViewModel, t: Toolchain, onDismiss: () -> Unit) {
                 Text(t.tech, style = Type.small, color = p.text2)
             }
             when {
-                installed -> Badge("Ready in PRoot", Green)
+                installed -> Badge("Ready in PRoot", p.accent)
                 working -> Badge("Installing", Amber)
             }
         }
@@ -384,7 +383,7 @@ fun AntigravityScreen(vm: ChatViewModel, back: () -> Unit, nav: (Route) -> Unit,
                         else -> "Not installed"
                     }, style = Type.small, color = if (agyStatus is ToolStatus.Failed) Red else p.text2, maxLines = 4)
                 }
-                if (cliReady && agyStatus !is ToolStatus.Failed && agyStatus !is ToolStatus.Working) Badge("Ready", Green)
+                if (cliReady && agyStatus !is ToolStatus.Failed && agyStatus !is ToolStatus.Working) Badge("Ready", p.accent)
             }
             if (agyStatus is ToolStatus.Working) QuotaBar(agyStatus.percent / 100.0, Modifier.padding(top = 10.dp), 4.dp)
             if (!cliReady && agyStatus !is ToolStatus.Working && agyStatus !is ToolStatus.Failed) {
@@ -418,7 +417,7 @@ fun AntigravityScreen(vm: ChatViewModel, back: () -> Unit, nav: (Route) -> Unit,
                             a.cooldownUntil > now -> Badge("Limit · back ${timeOf(a.cooldownUntil)}", Amber)
                             !a.enabled -> Badge("Off", p.text3)
                             a.email.equals(store.nextRunEmail, true) -> Badge("Next task", Amber)
-                            a.email.equals(store.activeEmail, true) -> Badge("Active", Green)
+                            a.email.equals(store.activeEmail, true) -> Badge("Active", p.accent)
                         }
                     }
                     row?.buckets?.take(2)?.forEach { b ->
@@ -484,7 +483,7 @@ private fun LoginSheet(vm: ChatViewModel, force: AgyLoginState?, onDismiss: () -
         Spacer(Modifier.height(14.dp))
         @Composable fun Step(n: Int, title: String, active: Boolean, done: Boolean, content: @Composable ColumnScope.() -> Unit = {}) {
             Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-                Box(Modifier.size(26.dp).clip(CircleShape).background(if (done) Green else if (active) p.text else p.text3.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(26.dp).clip(CircleShape).background(if (done) p.accent else if (active) p.text else p.text3.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
                     if (done) GkIcon(Gk.check, null, 16.dp, Color.White) else Text("$n", color = if (active) p.bg else p.text2, style = Type.small.copy(fontWeight = FontWeight.Bold))
                 }
                 Spacer(Modifier.width(14.dp))
@@ -644,7 +643,7 @@ private fun AgyQuotaRow(r: AgyRow, active: String?, nextRun: String? = null, pro
     val tap = rememberTap(onRaw)
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(p.card).clickable(onClick = tap).padding(horizontal = 16.dp, vertical = 13.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(9.dp).clip(CircleShape).background(if (a.email.equals(active, true)) Green else Color.Transparent).border(1.5.dp, if (a.email.equals(active, true)) Green else p.text3, CircleShape))
+            Box(Modifier.size(9.dp).clip(CircleShape).background(if (a.email.equals(active, true)) p.accent else Color.Transparent).border(1.5.dp, if (a.email.equals(active, true)) p.accent else p.text3, CircleShape))
             Spacer(Modifier.width(10.dp))
             Text(a.label.ifBlank { a.email.substringBefore('@') }, style = Type.row.copy(fontSize = 16.sp), color = p.text)
             Spacer(Modifier.width(8.dp))
@@ -654,7 +653,7 @@ private fun AgyQuotaRow(r: AgyRow, active: String?, nextRun: String? = null, pro
                 a.authExpiredAt > 0 -> Badge("Sign-in expired", Amber)
                 a.ineligibleAt > 0 -> Badge("Not eligible", Red)
                 a.email.equals(nextRun, true) -> Text("Next task", style = Type.tiny, color = Amber)
-                a.email.equals(active, true) -> Text("Active", style = Type.tiny, color = Green)
+                a.email.equals(active, true) -> Text("Active", style = Type.tiny, color = p.accent)
             }
         }
         val plan = when (a.tier) { "pro" -> "AI Pro · every 5 h + weekly cap"; "ultra" -> "Ultra · every 5 h"; "free" -> "Free · resets weekly"; else -> null }
@@ -845,7 +844,7 @@ fun KeyBackupScreen(vm: ChatViewModel, back: () -> Unit) {
                 }
             }
         }
-        msg?.let { Text(it, style = Type.small, color = if (it.startsWith("Saved") || it.startsWith("Added")) Green else Red, modifier = Modifier.padding(horizontal = 30.dp, vertical = 14.dp)) }
+        msg?.let { Text(it, style = Type.small, color = if (it.startsWith("Saved") || it.startsWith("Added")) p.accent else Red, modifier = Modifier.padding(horizontal = 30.dp, vertical = 14.dp)) }
         Note("How it's locked: AES-256-GCM with a key made from your password (PBKDF2, 600,000 rounds, random salt). Without the password the file is just noise, and a wrong password reveals nothing.",
             Modifier.padding(start = 30.dp, end = 30.dp, top = 6.dp, bottom = 24.dp))
     }

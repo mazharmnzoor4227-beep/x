@@ -3,6 +3,8 @@ package com.mazharansari.x.ui.chat
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,10 +35,11 @@ import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
 
 /**
- * Dots composer (OpenDots): white card, 13dp corners, 1dp line rim, soft
- * shadow; 17sp "Ask anything" placeholder 16dp in, then one 36dp control row
- * 6dp from the edge: (+) circle · [⚡ Fast ⌄] chip ……… (mic) circle ·
- * [≋ Speak] periwinkle pill → (↑) when there is text → (■) while running.
+ * X composer (spec §5.3): surface card, 28dp corners, 1dp border, no shadow;
+ * text field on top, one 44dp control row below: (+) · [model ⌄] …… (mic) ·
+ * send (36dp accent circle, 40% opacity until there is text or an
+ * attachment) → square stop while streaming. Mic long-press opens the voice
+ * call; there is no Speak pill — an empty composer never sends.
  */
 @Composable
 fun Composer(
@@ -56,15 +59,15 @@ fun Composer(
     onFocus: () -> Unit = {},
 ) {
     val p = P
-    // Dots composer card: white, 13dp corners.
-    val shape = RoundedCornerShape(13.dp)
-    Column(modifier.fillMaxWidth().padding(horizontal = 8.dp).clip(shape).background(p.card).border(1.dp, p.border, shape)) {
+    // Spec §5.3: surface card, 28dp corners, 16dp side margins.
+    val shape = RoundedCornerShape(28.dp)
+    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(shape).background(p.surface).border(1.dp, p.border, shape)) {
         if (attachments.isNotEmpty()) {
             Row(Modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 attachments.forEach { a -> key(a.path) { AttachmentChip(a) { onRemoveAttachment(a) } } }
             }
         }
-        // Dots: text line 13 dp below the top, control row 16 dp under it, 7 dp from the bottom → 95 dp box.
+        // X: text line 13 dp below the top, control row 16 dp under it, 7 dp from the bottom.
         Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 16.dp).heightIn(min = 24.dp, max = 168.dp)) {
             Field(text, onText, placeholder, listening, partial, maxLines = 7, onFocus = onFocus)
         }
@@ -94,9 +97,9 @@ fun Composer(
             Spacer(Modifier.weight(1f))
             val state = when { running -> 2; text.isNotBlank() || attachments.isNotEmpty() -> 1; else -> 0 }
             AnimatedVisibility(!running, enter = fadeIn(tween(120)), exit = fadeOut(tween(120))) {
-                Row { RoundTool(Gk.mic, if (listening) "Stop dictation" else "Dictate", onMic, active = listening); Spacer(Modifier.width(8.dp)) }
+                Row { RoundTool(Gk.mic, if (listening) "Stop dictation" else "Dictate — long-press for a voice call", onMic, active = listening, onLongClick = onVoiceCall); Spacer(Modifier.width(8.dp)) }
             }
-            SendButton(state, onSend, onStop, onVoiceCall)
+            SendButton(state, onSend, onStop)
         }
     }
 }
@@ -115,11 +118,15 @@ private fun Field(text: String, onText: (String) -> Unit, placeholder: String, l
 }
 
 /** 36dp chip circle holding a 20dp glyph (the + and the mic). */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun RoundTool(icon: Int, desc: String, onClick: () -> Unit, active: Boolean = false) {
+fun RoundTool(icon: Int, desc: String, onClick: () -> Unit, active: Boolean = false, onLongClick: (() -> Unit)? = null) {
     val p = P; val tap = rememberTap(onClick)
-    Box(Modifier.size(36.dp).clip(CircleShape).background(if (active) p.accent else p.chip).clickable(onClick = tap), contentAlignment = Alignment.Center) {
-        Crossfade(icon, animationSpec = tween(120), label = "tool") { GkIcon(it, desc, 20.dp, if (active) p.onAccent else p.text) }
+    val longTap = onLongClick?.let { rememberTap(it) }
+    Box(Modifier.size(36.dp).clip(CircleShape).background(if (active) p.accentSoft else p.chip)
+        .then(if (longTap != null) Modifier.combinedClickable(onClick = tap, onLongClick = longTap) else Modifier.clickable(onClick = tap)),
+        contentAlignment = Alignment.Center) {
+        Crossfade(icon, animationSpec = tween(120), label = "tool") { GkIcon(it, desc, 20.dp, if (active) p.accent else p.text) }
     }
 }
 
@@ -138,22 +145,25 @@ private fun ModeChip(label: String, open: Boolean, onClick: () -> Unit) {
 
 fun modeIcon(label: String) = when (label) { "Fast" -> Gk.bolt; "Expert" -> Gk.think; "Heavy" -> Gk.connectors; else -> Gk.rocket }
 
-/** 0 = Speak pill (empty, opens voice), 1 = send ↑ (Dots: periwinkle circle), 2 = stop ■, 3 = disabled send. */
+/**
+ * 0 = disabled send (empty composer: 40% opacity accent circle, taps do
+ * nothing — the voice call is the mic's long-press, not the send button),
+ * 1 = send ↑, 2 = stop ■ while streaming, 3 = disabled send.
+ */
 @Composable
-private fun SendButton(state: Int, onSend: () -> Unit, onStop: () -> Unit, onVoice: () -> Unit) {
+private fun SendButton(state: Int, onSend: () -> Unit, onStop: () -> Unit) {
     val p = P
-    val tap = rememberTap { when (state) { 0 -> onVoice(); 1 -> onSend(); 2 -> onStop(); else -> {} } }
-    val bg = when (state) { 1 -> p.send; 3 -> p.chip; else -> p.accent }
+    val tap = rememberTap { when (state) { 1 -> onSend(); 2 -> onStop(); else -> {} } }
+    val bg = when (state) { 1, 2 -> p.accent; 3 -> p.chip; else -> p.accent.copy(alpha = 0.4f) }
     Row(
         Modifier.height(36.dp).animateContentSize(tween(160)).clip(RoundedCornerShape(24.dp)).background(bg).clickable(onClick = tap)
-            .padding(horizontal = if (state == 0) 14.dp else 0.dp).widthIn(min = 36.dp),
+            .widthIn(min = 36.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
     ) {
         when (state) {
-            0 -> { GkIcon(Gk.voice, "Voice mode", 18.dp, p.onAccent); Spacer(Modifier.width(6.dp)); Text("Speak", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.onAccent) }
-            1 -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { GkIcon(Gk.send, "Send", 20.dp, p.onAccent) }
+            1 -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { GkIcon(Gk.send, "Send message", 20.dp, p.onAccent) }
             2 -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(p.onAccent)) }
-            else -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { GkIcon(Gk.send, "Send", 20.dp, p.text3) }
+            else -> Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { GkIcon(Gk.send, "Send message", 20.dp, p.onAccent.copy(alpha = 0.6f)) }
         }
     }
 }
@@ -214,10 +224,11 @@ fun TurboChip(on: Boolean, onClick: () -> Unit, height: Dp = 36.dp, horizontalPa
  * toggles live in the merged suggestion row instead (0.9.6).
  */
 @Composable
-fun ToolsRow(researchOn: Boolean, onResearch: () -> Unit, longTaskOn: Boolean, onLongTask: () -> Unit, turboOn: Boolean = false, onTurbo: () -> Unit = {}, modifier: Modifier = Modifier) {
+fun ToolsRow(researchOn: Boolean, onResearch: () -> Unit, longTaskOn: Boolean, onLongTask: () -> Unit, turboOn: Boolean = false, onTurbo: () -> Unit = {}, modelLabel: String = "", onModel: () -> Unit = {}, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         ResearchChip(researchOn, onResearch)
         LongTaskChip(longTaskOn, onLongTask)
         TurboChip(turboOn, onTurbo)
+        if (modelLabel.isNotBlank()) ModeChip(modelLabel, false, onModel)
     }
 }

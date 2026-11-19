@@ -114,7 +114,7 @@ private val ATTR = Regex("\\s([a-zA-Z-:]+)(?==)")
 
 /** A small, fast syntax colouring (Grok's dark code palette): comments, strings, keywords, numbers, HTML tags. */
 fun highlight(code: String, lang: String): AnnotatedString {
-    val cComment = Color(0xFF6A737D); val cStr = Color(0xFFA5D6A7); val cKw = Color(0xFFC792EA); val cNum = Color(0xFFF78C6C)
+    val cComment = Color(0xFF6A737D); val cStr = Color(0xFFCE9178); val cKw = Color(0xFFC792EA); val cNum = Color(0xFFF78C6C)
     val cTag = Color(0xFF82AAFF); val cAttr = Color(0xFFFFCB6B); val cText = Color(0xFFD6D6D6)
     if (lang == "text") return buildAnnotatedString { withStyle(SpanStyle(color = Color(0xFFB0B0B0))) { append(code) } }
     if (lang == "diff") return buildAnnotatedString {
@@ -122,7 +122,7 @@ fun highlight(code: String, lang: String): AnnotatedString {
             val style = when {
                 l.startsWith("+++") || l.startsWith("---") -> SpanStyle(color = Color(0xFF8A8A8A))
                 l.startsWith("@@") -> SpanStyle(color = Color(0xFF82AAFF))
-                l.startsWith("+") -> SpanStyle(color = Color(0xFF7EE787), background = Color(0x1F3FB950))
+                l.startsWith("+") -> SpanStyle(color = Color(0xFFA5B4FC), background = Color(0x1F818CF8))   // 2026-11-19: added lines are indigo, never green
                 l.startsWith("-") -> SpanStyle(color = Color(0xFFFFA198), background = Color(0x1FF85149))
                 else -> SpanStyle(color = Color(0xFFB0B0B0))
             }

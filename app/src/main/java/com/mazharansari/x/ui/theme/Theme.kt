@@ -19,30 +19,18 @@ import androidx.compose.ui.unit.sp
 import com.mazharansari.x.R
 
 /**
- * Dots design tokens — ported from OpenDots (CopilotKit/OpenDots, MIT) and
- * OpenFuse (CopilotKit/openfuse, MIT, the former OpenMuse). The DESIGN is
- * reimplemented here in Compose; no web code was copied.
+ * X theme (2026-11-19, docs/X-NEW-UI-SPEC.md §2). Replaces both rejected
+ * designs: the Grok sand palette and the OpenDots/OpenFuse port (periwinkle
+ * #8292D6 / teal #35766F). Single indigo accent, neutral black/white/grey
+ * base, system fonts only. NO green anywhere: success is a neutral check
+ * icon + plain text, never a green dot/pill. Diff-added lines use
+ * [accentSoft] (indigo tint), never green.
  *
- * Light (OpenDots `src/client/style.css` + `theme.ts`):
- *  bg       #F8F7F4  warm off-white page    surface  #FFFFFF  white cards / composer
- *  surface2 #EEEFFA  lavender soft          sheet    #FFFFFF  sheets / popovers
- *  border   #E9E8E6  hairline               sidebar  #FBFAF8  drawer
- *  text     #333641  ink                    text2    #8C8D97  muted
- *  accent   #7285D5  periwinkle             teal     #35766F  user bubble
- *  send     #8292D6  send button (chat: #75B9B4 teal)
- *  sky      #EDF7FD  greenTint #E3F3E8  lavenderTint #F0EEFA  orangeTint #FDF0DF
- *  status: done #7A967E · running #788BC3 · failed #B17D73 · paused #AA9776
- *  danger   #AA4A45 (OpenFuse)              blue     #1473C8 (OpenFuse)
- * Dark: OpenDots barely specifies dark (`:root[data-theme='dark']` only sets
- * color-scheme; theme-color #1B1B1B), so the dark ramp is derived from the
- * same tokens: bg #1B1B1B, surface/card #242424, periwinkle lightened to
- * #8292D6, teal lightened to #75B9B4.
+ * Light: bg #FFFFFF, surface #F7F7F8, text #171717, accent #4F46E5.
+ * Dark:  bg #171717, surface #212121, text #ECECEC, accent #818CF8.
  *
- * Type is the system sans throughout (OpenDots: system sans 14px, headings
- * weight 550, letter-spacing −0.04em; OpenFuse: title 23/600/−0.7, heading
- * 16/600/−0.25, text 15/23, muted 14/21, small 11/17, label 10/700/1.4).
- * Radii: 9px controls, 13px composer/cards, 17px bubbles, 20px chips,
- * 24px buttons, 26px bottom sheets.
+ * Legacy alias fields (chip/card/page2/sheet/sidebar…/blue/status*) are kept
+ * so existing screens keep compiling; they all resolve to the tokens above.
  */
 @Immutable
 data class Palette(
@@ -50,43 +38,50 @@ data class Palette(
     val text: Color, val text2: Color, val text3: Color, val accent: Color, val onAccent: Color,
     val code: Color, val danger: Color, val isDark: Boolean,
     val chip: Color = surface2, val card: Color = surface, val page2: Color = sheet, val cardBorder: Color = border,
-    val dim: Color = text3, val popover: Color = sheet, val blue: Color = Color(0xFF1473C8),
-    // Dots tokens (defaulted so older constructions keep compiling).
-    val teal: Color = Color(0xFF35766F),
-    val accentSoft: Color = Color(0xFFEEEFFA),
-    val sky: Color = Color(0xFFEDF7FD),
-    val greenTint: Color = Color(0xFFE3F3E8),
-    val lavenderTint: Color = Color(0xFFF0EEFA),
-    val orangeTint: Color = Color(0xFFFDF0DF),
-    val statusDone: Color = Color(0xFF7A967E),
-    val statusRunning: Color = Color(0xFF788BC3),
-    val statusFailed: Color = Color(0xFFB17D73),
-    val statusPaused: Color = Color(0xFFAA9776),
-    val sidebar: Color = Color(0xFFFBFAF8),
-    val send: Color = Color(0xFF8292D6),
+    val dim: Color = text3, val popover: Color = sheet, val blue: Color = Color(0xFF4F46E5),
+    val accentSoft: Color = Color(0xFFEDEBFE),
+    val statusDone: Color = Color(0xFF5F5F5F),
+    val statusRunning: Color = Color(0xFF4F46E5),
+    val statusFailed: Color = Color(0xFFDC2626),
+    val statusPaused: Color = Color(0xFF8A8A8E),
+    val sidebar: Color = surface,
+    // Spec §2 tokens.
+    val surfaceRaised: Color = Color(0xFFFFFFFF),
+    val surfaceSunken: Color = Color(0xFFEFEFF1),
+    val textSecondary: Color = Color(0xFF5F5F5F),
+    val muted: Color = Color(0xFF8A8A8E),
+    val dangerSoft: Color = Color(0xFFFEF2F2),
+    val userBubble: Color = Color(0xFFF0F0F0),
+    val codeBg: Color = Color(0xFF1E1E1E),
+    val codeText: Color = Color(0xFFF5F5F5),
+    val scrim: Color = Color(0x52000000),
 )
 
 val DarkPalette = Palette(
-    bg = Color(0xFF1B1B1B), surface = Color(0xFF242424), surface2 = Color(0xFF2C2C2E), sheet = Color(0xFF242424),
-    border = Color(0xFF38383B), text = Color(0xFFF2F1EE), text2 = Color(0xFFA9AAB2), text3 = Color(0xFF7C7D85),
-    accent = Color(0xFF8292D6), onAccent = Color(0xFFFFFFFF), code = Color(0xFF111113), danger = Color(0xFFD98A84), isDark = true,
-    chip = Color(0xFF2C2C2E), card = Color(0xFF242424), page2 = Color(0xFF1B1B1B), cardBorder = Color(0xFF38383B),
-    dim = Color(0xFF7C7D85), popover = Color(0xFF262626), blue = Color(0xFF7FB8E8),
-    teal = Color(0xFF75B9B4), accentSoft = Color(0xFF2A2D45), sky = Color(0xFF1E2E3A),
-    greenTint = Color(0xFF223528), lavenderTint = Color(0xFF2A2D45), orangeTint = Color(0xFF3A2E1E),
-    statusDone = Color(0xFF8FB394), statusRunning = Color(0xFF93A5D8), statusFailed = Color(0xFFC99A90),
-    statusPaused = Color(0xFFBFAE8E), sidebar = Color(0xFF1E1E1E), send = Color(0xFF8292D6),
+    bg = Color(0xFF171717), surface = Color(0xFF212121), surface2 = Color(0xFF2A2A2A), sheet = Color(0xFF212121),
+    border = Color(0xFF2E2E2E), text = Color(0xFFECECEC), text2 = Color(0xFFA3A3A3), text3 = Color(0xFF737373),
+    accent = Color(0xFF818CF8), onAccent = Color(0xFF171717), code = Color(0xFF1E1E1E), danger = Color(0xFFF87171), isDark = true,
+    chip = Color(0xFF2A2A2A), card = Color(0xFF2A2A2A), page2 = Color(0xFF171717), cardBorder = Color(0xFF2E2E2E),
+    dim = Color(0xFF737373), popover = Color(0xFF212121), blue = Color(0xFF818CF8),
+    accentSoft = Color(0xFF26264A),
+    statusDone = Color(0xFFA3A3A3), statusRunning = Color(0xFF818CF8), statusFailed = Color(0xFFF87171), statusPaused = Color(0xFF737373),
+    sidebar = Color(0xFF212121),
+    surfaceRaised = Color(0xFF2A2A2A), surfaceSunken = Color(0xFF101010), textSecondary = Color(0xFFA3A3A3),
+    muted = Color(0xFF737373), dangerSoft = Color(0xFF3D2624), userBubble = Color(0xFF2F2F2F),
+    codeBg = Color(0xFF1E1E1E), codeText = Color(0xFFF5F5F5), scrim = Color(0x8C000000),
 )
 val LightPalette = Palette(
-    bg = Color(0xFFF8F7F4), surface = Color(0xFFFFFFFF), surface2 = Color(0xFFEEEFFA), sheet = Color(0xFFFFFFFF),
-    border = Color(0xFFE9E8E6), text = Color(0xFF333641), text2 = Color(0xFF8C8D97), text3 = Color(0xFFA9AAB2),
-    accent = Color(0xFF7285D5), onAccent = Color(0xFFFFFFFF), code = Color(0xFF17181C), danger = Color(0xFFAA4A45), isDark = false,
-    chip = Color(0xFFF1F2F3), card = Color(0xFFFFFFFF), page2 = Color(0xFFF8F7F4), cardBorder = Color(0xFFE9E8E6),
-    dim = Color(0xFF8C8D97), popover = Color(0xFFFFFFFF), blue = Color(0xFF1473C8),
-    teal = Color(0xFF35766F), accentSoft = Color(0xFFEEEFFA), sky = Color(0xFFEDF7FD),
-    greenTint = Color(0xFFE3F3E8), lavenderTint = Color(0xFFF0EEFA), orangeTint = Color(0xFFFDF0DF),
-    statusDone = Color(0xFF7A967E), statusRunning = Color(0xFF788BC3), statusFailed = Color(0xFFB17D73),
-    statusPaused = Color(0xFFAA9776), sidebar = Color(0xFFFBFAF8), send = Color(0xFF8292D6),
+    bg = Color(0xFFFFFFFF), surface = Color(0xFFF7F7F8), surface2 = Color(0xFFEFEFF1), sheet = Color(0xFFF7F7F8),
+    border = Color(0xFFE5E5E5), text = Color(0xFF171717), text2 = Color(0xFF5F5F5F), text3 = Color(0xFF8A8A8E),
+    accent = Color(0xFF4F46E5), onAccent = Color(0xFFFFFFFF), code = Color(0xFF1E1E1E), danger = Color(0xFFDC2626), isDark = false,
+    chip = Color(0xFFEFEFF1), card = Color(0xFFFFFFFF), page2 = Color(0xFFF7F7F8), cardBorder = Color(0xFFE5E5E5),
+    dim = Color(0xFF8A8A8E), popover = Color(0xFFFFFFFF), blue = Color(0xFF4F46E5),
+    accentSoft = Color(0xFFEDEBFE),
+    statusDone = Color(0xFF5F5F5F), statusRunning = Color(0xFF4F46E5), statusFailed = Color(0xFFDC2626), statusPaused = Color(0xFF8A8A8E),
+    sidebar = Color(0xFFF7F7F8),
+    surfaceRaised = Color(0xFFFFFFFF), surfaceSunken = Color(0xFFEFEFF1), textSecondary = Color(0xFF5F5F5F),
+    muted = Color(0xFF8A8A8E), dangerSoft = Color(0xFFFEF2F2), userBubble = Color(0xFFF0F0F0),
+    codeBg = Color(0xFF1E1E1E), codeText = Color(0xFFF5F5F5), scrim = Color(0x52000000),
 )
 
 val LocalPalette = staticCompositionLocalOf { DarkPalette }
@@ -97,20 +92,24 @@ private fun code(w: Int) = Font(R.font.google_sans_code, FontWeight(w), variatio
 
 val GoogleSansCode = FontFamily(code(300), code(400), code(500), code(600), code(700))
 
-/** System sans throughout (OpenDots/OpenFuse use the system font stack, never a bundled display face). */
+/**
+ * System fonts only (spec §3): UI/body = FontFamily.Default, code/diff/
+ * terminal = FontFamily.Monospace (Google Sans Code, the one bundled mono).
+ * No Fraunces/Outfit/Google Sans Flex — the rejected designs' fonts are gone.
+ */
 object Type {
-    val display = TextStyle(fontFamily = FontFamily.Default, fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.7).sp)
-    val body = TextStyle(fontFamily = FontFamily.Default, fontSize = 15.sp, lineHeight = 23.sp, letterSpacing = (-0.25).sp)
-    val small = TextStyle(fontFamily = FontFamily.Default, fontSize = 14.sp, lineHeight = 21.sp, letterSpacing = 0.sp)
-    val tiny = TextStyle(fontFamily = FontFamily.Default, fontSize = 11.sp, lineHeight = 17.sp, letterSpacing = 0.sp)
-    val label = TextStyle(fontFamily = FontFamily.Default, fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.25).sp)
-    val row = TextStyle(fontFamily = FontFamily.Default, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium, letterSpacing = (-0.25).sp)
-    val title = TextStyle(fontFamily = FontFamily.Default, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.25).sp)
-    val header = TextStyle(fontFamily = FontFamily.Default, fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.25).sp)
-    val mono = TextStyle(fontFamily = GoogleSansCode, fontSize = 13.sp, lineHeight = 20.sp, letterSpacing = 0.sp)
+    val display = TextStyle(fontFamily = FontFamily.Default, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold)
+    val body = TextStyle(fontFamily = FontFamily.Default, fontSize = 16.sp, lineHeight = 24.sp)
+    val small = TextStyle(fontFamily = FontFamily.Default, fontSize = 15.sp, lineHeight = 22.sp)
+    val tiny = TextStyle(fontFamily = FontFamily.Default, fontSize = 13.sp, lineHeight = 18.sp)
+    val label = TextStyle(fontFamily = FontFamily.Default, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium)
+    val row = TextStyle(fontFamily = FontFamily.Default, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium)
+    val title = TextStyle(fontFamily = FontFamily.Default, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold)
+    val header = TextStyle(fontFamily = FontFamily.Default, fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium)
+    val mono = TextStyle(fontFamily = GoogleSansCode, fontSize = 13.sp, lineHeight = 20.sp)
 }
 
-private val DotsTypography: Typography = Typography().let { t ->
+private val XTypography: Typography = Typography().let { t ->
     fun TextStyle.g() = copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp)
     Typography(
         displayLarge = t.displayLarge.g(), displayMedium = t.displayMedium.g(), displaySmall = t.displaySmall.g(),
@@ -121,9 +120,18 @@ private val DotsTypography: Typography = Typography().let { t ->
     )
 }
 
+/** The single X look: System / Light / Dark. Follows system by default. */
+enum class XLook { System, Light, Dark }
+
+/** Theme entry point for the app (AppRoot). */
+@Composable
+fun XTheme(look: XLook = XLook.System, textScale: Float = 1f, content: @Composable () -> Unit) {
+    AxionTheme(when (look) { XLook.Light -> "light"; XLook.Dark -> "dark"; XLook.System -> "system" }, textScale, content)
+}
+
 /**
  * Theme entry point. Kept under its old name because the test suite wraps
- * screens in it (V03ScreensTest); the app itself uses [DotsTheme].
+ * screens in it (V03ScreensTest); the app itself uses [XTheme].
  */
 @Composable
 fun AxionTheme(theme: String = "dark", textScale: Float = 1f, content: @Composable () -> Unit) {
@@ -140,7 +148,7 @@ fun AxionTheme(theme: String = "dark", textScale: Float = 1f, content: @Composab
     )
     val d = LocalDensity.current
     CompositionLocalProvider(LocalPalette provides p, LocalDensity provides Density(d.density, d.fontScale * textScale)) {
-        MaterialTheme(colorScheme = scheme, typography = DotsTypography) {
+        MaterialTheme(colorScheme = scheme, typography = XTypography) {
             CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides Type.body, content = content)
         }
     }

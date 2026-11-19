@@ -21,6 +21,15 @@ data class AppSettings(
     // Phase 2 (settings audit): appLanguage REMOVED — the picker saved a value no code ever
     // read, so it was a fake setting. Old settings.json files still decode (ignoreUnknownKeys).
     val speechLang: String = "ur-PK",    // dictation + read-aloud language
+    /**
+     * 2026-11-19: the read-aloud / voice-call voice preference. First pick is
+     * the user's standing natural voice, Piper Urdu Aegis (offline, on-device).
+     * "piper-aegis" | "piper-fasih" | "kokoro-hindi" | "system". Until the
+     * Piper engine (sherpa-onnx) is bundled, the Piper picks read in the
+     * phone's built-in Urdu/Hindi voice — see voice/PiperVoice.kt. The
+     * Edge/Gemini chain stays as the online fallback.
+     */
+    val voicePref: String = "piper-aegis",
     val voice: String = "Kore",          // Gemini prebuilt voice
     val naturalVoice: Boolean = false,    // Gemini TTS when a Gemini key exists, else Android TTS
     val autoRead: Boolean = false,

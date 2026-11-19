@@ -94,7 +94,7 @@ fun IconTap(@DrawableRes icon: Int, desc: String, size: Dp = 20.dp, tint: Color 
     ) { GkIcon(icon, desc, size, tint) }
 }
 
-/** Dots round top-bar buttons: 48dp, card fill, hairline line rim, 24dp glyph. */
+/** X round top-bar buttons: 48dp, card fill, hairline line rim, 24dp glyph. */
 @Composable
 fun CircleButton(@DrawableRes icon: Int, desc: String, size: Dp = 48.dp, bg: Color = P.card, tint: Color = P.text, iconSize: Dp = 24.dp, onClick: () -> Unit) {
     val tap = rememberTap(onClick)
@@ -103,7 +103,7 @@ fun CircleButton(@DrawableRes icon: Int, desc: String, size: Dp = 48.dp, bg: Col
     }
 }
 
-/** Dots chip (OpenFuse pill: radius 20). */
+/** X chip (pill: radius 20). */
 @Composable
 fun Pill(text: String, modifier: Modifier = Modifier, @DrawableRes icon: Int? = null, filled: Boolean = false, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
@@ -117,10 +117,11 @@ fun Pill(text: String, modifier: Modifier = Modifier, @DrawableRes icon: Int? = 
     }
 }
 
-/** Dots sub-page header: ← (or ✕ on the Settings root) 16dp in, title left-aligned at 56dp, 20sp SemiBold, 64dp tall, below the status bar. */
+// Sub-page header (spec §5.1/§6): below the status bar with a clear gap —
+// statusBarsPadding() + 12dp — then a 56dp row, back chevron + 20sp title.
 @Composable
 fun ScreenHeader(title: String, onBack: () -> Unit, close: Boolean = false, trailing: @Composable RowScope.() -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().statusBarsPadding().height(64.dp).padding(start = 6.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(top = 12.dp).height(56.dp).padding(start = 6.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         IconTap(if (close) Gk.close else Gk.arrowLeft, if (close) "Close" else "Back", 24.dp, P.text, 44.dp, onBack)
         Spacer(Modifier.width(8.dp))
         Text(title, style = Type.title, color = P.text, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -128,13 +129,13 @@ fun ScreenHeader(title: String, onBack: () -> Unit, close: Boolean = false, trai
     }
 }
 
-/** Dots section label (OpenFuse label style: small caps). */
+/** X section label (small caps). */
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier) =
     Text(text.uppercase(), style = Type.small.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp), color = P.text2, modifier = modifier.padding(start = 30.dp, top = 22.dp, bottom = 10.dp))
 
 /**
- * Dots grouped list (OpenFuse card): each row is its own card tile, 2dp apart, the group's outer corners 13dp and the inner
+ * X grouped list: each row is its own card tile, 2dp apart, the group's outer corners 13dp and the inner
  * corners 6dp — rows 56dp tall, 16dp side margins.
  */
 class GroupScope internal constructor(val count: Int) { internal var index = 0 }
@@ -171,7 +172,7 @@ fun SettingsRow(
     }
 }
 
-/** Dots switch: periwinkle track when on, grey when off; white thumb. */
+/** X switch: accent track when on, grey when off; white thumb. */
 @Composable
 fun AxionSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
     val p = P
@@ -197,12 +198,12 @@ fun Avatar(letter: String, size: Dp = 36.dp, bg: Color = P.accent.copy(alpha = 0
     }
 }
 
-/** Dots button (OpenFuse: pill radius 24, min height 42; primary periwinkle, secondary soft grey). */
+/** X button (pill radius 24, min height 42; primary accent, secondary soft grey). */
 @Composable
 fun DotsButton(text: String, onClick: () -> Unit, primary: Boolean = true, modifier: Modifier = Modifier) {
     val p = P; val tap = rememberTap(onClick)
     Box(modifier.heightIn(min = 42.dp).clip(RoundedCornerShape(24.dp))
-        .background(if (primary) p.send else p.chip).clickable(onClick = tap).padding(horizontal = 18.dp, vertical = 10.dp),
+        .background(if (primary) p.accent else p.chip).clickable(onClick = tap).padding(horizontal = 18.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center) {
         Text(text, style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = if (primary) Color.White else p.text, maxLines = 1)
     }
