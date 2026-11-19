@@ -1197,7 +1197,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             val now = System.currentTimeMillis()
             if (conversationId == null) {
                 conversationId = UUID.randomUUID().toString(); createdAt = now
-                title = ("📞 " + userText.ifBlank { "Voice call" }).lineSequence().first().take(48)
+                title = userText.ifBlank { "Voice call" }.lineSequence().first().take(48)
             }
             val add = buildList {
                 if (userText.isNotBlank()) add(Message(UUID.randomUUID().toString(), Role.USER, userText, createdAt = now))

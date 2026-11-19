@@ -85,12 +85,12 @@ fun AgySetupPanel(vm: ChatViewModel, onRetry: () -> Unit) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(16.dp)) {
             if (justDone && !working && !failed) {
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    com.mazharansari.x.ui.components.GkIcon(com.mazharansari.x.ui.components.Gk.circleCheck, null, 22.dp, Color(0xFF3DDC84))
+                    com.mazharansari.x.ui.components.GkIcon(com.mazharansari.x.ui.components.Gk.circleCheck, null, 22.dp, p.text)
                     Spacer(Modifier.width(10.dp)); Text("Antigravity ready", style = Type.row, color = p.text)
                 }
                 return@Column
             }
-            Text(if (failed) "Setup stopped" else "Setting up Antigravity", style = Type.row, color = if (failed) Color(0xFFFF6B6B) else p.text)
+            Text(if (failed) "Setup stopped" else "Setting up Antigravity", style = Type.row, color = if (failed) p.danger else p.text)
             Spacer(Modifier.height(10.dp))
             val cur = current["agy"]
             val curIdx = plan.indexOf(cur)
@@ -99,19 +99,19 @@ fun AgySetupPanel(vm: ChatViewModel, onRetry: () -> Unit) {
                 Row(Modifier.padding(vertical = 4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Box(Modifier.size(22.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
                         when (state) {
-                            2 -> Text("✓", color = Color(0xFF3DDC84), style = Type.row)
-                            1 -> androidx.compose.material3.CircularProgressIndicator(progress = { ((st as? com.mazharansari.x.linux.ToolStatus.Working)?.percent ?: 0).coerceAtLeast(8) / 100f }, modifier = Modifier.size(17.dp), strokeWidth = 2.5.dp, color = Color(0xFF1D9BF0), trackColor = p.text3.copy(alpha = 0.3f))
-                            -1 -> Text("✕", color = Color(0xFFFF6B6B), style = Type.row)
+                            2 -> Text("✓", color = p.text, style = Type.row)
+                            1 -> androidx.compose.material3.CircularProgressIndicator(progress = { ((st as? com.mazharansari.x.linux.ToolStatus.Working)?.percent ?: 0).coerceAtLeast(8) / 100f }, modifier = Modifier.size(17.dp), strokeWidth = 2.5.dp, color = p.accent, trackColor = p.text3.copy(alpha = 0.3f))
+                            -1 -> Text("✕", color = p.danger, style = Type.row)
                             else -> Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(p.text3))
                         }
                     }
                     Spacer(Modifier.width(10.dp))
                     Text(s.title + if (state == 1 && st is com.mazharansari.x.linux.ToolStatus.Working) "… ${st.percent}%" else if (state == 2) " ✓".takeIf { false }.orEmpty() else "",
-                        style = Type.body.copy(fontSize = 15.sp), color = when (state) { 0 -> p.text3; -1 -> Color(0xFFFF6B6B); else -> p.text })
+                        style = Type.body.copy(fontSize = 15.sp), color = when (state) { 0 -> p.text3; -1 -> p.danger; else -> p.text })
                 }
                 if (state == 1 && st is com.mazharansari.x.linux.ToolStatus.Working) Text(st.message, style = Type.tiny, color = p.text2, maxLines = 1, modifier = Modifier.padding(start = 32.dp))
             }
-            if (failed) Text((st as com.mazharansari.x.linux.ToolStatus.Failed).message, style = Type.small, color = Color(0xFFFF6B6B), modifier = Modifier.padding(top = 8.dp))
+            if (failed) Text((st as com.mazharansari.x.linux.ToolStatus.Failed).message, style = Type.small, color = p.danger, modifier = Modifier.padding(top = 8.dp))
             // live output, newest at the bottom
             val lines = live["agy"].orEmpty()
             val scroll = rememberScrollState()
