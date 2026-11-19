@@ -65,9 +65,19 @@ object SherpaPiperEngine : PiperVoiceEngine {
             if (!store.status(pack).downloaded) return null
             if (!store.ensureTokens(pack)) return null
             if (!store.espeakReady()) return null
+            // Real sherpa-onnx v1.10.42 getOfflineTtsConfig signature
+            // (verified against the published AAR + Tts.kt at tag v1.10.42):
+            // modelDir, modelName (VITS), acousticModelName (Matcha),
+            // vocoder (Matcha), voices (Kokoro), lexicon, dataDir, dictDir,
+            // ruleFsts, ruleFars. VITS (Piper) needs only modelName; the
+            // helper builds tokens = "$modelDir/tokens.txt" itself, which is
+            // why ensureTokens() must run first. Matcha/Kokoro params stay "".
             val config = getOfflineTtsConfig(
                 modelDir = store.packDir(pack).absolutePath,
                 modelName = pack.onnxName,
+                acousticModelName = "",
+                vocoder = "",
+                voices = "",
                 lexicon = "",
                 dataDir = store.espeakDir().absolutePath,
                 dictDir = "",

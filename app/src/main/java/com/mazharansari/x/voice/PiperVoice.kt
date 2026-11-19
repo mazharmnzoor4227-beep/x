@@ -8,6 +8,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
@@ -130,7 +131,7 @@ class PiperVoiceStore(ctx: Context) {
             val map = Json.parseToJsonElement(json).jsonObject["phoneme_id_map"]?.jsonObject ?: return false
             tokens.parentFile?.mkdirs()
             tokens.writer(Charsets.UTF_8).use { w ->
-                map.entries.forEach { (s, v) -> w.write("$s ${v.jsonArray[0].int}\n") }
+                map.entries.forEach { (s, v) -> w.write("$s ${v.jsonArray[0].jsonPrimitive.int}\n") }
             }
             tokens.isFile && tokens.length() > 0
         }.getOrDefault(false)

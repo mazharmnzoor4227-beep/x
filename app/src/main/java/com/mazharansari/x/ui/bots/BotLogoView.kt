@@ -2,6 +2,7 @@ package com.mazharansari.x.ui.bots
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,9 +36,10 @@ private val MONOGRAM_FILLS_LIGHT = listOf(
     Color(0xFFE8EAF0), Color(0xFFF3E8D2), Color(0xFFF0E6EC), Color(0xFFE2E9F2), Color(0xFFEDEAE2),
 )
 
-/** Deterministic fill for a name: same name, same tile, on every screen. */
-fun monogramFill(name: String): Color {
-    val dark = P.bg.red < 0.5f
+/** Deterministic fill for a name: same name, same tile, on every screen.
+ * [dark] is passed in by the caller (a plain function cannot read the
+ * @Composable theme palette [P] itself). */
+fun monogramFill(name: String, dark: Boolean): Color {
     val fills = if (dark) MONOGRAM_FILLS_DARK else MONOGRAM_FILLS_LIGHT
     val idx = (name.lowercase().hashCode() and 0x7FFFFFFF) % fills.size
     return fills[idx]
@@ -58,7 +60,7 @@ fun BotLogoView(logo: String, name: String, size: Dp, modifier: Modifier = Modif
     val p = P
     val dark = p.bg.red < 0.5f
     Box(
-        modifier.size(size).clip(RoundedCornerShape(8.dp)).background(monogramFill(name)),
+        modifier.size(size).clip(RoundedCornerShape(8.dp)).background(monogramFill(name, dark)),
         contentAlignment = Alignment.Center,
     ) {
         Text(
