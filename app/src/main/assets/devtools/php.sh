@@ -15,7 +15,10 @@ do_install() {
     rm -f /etc/apt/sources.list.d/ondrej-php.list /var/lib/apt/lists/.axion-updated
     apt_install 30 "Installing PHP (Ubuntu repository)" php-cli php-mbstring php-xml php-curl php-zip unzip; }
   p 80 "Installing Composer"
-  fetch https://getcomposer.org/download/latest-stable/composer.phar /usr/local/bin/composer && chmod 755 /usr/local/bin/composer
+  # Composer is part of the PHP toolchain: a failed download must fail the install,
+  # not leave PHP "installed" without it (do_version would still report the PHP version).
+  fetch https://getcomposer.org/download/latest-stable/composer.phar /usr/local/bin/composer || die "Composer download failed"
+  chmod 755 /usr/local/bin/composer
 }
 do_version() { local v c; v="$(php -r 'echo PHP_VERSION;' 2>/dev/null)"; [ -n "$v" ] || return; c="$(COMPOSER_ALLOW_SUPERUSER=1 composer --version 2>/dev/null | awk '{print $3}')"; echo "$v${c:+ · Composer $c}"; }
 do_latest() { apt-cache policy php8.4-cli php-cli 2>/dev/null | awk '/Candidate/ && $2!="(none)" {print $2; exit}' | cut -d- -f1 | sed 's/^[0-9]://'; }

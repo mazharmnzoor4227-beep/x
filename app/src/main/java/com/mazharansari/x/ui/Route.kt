@@ -1,15 +1,21 @@
 package com.mazharansari.x.ui
 
 /**
- * One chat screen (2026-11-17 rebuild; 2026-11-19 new UI): the stack starts
- * at [Route.Chat]. There is no Build mode and no dock. Feed, Ideas, Goals,
- * Library, Activity, Computer and CodeDiff are stack destinations again
- * (X-NEW-UI-SPEC §6), reached only from the drawer or from chat. Everything
- * else stays as a stack destination, reached only from the chat menu /
- * settings / chat actions, never from a dock.
+ * List-first ledger (2026-11-19, docs/X-REDESIGN2-SPEC-2026-11-19.md §1):
+ * the stack starts at [Route.Home] — a list of settings + Bots + chats.
+ * [Route.Chat] is a plain conversation, [Route.BotChat] is one bot's own
+ * thread inside the Bots section. There is no drawer, no Build mode, no dock.
+ * Feed, Ideas, Goals, Library, Activity, Computer and CodeDiff are stack
+ * destinations reached only from the Workspace sheet or from chat links.
+ * Everything else stays as a stack destination, reached from Home / Settings
+ * / chat actions, never from a dock.
  */
 sealed interface Route {
+    /** Home list: settings block + Bots section + chat history. The app opens here. */
+    data object Home : Route
     data object Chat : Route
+    /** One bot's own chat, inside the Bots section. Back returns to Home. */
+    data class BotChat(val botId: String) : Route
     data object Settings : Route
     data object Appearance : Route
     data object Language : Route
@@ -50,12 +56,10 @@ sealed interface Route {
     data object Telegram : Route
     // P1 — Bot Store (installable bot definitions)
     data object BotStore : Route
-    // Phase 2 — Bots section (menu only).
-    data object Bots : Route
     // Config, reachable from Antigravity/menu.
     data object CliPair : Route
     // 2026-11-19 (X-NEW-UI-SPEC §6): Workspace stack destinations — reached
-    // from the drawer or from chat, never from a dock or home tab.
+    // from the Workspace sheet or from chat, never from a dock or home tab.
     data object Feed : Route
     data object Ideas : Route
     data object Goals : Route

@@ -131,7 +131,7 @@ class McpClient(private val server: McpServer) : McpRpc {
         rpc("initialize", buildJsonObject {
             put("protocolVersion", "2025-06-18")
             putJsonObject("capabilities") {}
-            putJsonObject("clientInfo") { put("name", "Axion"); put("version", "0.1") }
+            putJsonObject("clientInfo") { put("name", "X"); put("version", "0.1") }
         })
         runCatching { post(buildJsonObject { put("jsonrpc", "2.0"); put("method", "notifications/initialized") }, expectReply = false) }
         initialized = true
@@ -274,7 +274,7 @@ class StdioMcpClient(private val server: McpServer, private val linux: LinuxRunt
         rpc("initialize", buildJsonObject {
             put("protocolVersion", "2025-06-18")
             putJsonObject("capabilities") {}
-            putJsonObject("clientInfo") { put("name", "Axion"); put("version", "0.1") }
+            putJsonObject("clientInfo") { put("name", "X"); put("version", "0.1") }
         })
         runCatching { send(buildJsonObject { put("jsonrpc", "2.0"); put("method", "notifications/initialized") }) }
         initialized = true
@@ -397,7 +397,7 @@ object McpCatalogue {
                 "Send email from your Gmail account",
                 "Manage labels, drafts, and threads",
             ),
-            note = "A remote Gmail MCP server reached over HTTPS with your Google OAuth. Axion never asks for your email password — sign in with Google in the browser. If the server needs a token, paste it below (it is stored encrypted).",
+            note = "A remote Gmail MCP server reached over HTTPS with your Google OAuth. X never asks for your email password — sign in with Google in the browser. If the server needs a token, paste it below (it is stored encrypted).",
         ),
         McpPreset(
             id = "filesystem", name = "Filesystem", transport = "stdio",
@@ -407,7 +407,7 @@ object McpCatalogue {
                 "List workspace folders",
                 "Write files in the workspace",
             ),
-            note = "Runs on this phone inside Linux. Sandboxed to /workspace — it cannot read or write outside Axion's workspace.",
+            note = "Runs on this phone inside Linux. Sandboxed to /workspace — it cannot read or write outside X's workspace.",
         ),
         McpPreset(
             id = "github", name = "GitHub", transport = "stdio",

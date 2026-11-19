@@ -64,9 +64,9 @@ object AgyEvents {
 }
 
 /**
- * Antigravity as a model source in Axion's chat: one agy run per request, on the best account. On a limit / sign-in / eligibility
+ * Antigravity as a model source in X's chat: one agy run per request, on the best account. On a limit / sign-in / eligibility
  * failure it marks the account, switches to the next one (Kodex's retryAntigravityWithNextAccount), says so in the thoughts, and
- * re-runs the same request. Axion's own tools (PDF, web, images) are not available inside an agy run — agy uses its own.
+ * re-runs the same request. X's own tools (PDF, web, images) are not available inside an agy run — agy uses its own.
  */
 class AgyClient(private val linux: LinuxRuntime, private val accounts: AgyAccounts, private val quota: QuotaRepo?, private val probe: AgyQuotaProbe?) : LlmClient {
     override fun stream(req: LlmRequest): Flow<LlmEvent> = channelFlow {
@@ -147,8 +147,8 @@ class AgyClient(private val linux: LinuxRuntime, private val accounts: AgyAccoun
         val turns = items.filter { it is UserItem || it is AssistantItem }.takeLast(9)
         return buildString {
             appendLine("<axion>")
-            appendLine("You are running inside Axion on the user's Android phone, in a private Ubuntu sandbox. The working folder is /workspace (the app's files: uploads/ for files the user gave, outputs/ for anything you make). Reply in the user's language and script, short and natural.")
-            if (sys.isNotBlank()) { appendLine("Axion's instructions:"); appendLine(sys.take(3000)) }
+            appendLine("You are running inside X on the user's Android phone, in a private Ubuntu sandbox. The working folder is /workspace (the app's files: uploads/ for files the user gave, outputs/ for anything you make). Reply in the user's language and script, short and natural.")
+            if (sys.isNotBlank()) { appendLine("X's instructions:"); appendLine(sys.take(3000)) }
             appendLine("</axion>")
             turns.dropLast(1).forEach { t -> when (t) { is UserItem -> appendLine("User: ${t.text.take(2000)}"); is AssistantItem -> appendLine("Assistant: ${t.text.take(2000)}"); else -> {} } }
             appendLine(); append((turns.lastOrNull() as? UserItem)?.text.orEmpty())

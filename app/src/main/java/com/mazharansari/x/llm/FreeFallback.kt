@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.flow
  * "1 reply every 45 seconds per IP"). Used only when no key can answer, or when picked in the model menu. No key is embedded anywhere.
  *
  * v0.5.2 (mazhar's phone test: a 2nd message within ~15 s → Thinking, then "No connection… Network: Canceled"):
- *  - Axion remembers when the last free reply was asked for and waits out the 45 s gap itself, with a visible
+ *  - X remembers when the last free reply was asked for and waits out the 45 s gap itself, with a visible
  *    countdown ("Free model is busy — retrying in 12 s…") instead of sending a request that will be refused;
  *  - a "busy" answer (429/402) is waited out up to twice, with the same countdown;
  *  - the wait is no longer streamed as "thinking" text (it could end up shown as the answer).
@@ -23,7 +23,7 @@ object FreeFallback {
     )
     const val MODEL = "openai"
     const val GAP_MS = 45_000L
-    /** How long the free model may take in total (waits included) before Axion gives up on it. */
+    /** How long the free model may take in total (waits included) before X gives up on it. */
     const val PATIENT_MS = 150_000L
     const val BUSY = "The free model is busy (it allows about 1 reply every 45 seconds). Try again in a minute, or add a free Gemini or Groq key in Connectors for fast replies."
 

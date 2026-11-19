@@ -35,7 +35,7 @@ class TelegramRunner(private val g: Graph) {
 
     suspend fun answer(text: String): String {
         val attempts = attempts()
-        if (attempts.isEmpty()) return "Axion has no model to answer with right now — add a key in Connectors, or set up the local model."
+        if (attempts.isEmpty()) return "X has no model to answer with right now — add a key in Connectors, or set up the local model."
         val collected = StringBuilder()
         val sink = object : AgentSink {
             override fun text(delta: String) {
@@ -64,19 +64,19 @@ class TelegramRunner(private val g: Graph) {
                     emptyList(), UserItem(text),
                     attempts = { attempts }, sink = sink,
                     profile = Profile(
-                        settings.assistantName.ifBlank { "Axion" },
+                        settings.assistantName.ifBlank { "X" },
                         settings.userName, settings.replyLanguage, settings.instructions,
                     ),
                     intent = IntentGate.classify(text, false),
                 )
             }
             val reply = answer.ifBlank { synchronized(collected) { collected.toString() } }.trim()
-            if (reply.isBlank()) "Axion ran that, but there is nothing to show. Open the app to see the result."
+            if (reply.isBlank()) "X ran that, but there is nothing to show. Open the app to see the result."
             else trimReply(reply)
         } catch (e: TimeoutCancellationException) {
             val partial = synchronized(collected) { collected.toString() }.trim()
-            if (partial.isBlank()) "That is taking a while — open Axion to see the result when it finishes."
-            else trimReply(partial) + "\n\n(Still running — open Axion for the full result.)"
+            if (partial.isBlank()) "That is taking a while — open X to see the result when it finishes."
+            else trimReply(partial) + "\n\n(Still running — open X for the full result.)"
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -86,7 +86,7 @@ class TelegramRunner(private val g: Graph) {
 
     private fun trimReply(reply: String): String =
         if (reply.length <= MAX_REPLY_CHARS) reply
-        else reply.take(MAX_REPLY_CHARS) + "\n\n…(cut short — open Axion to read the full answer)"
+        else reply.take(MAX_REPLY_CHARS) + "\n\n…(cut short — open X to read the full answer)"
 
     /** Same attempt order as a scheduled headless run: API keys, then own models, then Free (slow). */
     private fun attempts(): List<Attempt> {

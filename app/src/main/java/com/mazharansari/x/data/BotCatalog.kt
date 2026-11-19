@@ -4,8 +4,8 @@ package com.mazharansari.x.data
  * PHASE 1 SWARM — the Bot Store's seed catalog: real installable bot definitions.
  *
  * Every entry is a definition bundle (persona + skills + tool allow-list) written here in
- * Axion's own words from the PATTERNS of the source below — no source code was copied from
- * any of them, and no bot runs foreign code: each installed bot runs on Axion's own agent
+ * X's own words from the PATTERNS of the source below — no source code was copied from
+ * any of them, and no bot runs foreign code: each installed bot runs on X's own agent
  * loop with its manifest's tool allow-list and the swarm worker caps. Sources were
  * verified before seeding (repo + licence); see third_party/NOTICE-bot-store.md.
  * Never in the store: Andee, Locus (AGPL) code, Aether (GPL) code, Operit (LGPL) code.

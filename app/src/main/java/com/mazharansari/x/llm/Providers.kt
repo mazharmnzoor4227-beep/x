@@ -70,7 +70,7 @@ object Providers {
             note = "Free :free models · one key, many models",
             expertPrefs = listOf(":free"), fastPrefs = listOf(":free"),
             fallbackModel = "openrouter/auto",
-            extraHeaders = mapOf("HTTP-Referer" to "https://github.com/mazharmnzoor4227-beep", "X-Title" to "Axion"),
+            extraHeaders = mapOf("HTTP-Referer" to "https://github.com/mazharmnzoor4227-beep", "X-Title" to "X"),
         ),
         Provider(
             id = "huggingface", name = "Hugging Face", api = ApiKind.OPENAI,

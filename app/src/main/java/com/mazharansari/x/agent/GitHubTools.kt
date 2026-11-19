@@ -42,7 +42,7 @@ private fun shell() =
 
 private fun requireLinux() {
     val linux = LinuxHub.graph?.linux
-    if (linux == null || !linux.isInstalled()) throw IllegalStateException("Linux is not installed yet. Install it in Developer tools first, then ask Axion to work on the repo.")
+    if (linux == null || !linux.isInstalled()) throw IllegalStateException("Linux is not installed yet. Install it in Developer tools first, then ask X to work on the repo.")
 }
 
 private fun requireToken(store: GitHubStore): String =
@@ -102,7 +102,7 @@ private fun err(text: String) = ToolOutput(SecretScanner.scrub(text).clip(10000)
 
 class GitHubCloneTool : Tool {
     override val spec = ToolSpec("github_clone",
-        "Clone a GitHub repo into /workspace/repos/ (shallow by default) so Axion can work on it. Needs GitHub connected in Settings → GitHub and Linux installed.",
+        "Clone a GitHub repo into /workspace/repos/ (shallow by default) so X can work on it. Needs GitHub connected in Settings → GitHub and Linux installed.",
         schema { str("repo", "owner/repo, a github.com URL, or an SSH URL"); bool("shallow", "Shallow clone (default true)") })
     override fun label(args: JsonObject) = StepLabel(StepKind.COMMAND, "GitHub clone", args.s("repo").orEmpty())
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolOutput {
@@ -196,7 +196,7 @@ class GitHubCommitTool : Tool {
             val diff = shellOut(GitCommands.diff(dir)).second
             if (GitCommands.diffHasSecret(diff)) {
                 audit(store, slug, "", "commit", "refused", "secret in diff")
-                return err("Commit refused: the diff contains a secret (${GitCommands.secretKindsIn(diff).joinToString(", ")}). Remove it from the files first — keys belong in Axion's settings, never in a repo.")
+                return err("Commit refused: the diff contains a secret (${GitCommands.secretKindsIn(diff).joinToString(", ")}). Remove it from the files first — keys belong in X's settings, never in a repo.")
             }
             val (code, out) = shellOut(GitCommands.commit(dir, message, name, email))
             audit(store, slug, "", "commit", if (code == 0) "ok" else "failed", out.take(200))
@@ -228,7 +228,7 @@ class GitHubPushTool : Tool {
                 audit(store, slug, branch.orEmpty(), "push", "refused", "secret in diff")
                 val kinds = (GitCommands.secretKindsIn(diff) + treeFindings.map { it.kind }).distinct()
                 val files = treeFindings.take(5).joinToString(", ") { it.file }
-                return err("Push refused: a secret was found (${kinds.joinToString(", ")}${if (files.isNotBlank()) " in $files" else ""}). Remove the secret first — keys belong in Axion's settings, never in a repo.")
+                return err("Push refused: a secret was found (${kinds.joinToString(", ")}${if (files.isNotBlank()) " in $files" else ""}). Remove the secret first — keys belong in X's settings, never in a repo.")
             }
             val (code, out) = withGitAuth(ctx, store) { shellOut(GitCommands.push(dir, branch, force), 300) }
             audit(store, slug, branch.orEmpty(), if (force) "force-push" else "push", if (code == 0) "ok" else "failed", out.take(200))

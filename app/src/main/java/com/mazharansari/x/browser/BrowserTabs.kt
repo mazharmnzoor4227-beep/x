@@ -3,7 +3,7 @@ package com.mazharansari.x.browser
 import java.util.UUID
 
 /**
- * P1-7 — tab state for Axion's own browser, pure Kotlin (no Android calls, unit-tested
+ * P1-7 — tab state for X's own browser, pure Kotlin (no Android calls, unit-tested
  * in BrowserTabsTest).
  *
  * One tab = one page. Each tab keeps its own URL, title and back/forward history

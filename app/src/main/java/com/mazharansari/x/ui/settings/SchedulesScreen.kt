@@ -77,7 +77,7 @@ fun SchedulesScreen(vm: ChatViewModel, back: () -> Unit) {
             // P2-11: the daily briefing — overnight research, repo CI status and quota left, as a new chat every morning.
             item {
                 val digest = entries.firstOrNull { it.id == DigestBuilder.DIGEST_ID }
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.card).padding(14.dp)) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         GkIcon(Gk.clock, null, 20.dp, p.text2)
                         Spacer(Modifier.width(12.dp))
@@ -107,7 +107,7 @@ fun SchedulesScreen(vm: ChatViewModel, back: () -> Unit) {
                 }
             }
             item {
-                Text("Ask Axion in chat — \"kal subah 9 baje mujhe mausam bata dena\" or \"har Monday prices check karna\" — and it schedules the task itself. At the set time Axion does the task on its own, saves the result as a new chat and sends you a notification.",
+                Text("Ask X in chat — \"tell me the weather tomorrow at 9 AM\" or \"check prices every Monday\" — and it schedules the task itself. At the set time X does the task on its own, saves the result as a new chat and sends you a notification.",
                     style = Type.small.copy(fontSize = 14.sp, lineHeight = 20.sp), color = p.text2,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
                 if (exactAllowed) {
@@ -137,7 +137,7 @@ fun SchedulesScreen(vm: ChatViewModel, back: () -> Unit) {
                 }
             } else {
                 items(entries, key = { it.id }) { e ->
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.card).padding(14.dp)) {
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             GkIcon(Gk.clock, null, 20.dp, p.text2)
                             Spacer(Modifier.width(12.dp))
@@ -188,7 +188,7 @@ fun SchedulesScreen(vm: ChatViewModel, back: () -> Unit) {
                 }
                 items(failures, key = { it.id }) { f ->
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp)).background(p.card).padding(14.dp)) {
+                        .clip(RoundedCornerShape(10.dp)).background(p.card).padding(14.dp)) {
                         Text(f.title, style = Type.row.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = p.text)
                         Text(f.error, style = Type.tiny, color = p.text2)
                         Text(fmt.format(Date(f.atMs)), style = Type.tiny, color = p.text3)
@@ -199,7 +199,7 @@ fun SchedulesScreen(vm: ChatViewModel, back: () -> Unit) {
     }
 
     deleting?.let { e ->
-        AlertDialog(onDismissRequest = { deleting = null }, containerColor = p.card, shape = RoundedCornerShape(24.dp),
+        AlertDialog(onDismissRequest = { deleting = null }, containerColor = p.card, shape = RoundedCornerShape(10.dp),
             title = { Text("Delete this schedule?", style = Type.title, color = p.text) },
             text = { Text("\"${e.title}\" (${e.describe()}) will never run again.", style = Type.small, color = p.text2) },
             confirmButton = {

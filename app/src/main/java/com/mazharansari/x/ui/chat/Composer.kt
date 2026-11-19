@@ -35,7 +35,7 @@ import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
 
 /**
- * X composer (spec §5.3): surface card, 28dp corners, 1dp border, no shadow;
+ * X composer (round 2 §2.4): surface card, 12dp corners, 1dp border, no shadow;
  * text field on top, one 44dp control row below: (+) · [model ⌄] …… (mic) ·
  * send (36dp accent circle, 40% opacity until there is text or an
  * attachment) → square stop while streaming. Mic long-press opens the voice
@@ -59,8 +59,8 @@ fun Composer(
     onFocus: () -> Unit = {},
 ) {
     val p = P
-    // Spec §5.3: surface card, 28dp corners, 16dp side margins.
-    val shape = RoundedCornerShape(28.dp)
+    // Round 2 §2.4: surface card, 12dp corners, 16dp side margins.
+    val shape = RoundedCornerShape(12.dp)
     Column(modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(shape).background(p.surface).border(1.dp, p.border, shape)) {
         if (attachments.isNotEmpty()) {
             Row(Modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -81,7 +81,7 @@ fun Composer(
                 // Kodex's waveform: frame-loop driven, reads the mic level once per frame, no recomposition per RMS event.
                 com.mazharansari.x.ui.voice.LiveWaveform(level, Modifier.weight(1f).height(36.dp).padding(start = 16.dp, end = 10.dp), color = p.accent)
                 val sendTap = rememberTap(onMicSend)
-                Box(Modifier.size(44.dp).clip(CircleShape).background(if (finishing) p.chip else p.accent)
+                Box(Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)).background(if (finishing) p.chip else p.accent)
                     .clickable(enabled = !finishing, onClick = sendTap), contentAlignment = Alignment.Center) {
                     GkIcon(Gk.send, "Send voice message", 20.dp, if (finishing) p.text3 else p.onAccent)
                 }
@@ -117,13 +117,13 @@ private fun Field(text: String, onText: (String) -> Unit, placeholder: String, l
     }
 }
 
-/** 36dp chip circle holding a 20dp glyph (the + and the mic). */
+/** 36dp square button (8dp corners) holding a 20dp glyph (the + and the mic). */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RoundTool(icon: Int, desc: String, onClick: () -> Unit, active: Boolean = false, onLongClick: (() -> Unit)? = null) {
     val p = P; val tap = rememberTap(onClick)
     val longTap = onLongClick?.let { rememberTap(it) }
-    Box(Modifier.size(36.dp).clip(CircleShape).background(if (active) p.accentSoft else p.chip)
+    Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(if (active) p.accentSoft else p.chip)
         .then(if (longTap != null) Modifier.combinedClickable(onClick = tap, onLongClick = longTap) else Modifier.clickable(onClick = tap)),
         contentAlignment = Alignment.Center) {
         Crossfade(icon, animationSpec = tween(120), label = "tool") { GkIcon(it, desc, 20.dp, if (active) p.accent else p.text) }
@@ -133,7 +133,7 @@ fun RoundTool(icon: Int, desc: String, onClick: () -> Unit, active: Boolean = fa
 @Composable
 private fun ModeChip(label: String, open: Boolean, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
-    Row(Modifier.height(36.dp).clip(RoundedCornerShape(20.dp)).background(if (open) p.accentSoft else p.chip).clickable(onClick = tap).padding(start = 12.dp, end = 10.dp),
+    Row(Modifier.height(36.dp).clip(RoundedCornerShape(6.dp)).background(if (open) p.accentSoft else p.chip).clickable(onClick = tap).padding(start = 12.dp, end = 10.dp),
         verticalAlignment = Alignment.CenterVertically) {
         GkIcon(modeIcon(label), null, 18.dp, p.text)
         Spacer(Modifier.width(6.dp))
@@ -156,7 +156,7 @@ private fun SendButton(state: Int, onSend: () -> Unit, onStop: () -> Unit) {
     val tap = rememberTap { when (state) { 1 -> onSend(); 2 -> onStop(); else -> {} } }
     val bg = when (state) { 1, 2 -> p.accent; 3 -> p.chip; else -> p.accent.copy(alpha = 0.4f) }
     Row(
-        Modifier.height(36.dp).animateContentSize(tween(160)).clip(RoundedCornerShape(24.dp)).background(bg).clickable(onClick = tap)
+        Modifier.height(36.dp).animateContentSize(tween(160)).clip(CircleShape).background(bg).clickable(onClick = tap)
             .widthIn(min = 36.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
     ) {
@@ -182,9 +182,9 @@ private fun SendButton(state: Int, onSend: () -> Unit, onStop: () -> Unit) {
 private fun ToolChip(icon: Int, label: String, on: Boolean, onClick: () -> Unit, height: Dp = 36.dp, horizontalPadding: Dp = 12.dp) {
     val p = P; val tap = rememberTap(onClick)
     Row(
-        Modifier.height(height).clip(RoundedCornerShape(20.dp))
+        Modifier.height(height).clip(RoundedCornerShape(6.dp))
             .background(if (on) p.accent else p.chip)
-            .border(1.dp, if (on) p.accent else p.border, RoundedCornerShape(20.dp))
+            .border(1.dp, if (on) p.accent else p.border, RoundedCornerShape(6.dp))
             .clickable(onClick = tap).padding(start = horizontalPadding, end = horizontalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {

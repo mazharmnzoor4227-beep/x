@@ -6,9 +6,9 @@ package com.mazharansari.x.agent
  * so the model cannot write files or run commands for "hello Kya Hal he" — and the request is ~10x smaller, which
  * also keeps Groq's per-minute token limit from tripping on a greeting.
  *
- *  CHAT    greetings, small talk, opinions, explanations, questions about Axion itself → no tools
+ *  CHAT    greetings, small talk, opinions, explanations, questions about X itself → no tools
  *  LOOKUP  needs fresh facts from the web (news, prices, weather, "search…", a bare link) → web tools only
- *  ACTION  the user explicitly asks Axion to make / run / build / fix / download / read a file → all tools
+ *  ACTION  the user explicitly asks X to make / run / build / fix / download / read a file → all tools
  */
 enum class Intent { CHAT, LOOKUP, ACTION }
 
@@ -30,7 +30,7 @@ object IntentGate {
         RegexOption.IGNORE_CASE,
     )
     private val url = Regex("https?://\\S+|\\b[a-z0-9-]+\\.(com|pk|org|net|io|store|shop|app|dev|ai)\\b", RegexOption.IGNORE_CASE)
-    // "can you run PowerShell commands?", "tum kya kar sakte ho?" — questions ABOUT Axion, not requests.
+    // "can you run PowerShell commands?", "tum kya kar sakte ho?" — questions ABOUT X, not requests.
     private val capability = Regex(
         "^(can|could|do|does|are|will) (you|u|axion)\\b|\\b(what|which) (can|could) you\\b|\\b(tum|aap|ap) kya kar (sakte|sakti)|" +
         "\\bkya (tum|aap|ap) .* (sakte|sakti|chala sakte) ho\\b|\\bkya (tum|aap|ap) ke paas\\b",

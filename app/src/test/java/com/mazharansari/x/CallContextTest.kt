@@ -30,7 +30,7 @@ class CallContextTest {
         ))
         assertTrue(out.startsWith(CallContext.HEADER))
         assertTrue(out.contains("User: meri dukaan ka naam kya rakha tha?"))
-        assertTrue(out.contains("Axion: Clawora Beauty."))
+        assertTrue(out.contains("X: Clawora Beauty."))
         assertTrue(out.indexOf("naam kya rakha") < out.indexOf("kya decide"))
     }
 

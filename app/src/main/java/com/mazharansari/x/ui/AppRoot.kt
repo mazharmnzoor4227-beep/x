@@ -23,7 +23,7 @@ import com.mazharansari.x.ui.theme.P
 @Composable
 fun AppRoot(vm: ChatViewModel) {
     val settings by vm.g.settings.state.collectAsState()
-    val stack = remember { mutableStateListOf<Route>(Route.Chat) }
+    val stack = remember { mutableStateListOf<Route>(Route.Home) }
     // Splash shows once per app start, after onboarding; skipped in tests.
     var splashDone by remember { mutableStateOf(AnimationGate.inTestRuntime) }
     val ctx = LocalContext.current
@@ -40,7 +40,7 @@ fun AppRoot(vm: ChatViewModel) {
         0 -> com.mazharansari.x.ui.auth.IntroScreen { vm.g.settings.update { it.copy(introShown = true) } }
         1 -> com.mazharansari.x.ui.auth.PermissionsOnboarding({ vm.g.settings.update { it.copy(permsShown = true) } })
         else ->
-        // One chat screen: the splash (mascot + X, ~700 ms, tap to skip) shows
+        // Home list: the splash (wordmark, ~700 ms, tap to skip) shows
         // once per app start, after the onboarding stages. Skipped in tests.
         if (!splashDone) SplashScreen { splashDone = true } else
         CompositionLocalProvider(LocalHaptics provides settings.haptics, LocalTouchSound provides settings.touchSound) {
@@ -65,7 +65,9 @@ fun AppRoot(vm: ChatViewModel) {
                     // v0.5.2: screens where keys, tokens or passwords are typed: no screenshots, screen recording or Recents preview.
                     if (r in com.mazharansari.x.ui.SecureRoutes.all) com.mazharansari.x.security.SecureScreen()
                     saved.SaveableStateProvider(r.toString()) { when (r) {
-                        Route.Chat -> ChatScreen(vm, nav)
+                        Route.Home -> com.mazharansari.x.ui.home.HomeScreen(vm, nav)
+                        Route.Chat -> ChatScreen(vm, nav, back)
+                        is Route.BotChat -> com.mazharansari.x.ui.home.BotChatScreen(vm, r.botId, back, nav)
                         Route.Settings -> SettingsScreen(vm, nav, back)
                         Route.Appearance -> AppearanceScreen(vm, back)
                         Route.Language -> LanguageScreen(vm, back)
@@ -96,7 +98,6 @@ fun AppRoot(vm: ChatViewModel) {
                         Route.GitHub -> com.mazharansari.x.ui.settings.GitHubScreen(vm, back)
                         Route.Telegram -> com.mazharansari.x.ui.settings.TelegramScreen(vm, back)
                         Route.BotStore -> com.mazharansari.x.ui.bots.BotStoreScreen(vm, back)
-                        Route.Bots -> com.mazharansari.x.ui.bots.BotsScreen(vm, nav, back)
                         Route.CliPair -> com.mazharansari.x.ui.home.CliPairScreen(vm, back, nav)
                         Route.Feed -> com.mazharansari.x.ui.workspace.FeedScreen(vm, back, nav)
                         Route.Ideas -> com.mazharansari.x.ui.workspace.IdeasScreen(vm, back, nav)

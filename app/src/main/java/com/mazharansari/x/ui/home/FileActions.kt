@@ -21,11 +21,11 @@ object FileActions {
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, a.name)
                 put(MediaStore.Downloads.MIME_TYPE, a.mime)
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Axion")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/X")
             }
             val uri = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: error("no uri")
             ctx.contentResolver.openOutputStream(uri)!!.use { o -> src.inputStream().use { it.copyTo(o) } }
-            "Saved to Downloads/Axion/${a.name}"
+            "Saved to Downloads/X/${a.name}"
         } else {
             val dir = ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: error("no storage")
             src.copyTo(File(dir, a.name), overwrite = true)

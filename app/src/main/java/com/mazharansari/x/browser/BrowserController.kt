@@ -66,13 +66,13 @@ data class BrowserElement(
 data class BrowserPage(val url: String, val title: String, val text: String, val elements: List<BrowserElement>)
 
 /**
- * Axion's own browser: ONE WebView PER TAB, owned here, shared by the Browser screen (the user watches and can take over)
+ * X's own browser: ONE WebView PER TAB, owned here, shared by the Browser screen (the user watches and can take over)
  * and by the agent's browser_* tools. Each tab's WebView is created lazily on the main thread with a swappable context —
  * the app context while only the agent uses it, the activity while the Browser screen shows it — so tabs survive
  * navigation between screens and keep their own page, cookies, login state and back/forward history. Switching tabs
  * restores that tab's page. All agent actions are serialised and always act on the active tab.
  *
- * P1-7 (ME-9, ME-10): downloads are REAL — a page's download saves into the public Downloads/Axion folder
+ * P1-7 (ME-9, ME-10): downloads are REAL — a page's download saves into the public Downloads/X folder
  * through DownloadManager, with progress in the Browser screen and an Open action — and <input type=file>
  * opens the system file picker (see [onFileChooserRequested] / [deliverFileChooserResult]).
  *
@@ -304,7 +304,7 @@ class BrowserController(
 
     // ---- downloads (P1-7, ME-9) ----
 
-    /** Starts a real download into Downloads/Axion. Called on the main thread by the WebView's download listener. */
+    /** Starts a real download into Downloads/X. Called on the main thread by the WebView's download listener. */
     private fun startDownload(url: String, contentDisposition: String?, mimeType: String?) {
         val uri = runCatching { Uri.parse(url) }.getOrNull()
         val name0 = BrowserDownloads.fileNameFor(url, contentDisposition, mimeType)
@@ -318,7 +318,7 @@ class BrowserController(
         val name = BrowserDownloads.uniqueFileName(existing, name0)
         val req = DownloadManager.Request(uri)
             .setTitle(name)
-            .setDescription("Downloading in Axion")
+            .setDescription("Downloading in X")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "${BrowserDownloads.DIR}/$name")
             .setAllowedOverMetered(true).setAllowedOverRoaming(true)
@@ -406,7 +406,7 @@ class BrowserController(
         if (_loading.value) append("  [still loading — browser_read again in a moment]")
         lastError?.let { append("  [load note: $it]") }
         lastBlocked?.let { append("  [the page tried to open $it — outside links like that are not followed]") }
-        lastDownloadName?.let { append("  [download started: $it — saved in Downloads/Axion]") }
+        lastDownloadName?.let { append("  [download started: $it — saved in Downloads/X]") }
         lastDownloadError?.let { append("  [$it]") }
     }
 

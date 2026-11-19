@@ -6,7 +6,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -89,26 +88,26 @@ fun rememberTap(onClick: () -> Unit): () -> Unit {
 fun IconTap(@DrawableRes icon: Int, desc: String, size: Dp = 20.dp, tint: Color = P.text2, box: Dp = 36.dp, onClick: () -> Unit) {
     val tap = rememberTap(onClick)
     Box(
-        Modifier.size(box).clip(CircleShape).clickable(remember { MutableInteractionSource() }, ripple(bounded = true), onClick = tap),
+        Modifier.size(box).clip(RoundedCornerShape(8.dp)).clickable(remember { MutableInteractionSource() }, ripple(bounded = true), onClick = tap),
         contentAlignment = Alignment.Center,
     ) { GkIcon(icon, desc, size, tint) }
 }
 
-/** X round top-bar buttons: 48dp, card fill, hairline line rim, 24dp glyph. */
+/** X square top-bar buttons (round 2): 48dp, card fill, hairline rim, 24dp glyph, 8dp corners. */
 @Composable
 fun CircleButton(@DrawableRes icon: Int, desc: String, size: Dp = 48.dp, bg: Color = P.card, tint: Color = P.text, iconSize: Dp = 24.dp, onClick: () -> Unit) {
     val tap = rememberTap(onClick)
-    Box(Modifier.size(size).clip(CircleShape).background(bg).border(1.dp, P.border, CircleShape).clickable(onClick = tap), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size).clip(RoundedCornerShape(8.dp)).background(bg).border(1.dp, P.border, RoundedCornerShape(8.dp)).clickable(onClick = tap), contentAlignment = Alignment.Center) {
         GkIcon(icon, desc, iconSize, tint)
     }
 }
 
-/** X chip (pill: radius 20). */
+/** X chip (round 2: 6dp corners, never a pill). */
 @Composable
 fun Pill(text: String, modifier: Modifier = Modifier, @DrawableRes icon: Int? = null, filled: Boolean = false, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
     Row(
-        modifier.clip(RoundedCornerShape(20.dp)).then(if (filled) Modifier.background(p.accent) else Modifier.border(1.dp, p.border, RoundedCornerShape(20.dp)))
+        modifier.clip(RoundedCornerShape(6.dp)).then(if (filled) Modifier.background(p.accent) else Modifier.border(1.dp, p.border, RoundedCornerShape(6.dp)))
             .clickable(onClick = tap).padding(horizontal = 16.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -117,8 +116,8 @@ fun Pill(text: String, modifier: Modifier = Modifier, @DrawableRes icon: Int? = 
     }
 }
 
-// Sub-page header (spec §5.1/§6): below the status bar with a clear gap —
-// statusBarsPadding() + 12dp — then a 56dp row, back chevron + 20sp title.
+// Sub-page header (round 2 §2.2): below the status bar with a clear gap —
+// statusBarsPadding() + 12dp — then a 56dp row, back chevron + 22sp title.
 @Composable
 fun ScreenHeader(title: String, onBack: () -> Unit, close: Boolean = false, trailing: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(top = 12.dp).height(56.dp).padding(start = 6.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -132,22 +131,22 @@ fun ScreenHeader(title: String, onBack: () -> Unit, close: Boolean = false, trai
 /** X section label (small caps). */
 @Composable
 fun SectionLabel(text: String, modifier: Modifier = Modifier) =
-    Text(text.uppercase(), style = Type.small.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp), color = P.text2, modifier = modifier.padding(start = 30.dp, top = 22.dp, bottom = 10.dp))
+    Text(text.uppercase(), style = Type.eyebrow, color = P.text2, modifier = modifier.padding(start = 30.dp, top = 22.dp, bottom = 10.dp))
 
 /**
- * X grouped list: each row is its own card tile, 2dp apart, the group's outer corners 13dp and the inner
+ * X grouped list (round 2): each row is its own card tile, 2dp apart, the group's outer corners 10dp and the inner
  * corners 6dp — rows 56dp tall, 16dp side margins.
  */
 class GroupScope internal constructor(val count: Int) { internal var index = 0 }
 
 @Composable
 fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(13.dp)), verticalArrangement = Arrangement.spacedBy(2.dp), content = content)
+    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)), verticalArrangement = Arrangement.spacedBy(2.dp), content = content)
 }
 
 fun tileShape(first: Boolean, last: Boolean): Shape = RoundedCornerShape(
-    topStart = if (first) 13.dp else 6.dp, topEnd = if (first) 13.dp else 6.dp,
-    bottomStart = if (last) 13.dp else 6.dp, bottomEnd = if (last) 13.dp else 6.dp,
+    topStart = if (first) 10.dp else 6.dp, topEnd = if (first) 10.dp else 6.dp,
+    bottomStart = if (last) 10.dp else 6.dp, bottomEnd = if (last) 10.dp else 6.dp,
 )
 
 @Composable
@@ -178,8 +177,8 @@ fun AxionSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
     val p = P
     val x by androidx.compose.animation.core.animateDpAsState(if (checked) 20.dp else 0.dp, label = "sw")
     val track by androidx.compose.animation.animateColorAsState(if (checked) p.accent else if (p.isDark) Color(0xFF3A3A3A) else Color(0xFFD9D9D9), label = "tr")
-    Box(Modifier.size(width = 48.dp, height = 28.dp).clip(RoundedCornerShape(50)).background(track).clickable { onChange(!checked) }.padding(3.dp)) {
-        Box(Modifier.offset(x = x).size(22.dp).clip(CircleShape).background(if (checked) p.onAccent else p.text))
+    Box(Modifier.size(width = 48.dp, height = 28.dp).clip(RoundedCornerShape(8.dp)).background(track).clickable { onChange(!checked) }.padding(3.dp)) {
+        Box(Modifier.offset(x = x).size(22.dp).clip(RoundedCornerShape(6.dp)).background(if (checked) p.onAccent else p.text))
     }
 }
 
@@ -191,28 +190,31 @@ fun ToggleRow(@DrawableRes icon: Int?, title: String, subtitle: String? = null, 
 @Composable
 fun Divider(start: Dp = 52.dp) = Box(Modifier.padding(start = start).fillMaxWidth().height(1.dp).background(P.border))
 
+/**
+ * Monogram tile (round 2, spec §2.5): the same 2-initial, 8dp rounded-square
+ * tile as [BotLogoView] — [name] is the full name, not one letter. No circle,
+ * no single initial, no accent tint.
+ */
 @Composable
-fun Avatar(letter: String, size: Dp = 36.dp, bg: Color = P.accent.copy(alpha = 0.16f)) {
-    Box(Modifier.size(size).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
-        Text(letter.take(1).uppercase(), color = P.accent, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Default)
-    }
+fun Avatar(name: String, size: Dp = 36.dp) {
+    com.mazharansari.x.ui.bots.BotLogoView("", name, size)
 }
 
-/** X button (pill radius 24, min height 42; primary accent, secondary soft grey). */
+/** X button (round 2: 8dp corners, min height 42; primary accent, secondary soft grey). */
 @Composable
 fun DotsButton(text: String, onClick: () -> Unit, primary: Boolean = true, modifier: Modifier = Modifier) {
     val p = P; val tap = rememberTap(onClick)
-    Box(modifier.heightIn(min = 42.dp).clip(RoundedCornerShape(24.dp))
+    Box(modifier.heightIn(min = 42.dp).clip(RoundedCornerShape(8.dp))
         .background(if (primary) p.accent else p.chip).clickable(onClick = tap).padding(horizontal = 18.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center) {
-        Text(text, style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = if (primary) Color.White else p.text, maxLines = 1)
+        Text(text, style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = if (primary) p.onAccent else p.text, maxLines = 1)
     }
 }
 
 
 /**
- * v0.4: closes the keyboard and takes focus off the composer while this is in composition (popovers, sheets, the
- * drawer, every screen pushed over Home), so the keyboard can't pop back up over a menu.
+ * v0.4: closes the keyboard and takes focus off the composer while this is in composition (popovers, sheets,
+ * every screen pushed over Home), so the keyboard can't pop back up over a menu.
  */
 @Composable
 fun DismissKeyboard() {

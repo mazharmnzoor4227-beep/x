@@ -28,7 +28,7 @@ import kotlinx.serialization.json.jsonObject
  *
  * ## Out of scope
  *
- * External code loading is explicitly OUT of scope: Axion never loads plugin
+ * External code loading is explicitly OUT of scope: X never loads plugin
  * APKs, DEX files, or any other code at runtime. A plugin is a Kotlin class
  * in the app's own source tree (see [com.mazharansari.x.agent.plugins.SamplePlugin]
  * for the documented example). Anything that would need downloading and

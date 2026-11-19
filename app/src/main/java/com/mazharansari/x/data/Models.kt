@@ -76,7 +76,7 @@ data class Message(
     val createdAt: Long = 0,
     /** v0.5.1: transient line under "Thinking" ("Switching to Groq · llama-3.3-70b…"). */
     val notice: String = "",
-    /** v0.5.2: ms from tapping Send to the first answer word on screen, and how much of that was Axion itself (before the request left). */
+    /** v0.5.2: ms from tapping Send to the first answer word on screen, and how much of that was X itself (before the request left). */
     val firstWordMs: Long = 0,
     val prepMs: Long = 0,
     /** v0.6 (axion-p2): the plan the agent showed for a multi-step task (empty for simple replies). */
@@ -96,9 +96,9 @@ data class Conversation(
     /** v0.4: which engine owns this thread — "ask" (API keys) or "build" (Antigravity). See [com.mazharansari.x.ui.Section]. */
     val section: String = "ask",
     /**
-     * Phase 2: the installed/created bot this chat runs as ("" = plain Axion).
+     * Phase 2: the installed/created bot this chat runs as ("" = plain X).
      * The chat list shows the bot's name and logo for these chats, and opening
-     * one restores the bot instead of dropping back to plain Axion.
+     * one restores the bot instead of dropping back to plain X.
      */
     val botId: String = "",
     val botName: String = "",
@@ -112,7 +112,7 @@ data class ConversationMeta(
     val updatedAt: Long,
     val preview: String = "",
     val section: String = "ask",
-    /** Phase 2: the bot this chat runs as ("" = plain Axion). */
+    /** Phase 2: the bot this chat runs as ("" = plain X). */
     val botId: String = "",
     val botName: String = "",
 )

@@ -1,7 +1,7 @@
 package com.mazharansari.x.voice
 
 /**
- * Every voice Axion can speak with. v0.3 (mazhar, 1 Nov 2026): ALL earlier voices removed. Two families remain:
+ * Every voice X can speak with. v0.3 (mazhar, 1 Nov 2026): ALL earlier voices removed. Two families remain:
  *
  * 1. Kodex voices — the exact six on-device Google voices his Kodex app shows on its Voice settings screen,
  *    with Kodex's friendly names in Kodex's order (read off his screen recording, 1 Nov 2026):
@@ -45,9 +45,9 @@ data class AxVoice(
 
 object VoiceCatalog {
     const val DEFAULT_ID = "kodex:rounded"
-    const val PREVIEW_TEXT = "Hi, I'm your Axion voice. Ask me anything."
+    const val PREVIEW_TEXT = "Hi, I'm your X voice. Ask me anything."
     /** Spoken (not shown) by Hindi/Urdu voices; written in Devanagari so the voice pronounces it naturally. */
-    const val PREVIEW_URDU = "नमस्ते! मैं आपका Axion हूँ। बताइए, आज मैं आपकी क्या मदद कर सकता हूँ?"
+    const val PREVIEW_URDU = "नमस्ते! मैं आपका X हूँ। बताइए, आज मैं आपकी क्या मदद कर सकता हूँ?"
 
     val kodex = listOf(
         AxVoice("kodex:rounded", "Rounded", VoiceFamily.KODEX, "English (United Kingdom)", "Default voice", "en-gb-x-gbb-network", false),

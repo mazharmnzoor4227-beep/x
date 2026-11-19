@@ -25,13 +25,13 @@ data class MemoryData(
 )
 
 /**
- * v0.10 (Hermes learning loop): Axion's persistent, agent-curated memory.
+ * v0.10 (Hermes learning loop): X's persistent, agent-curated memory.
  *
  * Two bounded lists — USER (who the user is, how they like things) and MEMORY (facts, lessons,
  * project notes) — saved as one JSON file in the app's private storage, in the same pattern as
  * [SettingsStore]. The agent writes it with the memory_* tools; the user can see, edit and delete
  * every entry in Settings → Memory. A snapshot is injected into the system prompt of every chat,
- * so what Axion learns in one conversation is there in the next.
+ * so what X learns in one conversation is there in the next.
  *
  * The budgets are deliberate (Hermes keeps its memory files small on purpose): when a list is
  * full, an add is refused with a message telling the agent to replace or remove something first,

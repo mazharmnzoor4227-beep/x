@@ -1,6 +1,6 @@
 package com.mazharansari.x.livecall
 
-/** One Gemini key for a Live call (from Axion's connectors). */
+/** One Gemini key for a Live call (from X's connectors). */
 data class ApiKeyCredential(val id: String, val name: String, val secret: String, val isActive: Boolean)
 
 /** Failure classes, same wording rules as Kodex's ApiKeyFailoverCoordinator. */

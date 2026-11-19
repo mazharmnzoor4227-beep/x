@@ -85,7 +85,7 @@ object ObscuraInstaller {
         // unpack never leaves a half-installed engine behind. deleteNoFollow
         // never follows a symlink out of the tree (the rootfs is full of them).
         val staging = File(linux.home, "obscura.staging").apply { LinuxSlim.deleteNoFollow(this); mkdirs() }
-        LinuxRuntime.extractTarGz(dest, staging)
+        LinuxRuntime.extractTarGz(dest, staging, onSkipped = { onProgress(it) })
         val target = File(linux.rootfs, "opt/axion/obscura")
         LinuxSlim.deleteNoFollow(target)
         target.parentFile?.mkdirs()

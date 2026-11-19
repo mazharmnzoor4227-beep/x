@@ -12,7 +12,7 @@ import java.net.URLDecoder
  * is deliberately strict: plain text — including "100% sure", "C++" and links
  * with a stray %20 — is never touched. Only dense percent-encoded blobs are
  * decoded (up to two passes, for double-encoded text).
- * Original Axion code.
+ * Original X code.
  */
 object MessageText {
 

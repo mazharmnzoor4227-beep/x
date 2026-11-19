@@ -254,7 +254,7 @@ class V05ScreensTest {
         val store = app.graph.localModels
         flow<Map<String, DlState>>(store, "_state").value = mapOf(
             LocalModel.QWEN_CODER_1_5B.id to DlState.Ready,
-            LocalModel.GEMMA3_1B.id to DlState.Downloading(331_000_000, LocalModel.GEMMA3_1B.bytes),
+            LocalModel.LFM3_1_7B.id to DlState.Downloading(331_000_000, LocalModel.LFM3_1_7B.bytes),
         )
         val sc = launch { it.debugStart = Route.LocalModels }.first
         compose.mainClock.advanceTimeBy(1200)
@@ -280,7 +280,7 @@ class V05ScreensTest {
         cap("15_ask_model_menu_local_server"); sc.close()
     }
 
-    private val upd = com.mazharansari.x.update.UpdateInfo(7, "0.5.1", "https://claworabeauty.store/uploads/dl/axion/Axion-0.5.1.apk", "ab".repeat(32), 16_384_000,
+    private val upd = com.mazharansari.x.update.UpdateInfo(7, "0.5.1", "https://example.invalid/x-0.5.1.apk", "ab".repeat(32), 16_384_000,
         "Faster Build previews, a fix for publishing to Vercel, and smaller downloads for local models.")
 
     @Test fun aboutUpdateAvailable() {

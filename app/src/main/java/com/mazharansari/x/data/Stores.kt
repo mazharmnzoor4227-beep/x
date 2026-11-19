@@ -34,7 +34,7 @@ data class AppSettings(
     val naturalVoice: Boolean = false,    // Gemini TTS when a Gemini key exists, else Android TTS
     val autoRead: Boolean = false,
     val userName: String = "",
-    val assistantName: String = "Axion",
+    val assistantName: String = "X",
     val instructions: String = "",
     val replyLanguage: String = "",
     val mode: String = "AUTO",
@@ -161,6 +161,15 @@ class ConversationStore(ctx: Context) {
         }
         hits
     }
+
+    /**
+     * Redesign round 2 (§3.3): the newest saved, non-worker conversation that
+     * ran as bot [botId], or null when the bot has no thread yet. Old data may
+     * hold several threads per bot (every old startBotChat made a fresh one);
+     * the newest wins and the older ones stay visible in CHATS as real history.
+     */
+    fun latestForBot(botId: String): ConversationMeta? =
+        _index.value.filter { it.botId == botId && it.section != "worker" }.maxByOrNull { it.updatedAt }
 
     fun delete(id: String) { _index.value = _index.value.filterNot { it.id == id }; io.launch { File(dir, "$id.json").delete() } }
 

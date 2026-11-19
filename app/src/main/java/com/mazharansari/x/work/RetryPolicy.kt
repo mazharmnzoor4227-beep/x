@@ -5,7 +5,7 @@ package com.mazharansari.x.work
  * the retry record and the tests all agree on the same numbers.
  *
  * WorkManager already backs off exponentially from its own minimum (10 minutes);
- * these are the delays Axion itself promises when it schedules a retry: the
+ * these are the delays X itself promises when it schedules a retry: the
  * first retry waits 10 minutes, the next 20, then 40, capped at 2 hours. The
  * retry count stays bounded ([ScheduledRunWorker.MAX_ATTEMPTS] / the schedule's
  * own maxRetries), so a failing schedule never retries forever.

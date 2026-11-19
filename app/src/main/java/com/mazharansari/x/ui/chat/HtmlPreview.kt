@@ -24,7 +24,7 @@ import com.mazharansari.x.ui.theme.Type
 import java.io.File
 
 /**
- * v0.6 (Phase 1.3, Ask section): a website the agent wrote (an .html file in outputs/) opens INSIDE Axion — same hardened
+ * v0.6 (Phase 1.3, Ask section): a website the agent wrote (an .html file in outputs/) opens INSIDE X — same hardened
  * WebView as the Build preview, served from a local static server rooted at the file's folder so CSS/JS/images next to
  * it load. Refresh reloads; "Open in browser" hands the local address to the phone's browser.
  */
@@ -45,7 +45,7 @@ fun HtmlPreview(a: Artifact, onClose: () -> Unit) {
                 runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }
         }
-        Box(Modifier.fillMaxSize().padding(horizontal = 10.dp).clip(RoundedCornerShape(16.dp)).background(androidx.compose.ui.graphics.Color.White)) {
+        Box(Modifier.fillMaxSize().padding(horizontal = 10.dp).clip(RoundedCornerShape(10.dp)).background(androidx.compose.ui.graphics.Color.White)) {
             AndroidView(factory = { c -> PreviewWeb.harden(WebView(c)).apply { web = this; loadUrl(url) } }, modifier = Modifier.fillMaxSize())
         }
     }

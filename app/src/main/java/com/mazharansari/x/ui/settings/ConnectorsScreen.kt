@@ -72,14 +72,14 @@ fun ConnectorsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) 
         ScreenHeader("Connectors", back)
         LazyColumn(Modifier.weight(1f).navigationBarsPadding(), contentPadding = PaddingValues(bottom = 32.dp)) {
             item {
-                Text("Connectors let Axion use AI models and external tools. Paste any API key: Axion detects the provider and picks the best model by itself. Add several; when one hits its limit, Axion switches to the next automatically.",
+                Text("Connectors let X use AI models and external tools. Paste any API key: X detects the provider and picks the best model by itself. Add several; when one hits its limit, X switches to the next automatically.",
                     style = Type.small.copy(fontSize = 14.sp, lineHeight = 20.sp), color = p.text2, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
                 // Paste-a-key card
-                Column(Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.card).padding(16.dp)) {
+                Column(Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(16.dp)) {
                     Text("Add AI key", style = Type.label, color = p.text)
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(p.page2).padding(horizontal = 14.dp, vertical = 13.dp)) {
+                        Box(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(p.page2).padding(horizontal = 14.dp, vertical = 13.dp)) {
                             if (key.isEmpty()) Text("Paste any API key", style = Type.body, color = p.text3)
                             BasicTextField(key, { key = it.trim() }, singleLine = true, textStyle = Type.body.copy(color = p.text), cursorBrush = SolidColor(p.text),
                                 visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
@@ -119,7 +119,7 @@ fun ConnectorsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) 
             }
             item {
                 SectionLabel("AI providers · free tiers")
-                Row(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(48.dp).clip(RoundedCornerShape(50)).background(p.card).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(48.dp).clip(RoundedCornerShape(8.dp)).background(p.card).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     GkIcon(Gk.search, null, 18.dp, p.text2); Spacer(Modifier.width(8.dp))
                     Box { if (q.isEmpty()) Text("Search", style = Type.body, color = p.text3); BasicTextField(q, { q = it }, singleLine = true, textStyle = Type.body.copy(color = p.text), cursorBrush = SolidColor(p.text), modifier = Modifier.fillMaxWidth()) }
                 }
@@ -133,7 +133,7 @@ fun ConnectorsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) 
                 // P1-2: a server that fails 3 checks in a row is auto-disabled, with a notice.
                 val mcpNotice by vm.g.mcp.notice.collectAsState()
                 mcpNotice?.let { n ->
-                    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.card).padding(14.dp)) {
+                    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(14.dp)) {
                         Text(n, style = Type.small, color = p.text)
                         Spacer(Modifier.height(8.dp))
                         Pill("Dismiss") { vm.g.mcp.dismissNotice() }
@@ -185,10 +185,10 @@ fun ConnectorsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) 
         com.mazharansari.x.ui.chat.AxionSheet({ connectFor = null; result = null }) {
             Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) { ProviderBadge(pr.id, pr.name, 40.dp); Spacer(Modifier.width(14.dp)); Column { Text("Connect ${pr.name}", style = Type.title, color = p.text); Text(pr.note, style = Type.small, color = p.text2) } }
-                Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(50)).background(p.page2).clickable { open(ctx, pr.keyPage) }.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(8.dp)).background(p.page2).clickable { open(ctx, pr.keyPage) }.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("1.  Get a key", style = Type.label, color = p.text, modifier = Modifier.weight(1f)); GkIcon(Gk.arrowUpRight, null, 18.dp, p.text2)
                 }
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.page2).padding(start = 18.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.page2).padding(start = 18.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f).padding(vertical = 10.dp)) {
                         if (key.isEmpty()) Text("2.  Paste it here", style = Type.body, color = p.text3)
                         BasicTextField(key, { key = it.trim() }, singleLine = true, textStyle = Type.body.copy(color = p.text), cursorBrush = SolidColor(p.text), visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
@@ -198,13 +198,13 @@ fun ConnectorsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) 
                 // A key pasted into the wrong provider's sheet (e.g. a Gemini "AQ." key under another provider): offer the right one.
                 val owner = Providers.ownerByPrefix(key)
                 if (owner != null && owner.id != pr.id && key.length >= 16) {
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.page2).padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.page2).padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("This looks like a ${owner.name} key — connect as ${owner.name}?", style = Type.small, color = p.text, modifier = Modifier.weight(1f))
                         Spacer(Modifier.width(8.dp))
                         Pill("Connect as ${owner.name}", filled = true) { connectFor = owner; connect() }
                     }
                 }
-                Box(Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(50)).background(p.accent).clickable { connect() }, contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(8.dp)).background(p.accent).clickable { connect() }, contentAlignment = Alignment.Center) {
                     Text(if (busy) "Checking key…" else "Connect", style = Type.label, color = p.onAccent)
                 }
                 result?.let { Text(it, style = Type.small, color = if (it.startsWith("Connected")) p.text else p.danger) }
@@ -318,7 +318,7 @@ private fun AllowListSheet(vm: ChatViewModel, s: com.mazharansari.x.mcp.McpServe
 
 private fun open(ctx: android.content.Context, url: String) = runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 
-/** Brand badge: Grok shows each connector's logo in a 32dp rounded square; Axion draws a brand-coloured monogram (real logos are trademarks). */
+/** Brand badge: Grok shows each connector's logo in a 32dp rounded square; X draws a brand-coloured monogram (real logos are trademarks). */
 private val brand = mapOf(
     "gemini" to Color(0xFF4C8DF6), "groq" to Color(0xFFF55036), "cerebras" to Color(0xFFF15A29), "mistral" to Color(0xFFFA520F),
     "openrouter" to Color(0xFF6467F2), "github" to Color(0xFF2B3137), "huggingface" to Color(0xFFFFB000), "nvidia" to Color(0xFF555555),
@@ -339,7 +339,7 @@ fun ProviderBadge(id: String, name: String, size: androidx.compose.ui.unit.Dp = 
     }
 }
 
-/** Grok connector row (Connectors frame): logo, name 17sp, grey "Connect" on the right — plus Axion's "Get key ↗" line under the name. */
+/** Grok connector row (Connectors frame): logo, name 17sp, grey "Connect" on the right — plus X's "Get key ↗" line under the name. */
 @Composable
 private fun ProviderRow(pr: Provider, connectedCount: Int, onGetKey: () -> Unit, onConnect: () -> Unit) {
     val p = P
@@ -459,10 +459,10 @@ fun SkillsScreen(vm: ChatViewModel, back: () -> Unit) {
         ScreenHeader("Skills", back) { Pill("Upload", icon = Gk.file) { upload.launch(arrayOf("application/zip", "application/x-zip-compressed", "text/markdown", "text/plain", "application/pdf", "application/octet-stream", "*/*")) } }
         LazyColumn(Modifier.weight(1f).navigationBarsPadding(), contentPadding = PaddingValues(bottom = 32.dp)) {
             item {
-                Text("Skills teach Axion how to do a kind of task. Paste a GitHub repo URL to see every skill in it, or tap Upload to add a ZIP of skill folders, a SKILL.md / .md / .txt file, or a PDF. You can also paste a URL in chat.",
+                Text("Skills teach X how to do a kind of task. Paste a GitHub repo URL to see every skill in it, or tap Upload to add a ZIP of skill folders, a SKILL.md / .md / .txt file, or a PDF. You can also paste a URL in chat.",
                     style = Type.small.copy(fontSize = 14.sp, lineHeight = 20.sp), color = p.text2, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
-                Column(Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.surface).padding(16.dp)) {
-                    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(p.page2).padding(horizontal = 14.dp, vertical = 13.dp)) {
+                Column(Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.surface).padding(16.dp)) {
+                    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.page2).padding(horizontal = 14.dp, vertical = 13.dp)) {
                         if (url.isEmpty()) Text("https://github.com/owner/repo", style = Type.body, color = p.text3)
                         BasicTextField(url, { url = it.trim() }, singleLine = true, textStyle = Type.body.copy(color = p.text), cursorBrush = SolidColor(p.text), modifier = Modifier.fillMaxWidth())
                     }
@@ -501,7 +501,7 @@ fun SkillsScreen(vm: ChatViewModel, back: () -> Unit) {
             }
             items(SkillHub.entries(vm.g.skills), key = { "hub_${it.kind}_${it.name}" }) { e ->
                 val installed = if (e.kind == SkillHub.HubKind.COMMUNITY) SkillHub.isInstalled(vm.g.skills, e) else true
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.surface)
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.surface)
                     .padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     GkIcon(Gk.skills, null, 22.dp, p.text); Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
@@ -530,7 +530,7 @@ fun SkillsScreen(vm: ChatViewModel, back: () -> Unit) {
             item { SectionLabel("Installed") }
             items(skills, key = { "s_" + it.name }) { s ->
                 val learned = s.source == SkillRepo.LEARNED
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.surface)
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.surface)
                     .then(if (learned) Modifier.clickable { viewing = s } else Modifier)
                     .padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     GkIcon(Gk.skills, null, 22.dp, p.text); Spacer(Modifier.width(12.dp))
@@ -547,11 +547,11 @@ fun SkillsScreen(vm: ChatViewModel, back: () -> Unit) {
     // v0.10: a learned skill can be read in full and deleted by the user.
     viewing?.let { s ->
         val body = remember(s.name) { vm.g.skills.body(s.name).orEmpty() }
-        AlertDialog(onDismissRequest = { viewing = null }, containerColor = p.card, shape = RoundedCornerShape(24.dp),
+        AlertDialog(onDismissRequest = { viewing = null }, containerColor = p.card, shape = RoundedCornerShape(10.dp),
             title = { Text(s.name + " · Learned", style = Type.title, color = p.text) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    Text("Axion wrote this skill itself from work it did for you. It loads these instructions before that kind of task.", style = Type.small, color = p.text2)
+                    Text("X wrote this skill itself from work it did for you. It loads these instructions before that kind of task.", style = Type.small, color = p.text2)
                     Spacer(Modifier.height(10.dp))
                     Text(body, style = Type.small.copy(fontSize = 13.sp, lineHeight = 19.sp), color = p.text)
                 }

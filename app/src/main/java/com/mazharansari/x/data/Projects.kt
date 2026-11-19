@@ -16,7 +16,7 @@ data class Project(
     val kind: String = "web",            // web | android | other
     val engine: String = "antigravity",  // v0.4/v0.5 rule: Build = Antigravity only
     val deploy: DeployTarget? = null,
-    /** Axion's chat thread for this project (ConversationStore id). */
+    /** X's chat thread for this project (ConversationStore id). */
     val conversationId: String? = null,
     /** agy's own conversation id, so the next message continues the same Antigravity session. */
     val agyConversation: String? = null,

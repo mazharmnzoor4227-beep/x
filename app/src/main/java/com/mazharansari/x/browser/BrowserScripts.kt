@@ -1,7 +1,7 @@
 package com.mazharansari.x.browser
 
 /**
- * The JavaScript Axion's own browser runs inside pages (evaluateJavascript). Original code, written for Axion:
+ * The JavaScript X's own browser runs inside pages (evaluateJavascript). Original code, written for X:
  * the general agent-browser pattern — walk the DOM, tag every interactive element with a stable number
  * (data-axion-idx), hand the model the page text plus the numbered elements, then click/type by number.
  * Placeholders (__IDX__, __TEXT_JSON__, __VALUE_JSON__, __SUBMIT__, __DY__) are filled in by BrowserController

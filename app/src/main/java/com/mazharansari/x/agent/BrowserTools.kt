@@ -10,7 +10,7 @@ import kotlinx.serialization.json.JsonObject
 import java.io.File
 
 /**
- * The agent's hands on Axion's own browser (browser/BrowserController): the Obscura engine —
+ * The agent's hands on X's own browser (browser/BrowserController): the Obscura engine —
  * JavaScript runs, cookies and logins persist, pages render exactly as the user sees them in the Browser screen.
  * browse_url stays the quick static read; these tools are for pages that need JS, forms, clicks or a login.
  */
@@ -41,7 +41,7 @@ private fun host(u: String) = runCatching { java.net.URI(u.trim()).host?.removeP
 class BrowserOpenTool : Tool {
     override val spec = ToolSpec(
         "browser_open",
-        "Open a URL in Axion's browser (Obscura engine: JavaScript, cookies, logins). Returns the page title, its numbered elements and the readable text. Use it for JS-heavy pages, forms and anything browse_url cannot read.",
+        "Open a URL in X's browser (Obscura engine: JavaScript, cookies, logins). Returns the page title, its numbered elements and the readable text. Use it for JS-heavy pages, forms and anything browse_url cannot read.",
         schema { str("url", "Full URL (https://…) or a domain like example.com") },
     )
     override fun label(args: JsonObject) = StepLabel(StepKind.BROWSE, "Opening", host(args.s("url").orEmpty()))
@@ -139,7 +139,7 @@ class BrowserReloadTool : Tool {
 class BrowserSearchTool : Tool {
     override val spec = ToolSpec(
         "browser_search",
-        "Search the web inside Axion's browser and land on the results page; then browser_read to see the result links and browser_click to open one. (web_search is the lighter alternative when you do not need the browser.)",
+        "Search the web inside X's browser and land on the results page; then browser_read to see the result links and browser_click to open one. (web_search is the lighter alternative when you do not need the browser.)",
         schema { str("query", "Search query") },
     )
     override fun label(args: JsonObject) = StepLabel(StepKind.SEARCH, "Searching in browser", args.s("query").orEmpty())
@@ -214,19 +214,19 @@ class BrowserTabsTool : Tool {
 class BrowserDownloadsTool : Tool {
     override val spec = ToolSpec(
         "browser_downloads",
-        "List the browser's downloads (P1-7). Files save into the Downloads/Axion folder on the phone, with progress while they download. The user opens them from the Browser screen.",
+        "List the browser's downloads (P1-7). Files save into the Downloads/X folder on the phone, with progress while they download. The user opens them from the Browser screen.",
         schema { },
     )
     override fun label(args: JsonObject) = StepLabel(StepKind.BROWSE, "Downloads", "")
     override suspend fun run(args: JsonObject, ctx: ToolContext): ToolOutput {
         return try {
             val list = browser().downloads.value
-            if (list.isEmpty()) return ToolOutput("No downloads yet. When a page offers a file, the browser saves it into Downloads/Axion.")
+            if (list.isEmpty()) return ToolOutput("No downloads yet. When a page offers a file, the browser saves it into Downloads/X.")
             val out = list.joinToString("\n") { d ->
                 "- ${d.fileName}: " + when (d.status) {
                     com.mazharansari.x.browser.DownloadStatus.DOWNLOADING ->
                         if (d.progressPercent >= 0) "downloading, ${d.progressPercent}%" else "downloading"
-                    com.mazharansari.x.browser.DownloadStatus.COMPLETE -> "complete, saved in Downloads/Axion"
+                    com.mazharansari.x.browser.DownloadStatus.COMPLETE -> "complete, saved in Downloads/X"
                     com.mazharansari.x.browser.DownloadStatus.FAILED -> "failed"
                 }
             }

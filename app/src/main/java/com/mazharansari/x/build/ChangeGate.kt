@@ -11,7 +11,7 @@ import java.io.File
  * The coding brain (agy) writes straight into the project folder while it works. To guarantee the project is NOT
  * changed until the user taps Approve, a turn is wrapped like this:
  *  1. [backup]   copy every tracked file into `<pending>/backup` (+ an `inturn` marker, so a crash mid-turn restores it)
- *  2. the brain works and Axion verifies on the real folder, exactly as before
+ *  2. the brain works and X verifies on the real folder, exactly as before
  *  3. [stage]    compute the ChangeSet, copy the NEW content of added/modified files into `<pending>/after`, then put the
  *                project folder back exactly as it was (modified/deleted files restored, added files removed)
  *  4. the user reviews the diff: [apply] writes the approved changes into the project; [reject] throws them away.

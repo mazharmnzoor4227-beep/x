@@ -24,7 +24,7 @@ import com.mazharansari.x.ui.theme.Type
 @Composable
 fun PlanCard(steps: List<PlanStep>, modifier: Modifier = Modifier) {
     if (steps.isEmpty()) return
-    val p = P; val shape = RoundedCornerShape(14.dp)
+    val p = P; val shape = RoundedCornerShape(10.dp)
     val done = steps.count { it.status == PlanStatus.DONE }
     val skipped = steps.count { it.status == PlanStatus.SKIPPED }
     Column(modifier.fillMaxWidth().clip(shape).background(p.card).border(1.dp, p.cardBorder, shape).padding(horizontal = 14.dp, vertical = 12.dp)) {

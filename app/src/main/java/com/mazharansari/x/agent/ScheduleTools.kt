@@ -30,10 +30,10 @@ private fun parseTime(raw: String?): Pair<Int, Int>? {
 
 class ScheduleCreateTool : Tool {
     override val spec = ToolSpec("schedule_create",
-        "Schedule a task for Axion to run later ON ITS OWN (the user does not need to be in the app). Use when the user asks for something at a time or repeating: 'kal subah 9 baje…', 'roz sham ko…', 'every Monday…'. Fill the fields from what the user said — resolve relative words like kal/parso/agle Monday into a concrete date/time yourself using today's date from your prompt. type: 'once' (needs date YYYY-MM-DD + time), 'daily' (time only), 'weekly' (weekday name + time). The task runs as a fresh chat; results are saved as a new conversation and the user is notified. Times are the phone's local time; with exact timing (default) it fires at the set time where the system allows exact alarms, otherwise it may run a few minutes late. Set require_network=true when the task needs the internet (it waits for a connection instead of failing offline).",
+        "Schedule a task for X to run later ON ITS OWN (the user does not need to be in the app). Use when the user asks for something at a time or repeating: 'kal subah 9 baje…', 'roz sham ko…', 'every Monday…'. Fill the fields from what the user said — resolve relative words like kal/parso/agle Monday into a concrete date/time yourself using today's date from your prompt. type: 'once' (needs date YYYY-MM-DD + time), 'daily' (time only), 'weekly' (weekday name + time). The task runs as a fresh chat; results are saved as a new conversation and the user is notified. Times are the phone's local time; with exact timing (default) it fires at the set time where the system allows exact alarms, otherwise it may run a few minutes late. Set require_network=true when the task needs the internet (it waits for a connection instead of failing offline).",
         schema {
             str("title", "Short name for the schedule, e.g. 'Morning headlines'")
-            str("prompt", "The full task Axion should do when it fires, written as an instruction to yourself")
+            str("prompt", "The full task X should do when it fires, written as an instruction to yourself")
             str("type", "'once', 'daily' or 'weekly'")
             str("time", "24-hour 'HH:MM', e.g. '09:00'")
             str("date", "For type 'once': 'YYYY-MM-DD'", required = false)
@@ -87,7 +87,7 @@ class ScheduleCreateTool : Tool {
             "Exact alarms are not allowed on this phone, so it may run a few minutes late (see Settings → Schedules to allow them)."
         else "Inexact timing (exact timing was not asked for) — it may run a few minutes late."
         val network = if (entry.requireNetwork) " It runs only when the phone is online." else ""
-        return ToolOutput("Scheduled \"${entry.title}\" — ${entry.describe()}. First run: $whenText. $timing$network When it fires, Axion does the task on its own, saves the result as a new chat and notifies the user. It is listed in Settings → Schedules, where it can be switched off or deleted.",
+        return ToolOutput("Scheduled \"${entry.title}\" — ${entry.describe()}. First run: $whenText. $timing$network When it fires, X does the task on its own, saves the result as a new chat and notifies the user. It is listed in Settings → Schedules, where it can be switched off or deleted.",
             doneTitle = "Scheduled: ${entry.title}")
     }
 }

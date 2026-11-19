@@ -7,7 +7,7 @@ import java.io.File
 
 /**
  * v0.5.2 "Delete all data": keys, tokens, Antigravity sign-ins, chats, projects, uploads, Linux, tools, models, settings —
- * everything Axion keeps — then Android's own "clear app data", which also closes the app.
+ * everything X keeps — then Android's own "clear app data", which also closes the app.
  * Step 1 deletes the Keystore key, so even a file that somehow survived can never be decrypted again.
  */
 object DataWiper {

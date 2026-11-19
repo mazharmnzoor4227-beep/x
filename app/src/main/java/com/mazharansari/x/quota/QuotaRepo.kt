@@ -160,7 +160,7 @@ class QuotaRepo(private val ctx: Context, private val connectors: ConnectorRepo,
             } else per.firstOrNull { it.first == primary }?.second ?: dayFor(c, primary, now)
             val minute = store.latest(c.id, "minute", null)?.takeIf { now - it.second < 10 * 60_000 }?.first
             val note = when (c.providerId) {
-                "gemini" -> "Counted by Axion · limit learned from Google's limit error · keys from one Google project share one quota"
+                "gemini" -> "Counted by X · limit learned from Google's limit error · keys from one Google project share one quota"
                 "groq" -> "Live from Groq's headers · each model has its own daily bucket"
                 "openrouter" -> "Live from OpenRouter · free models share one daily count (UTC)"
                 "sambanova" -> "Live from headers · 20 requests/day per model on free"

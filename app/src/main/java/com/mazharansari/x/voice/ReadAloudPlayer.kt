@@ -24,7 +24,7 @@ import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 
 /**
- * Axion's ONE voice path (v0.3). Read-aloud under a message, the voice test on the Voice screen and the Live call
+ * X's ONE voice path (v0.3). Read-aloud under a message, the voice test on the Voice screen and the Live call
  * in "same voice" mode all speak through here, so they always sound identical.
  *
  * The active voice is one id from [VoiceCatalog] (prefs [VoicePrefs.KEY_VOICE]):
@@ -151,13 +151,17 @@ object ReadAloudPlayer {
                 }
                 return
             }
-            // No Piper engine bundled yet (honest state — see PiperVoice.kt):
-            // the phone's built-in Urdu/Hindi voice reads instead, offline.
-            // The notice names exactly what is missing (engine / voice pack).
+            // Redesign round 2 (Addendum F): the Piper engine IS bundled now
+            // (sherpa-onnx, see PiperVoice.kt), so the phone voice is only a
+            // fallback when the pack or the shared espeak-ng-data is missing.
+            // The notice names exactly what is missing (pack / espeak data).
             if (missingNoticeShown.add("piper:$pack")) {
-                val missing = if (engine == null && status?.downloaded != true) "the Piper engine is not installed yet and the ${pack.displayName} voice pack is not downloaded"
-                    else if (engine == null) "the Piper engine is not installed yet"
-                    else "the ${pack.displayName} voice pack is not downloaded"
+                val missing = when {
+                    engine == null -> "the Piper engine is not installed yet"
+                    status?.downloaded != true -> "the ${pack.displayName} voice pack is not downloaded"
+                    store?.espeakReady() == false -> "the shared espeak-ng-data (downloaded once from Settings → Voice & Language) is not downloaded"
+                    else -> "the ${pack.displayName} voice pack is damaged or incomplete"
+                }
                 postNotice(app, "Piper ${pack.displayName} is picked, but $missing — reading in the phone's ${if (pack.phoneLocale == "hi-IN") "Hindi" else "Urdu"} voice instead. See Settings → Voice & Language.")
             }
             provenance = "Phone · ${if (pack.phoneLocale == "hi-IN") "Hindi" else "Urdu"}"
@@ -530,6 +534,7 @@ object ReadAloudPlayer {
     fun stop() {
         val ended = session
         session++
+        PiperVoiceEngines.engine?.stop()
         tx?.let { t -> t.segJob?.cancel(); t.segs.forEach { s -> s.pcm?.job?.cancel(); s.file?.cancel() }; t.files.forEach { f -> runCatching { f.delete() } } }
         tx = null
         playJob?.cancel(); playJob = null

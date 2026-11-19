@@ -65,7 +65,7 @@ class StorageRepo(private val ctx: Context, private val g: Graph) {
         val out = ArrayList<StorageItem>()
         val ai = ctx.applicationInfo
         val app = (ai.sourceDir?.let { File(it).length() } ?: 0L) + (ai.nativeLibraryDir?.let { StorageScan.bytes(File(it)) } ?: 0L)
-        out += StorageItem("app", StorageKind.APP, "Axion app", "The app itself. Remove it from Android Settings to free this.", app)
+        out += StorageItem("app", StorageKind.APP, "X app", "The app itself. Remove it from Android Settings to free this.", app)
 
         val linuxOn = g.linux.isInstalled()
         val records = g.devtools.records.value
@@ -77,7 +77,7 @@ class StorageRepo(private val ctx: Context, private val g: Graph) {
             if (agy > 0 || g.devtools.isInstalled("agy")) {
                 toolsTotal += agy
                 out += StorageItem("agy", StorageKind.AGY, "Antigravity CLI", "agy ${records["agy"]?.version ?: ""}".trim() + " · your Antigravity sign-ins are kept", agy,
-                    "Delete", "Delete the Antigravity CLI (${StorageScan.label(agy)})? Your Antigravity accounts stay saved; Axion downloads the CLI again the next time it's needed.")
+                    "Delete", "Delete the Antigravity CLI (${StorageScan.label(agy)})? Your Antigravity accounts stay saved; X downloads the CLI again the next time it's needed.")
             }
             Toolchain.entries.filter { it != Toolchain.AGY && g.devtools.isInstalled(it.id) }.forEach { t ->
                 val b = (records[t.id]?.sizeKb ?: 0L) * 1024

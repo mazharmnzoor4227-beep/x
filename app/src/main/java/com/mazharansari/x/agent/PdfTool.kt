@@ -111,7 +111,7 @@ object PdfWriter {
         val tp = TextPaint(body).apply { textSize = 22f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); color = Color.BLACK }
         draw(x, layout(title, tp), 0f)
         x.y += 4
-        draw(x, layout("Prepared by Axion · " + SimpleDateFormat("d MMM yyyy", Locale.ENGLISH).format(Date()), small), 0f)
+        draw(x, layout("Prepared by X · " + SimpleDateFormat("d MMM yyyy", Locale.ENGLISH).format(Date()), small), 0f)
         x.y += 8; x.c!!.drawLine(M, x.y, W - M, x.y, line); x.y += 14
 
         val lines = md.replace("\r", "").lines()
@@ -205,7 +205,7 @@ object PdfWriter {
 
     private fun finishPage(x: Ctx) {
         x.c!!.drawText("Page ${x.n}", W - M - small.measureText("Page ${x.n}"), H - 24f, small)
-        x.c!!.drawText("Axion", M, H - 24f, small)
+        x.c!!.drawText("X", M, H - 24f, small)
         x.pages.end(x.n)
     }
 

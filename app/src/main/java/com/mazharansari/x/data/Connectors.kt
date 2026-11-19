@@ -34,7 +34,7 @@ data class Connector(
     /**
      * P1-10 (ME-3): shared-quota group, set by the user on the Quota screen. Gemini keys from the same Google
      * project share ONE quota, so keys with the same non-blank group are counted once in the totals. Blank = this
-     * key is its own group. Axion cannot learn the project from the key itself (Google exposes no such lookup for
+     * key is its own group. X cannot learn the project from the key itself (Google exposes no such lookup for
      * an API key), so the grouping is explicit and user-set, never guessed.
      */
     val quotaGroup: String = "",
@@ -251,8 +251,8 @@ object KeyDetector {
 
     const val NOT_RECOGNISED = "Key not recognised — pick the provider below and paste it there."
 
-    /** P0-3 (HI-1): Anthropic is not a supported provider in Axion, so its keys are refused, never probed. */
-    const val UNSUPPORTED_ANTHROPIC = "Anthropic is not supported in Axion"
+    /** P0-3 (HI-1): Anthropic is not a supported provider in X, so its keys are refused, never probed. */
+    const val UNSUPPORTED_ANTHROPIC = "Anthropic is not supported in X"
 
     /** Provider errors sometimes echo the key back ("Incorrect API key provided: AQ.Ab8*****mOSw"); never show any of it. */
     fun clean(msg: String, key: String): String {
@@ -358,7 +358,7 @@ object MyServer {
         val h = host(url).substringBefore(':').trim('[', ']')
         return h != "127.0.0.1" && h != "localhost"
     }
-    const val HTTPS_ONLY = "Axion connects to servers over https only, so your key and chats can't be read on the way. Use the free https address from the setup guide (Caddy + sslip.io), e.g. https://1-2-3-4.sslip.io"
+    const val HTTPS_ONLY = "X connects to servers over https only, so your key and chats can't be read on the way. Use the free https address from the setup guide (Caddy + sslip.io), e.g. https://1-2-3-4.sslip.io"
 
     fun test(url: String, key: String, model: String?): Test {
         val base = normalize(url)

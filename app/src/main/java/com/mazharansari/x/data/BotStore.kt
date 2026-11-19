@@ -13,7 +13,7 @@ import java.util.UUID
  * PHASE 1 SWARM — the Bot Store's unit: a bot is a DEFINITION bundle, not code.
  *
  * A bot is a persona + skills + tool allow-list + suggested provider, stored in the app's
- * own storage (bots.json) and run through Axion's OWN agent loop — no foreign code is ever
+ * own storage (bots.json) and run through X's OWN agent loop — no foreign code is ever
  * executed. Installing a bot only stores its definition; it never runs until the user
  * starts a chat with it from the Bots section.
  *
@@ -21,8 +21,8 @@ import java.util.UUID
  * just one possible name, not a built-in role. There is no special CEO class: the
  * parent/child relationship plus the given name is what makes a bot the parent for its
  * run. The bots in the store seed are definitions written here from the PATTERNS of the
- * verified sources below (Axion's own Kotlin); no source code was copied from any of them.
- * Original Axion code.
+ * verified sources below (X's own Kotlin); no source code was copied from any of them.
+ * Original X code.
  */
 @Serializable
 data class BotDefinition(
@@ -35,7 +35,7 @@ data class BotDefinition(
     val toolGroups: List<String> = emptyList(),
     /**
      * Preferred FREE provider — a provider NAME, e.g. "Google Gemini", "Groq", "OpenRouter",
-     * "xAI Grok". It only reorders Axion's existing failover chain (see [preferProvider]);
+     * "xAI Grok". It only reorders X's existing failover chain (see [preferProvider]);
      * it never pins a provider or bypasses failover. Null = Auto. Antigravity is the Build
      * engine, not an Ask provider, so it is never offered here. Never "OpenAI".
      */
@@ -50,7 +50,7 @@ data class BotDefinition(
      */
     val logo: String = "",
 ) {
-    /** The system-prompt addition for a chat run as this bot (Axion's own agent loop). */
+    /** The system-prompt addition for a chat run as this bot (X's own agent loop). */
     fun promptBlock(): String = buildString {
         append("You are $name — $description. ")
         if (persona.isNotBlank()) append(persona.trim()).append(' ')

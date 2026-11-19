@@ -7,7 +7,7 @@ package com.mazharansari.x.data
  * chats carried the half-typed text into the wrong chat (and New chat wiped
  * it). Drafts are now kept per conversation id: leaving a chat saves what was
  * typed, opening it again restores it. Pure logic, no Android dependency.
- * Original Axion code.
+ * Original X code.
  */
 class ConversationDrafts {
     private val drafts = HashMap<String, String>()

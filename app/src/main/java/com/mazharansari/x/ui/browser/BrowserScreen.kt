@@ -61,14 +61,14 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Axion's own browser, on screen: the same pages the agent drives with its browser_* tools.
+ * X's own browser, on screen: the same pages the agent drives with its browser_* tools.
  * Whatever the agent opened is here (and the user can take over, type, log in…), and whatever the
  * user opens here is what the agent reads. A WebView tab shows its WebView (which lives in
  * BrowserController, so it survives leaving this screen); an Obscura tab shows the latest
  * screenshot above the page text, because no WebView exists for it.
  *
  * P1-7: a tab strip (each tab keeps its own page and history — switching restores it), a downloads
- * list (files save into Downloads/Axion, with progress and an Open action), and the file picker for
+ * list (files save into Downloads/X, with progress and an Open action), and the file picker for
  * pages that ask for a file (<input type=file>).
  */
 @Composable
@@ -128,7 +128,7 @@ fun BrowserScreen(vm: ChatViewModel, back: () -> Unit) {
             tabs.forEach { tab ->
                 val active = tab.id == activeTabId
                 Row(
-                    Modifier.clip(RoundedCornerShape(16.dp))
+                    Modifier.clip(RoundedCornerShape(10.dp))
                         .background(if (active) P.card else P.bg)
                         .padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -156,7 +156,7 @@ fun BrowserScreen(vm: ChatViewModel, back: () -> Unit) {
             val remembered = BrowserEngineKind.fromStored(settings.lastUserBrowserEngine)
             AlertDialog(
                 onDismissRequest = { showEnginePicker = false },
-                containerColor = P.card, shape = RoundedCornerShape(24.dp),
+                containerColor = P.card, shape = RoundedCornerShape(10.dp),
                 title = { Text("New tab", style = Type.title, color = P.text) },
                 text = { Text("Choose the engine for the new tab. WebView is the built-in browser; Obscura is the full browser engine the agent uses.", style = Type.small, color = P.text2) },
                 confirmButton = {
@@ -192,7 +192,7 @@ fun BrowserScreen(vm: ChatViewModel, back: () -> Unit) {
             }
         }
         if (loading) LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxWidth(), color = P.accent)
-        // Downloads (P1-7, ME-9): files save into Downloads/Axion, with progress and an Open action.
+        // Downloads (P1-7, ME-9): files save into Downloads/X, with progress and an Open action.
         downloads.forEach { d ->
             Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
                 .clip(RoundedCornerShape(12.dp)).background(P.card).padding(horizontal = 12.dp, vertical = 8.dp)) {

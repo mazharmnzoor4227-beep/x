@@ -66,7 +66,7 @@ fun TerminalScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
         ScreenHeader("Terminal", back)
         if (linuxState !is LinuxState.Ready) {
             Column(Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
-                Text("Linux is not installed yet, so there is no terminal. Install it once (about 80 MB) in Developer tools — after that this screen is a live shell in Axion's Ubuntu, the same one the agent uses.", style = Type.body, color = P.text2)
+                Text("Linux is not installed yet, so there is no terminal. Install it once (about 80 MB) in Developer tools — after that this screen is a live shell in X's Ubuntu, the same one the agent uses.", style = Type.body, color = P.text2)
                 Spacer(Modifier.height(14.dp))
                 TextButton(onClick = { nav(Route.DevTools) }) { Text("Open Developer tools", style = Type.label, color = P.accent) }
             }
@@ -81,7 +81,7 @@ fun TerminalScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
         }
         Box(
             Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp)
-                .clip(RoundedCornerShape(14.dp)).background(P.surface).padding(12.dp),
+                .clip(RoundedCornerShape(10.dp)).background(P.surface).padding(12.dp),
         ) {
             Text(
                 transcript.ifBlank { "A persistent Linux shell — cd and variables stay between commands.\nTry:  ls · pwd · python3 --version · apt list --installed\n" },

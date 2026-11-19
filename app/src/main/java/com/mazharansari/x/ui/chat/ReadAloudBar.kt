@@ -7,7 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -65,13 +64,13 @@ fun ReadAloudPill(
     onSpeedAnchor: (androidx.compose.ui.geometry.Rect) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier.height(52.dp).clip(CircleShape).background(PillBg).border(1.dp, Color(0xFF2B2B2B), CircleShape)) {
+    Box(modifier.height(52.dp).clip(RoundedCornerShape(6.dp)).background(PillBg).border(1.dp, Color(0xFF2B2B2B), RoundedCornerShape(6.dp))) {
         Row(Modifier.fillMaxHeight().padding(horizontal = 9.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             PillButton(if (paused) "Play" else "Pause", onPlayPause) { GkIcon(if (paused) Gk.play else Gk.pause, null, 17.dp, Color.White) }
             PillButton("Back 15 seconds", onBack) { Skip15(back = true) }
             PillButton("Forward 15 seconds", onForward) { Skip15(back = false) }
             val tap = rememberTap(onSpeed)
-            Box(Modifier.width(46.dp).height(34.dp).clip(CircleShape).background(if (speedOpen) Color(0xFF3A3A3A) else BtnBg)
+            Box(Modifier.width(46.dp).height(34.dp).clip(RoundedCornerShape(6.dp)).background(if (speedOpen) Color(0xFF3A3A3A) else BtnBg)
                 .onGloballyPositioned { onSpeedAnchor(it.boundsInRoot()) }
                 .semantics { contentDescription = "Playback speed" }.clickable(onClick = tap), contentAlignment = Alignment.Center) {
                 Text(speedLabel(speed), style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = Color.White, maxLines = 1)
@@ -92,7 +91,7 @@ fun ReadAloudPill(
 @Composable
 private fun PillButton(desc: String, onClick: () -> Unit, content: @Composable () -> Unit) {
     val tap = rememberTap(onClick)
-    Box(Modifier.size(34.dp).clip(CircleShape).background(BtnBg).semantics { contentDescription = desc }.clickable(onClick = tap), contentAlignment = Alignment.Center) { content() }
+    Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(BtnBg).semantics { contentDescription = desc }.clickable(onClick = tap), contentAlignment = Alignment.Center) { content() }
 }
 
 /** Grok's ⟲15 / 15⟳ glyph: a ~300° ring with an arrow head at the top and "15" inside. */
@@ -134,27 +133,6 @@ fun SpeedMenu(open: Boolean, current: Float, speeds: List<Float>, onPick: (Float
                         color = if (sel) Color.White else Color(0xFFDADADA))
                 }
             }
-        }
-    }
-}
-
-/**
- * Grok's pull-up-for-new-chat (recording 0:01–0:05): drag the chat up past its end and a dot rises from the bottom,
- * growing into a 35 dp light-blue circle with the new-chat glyph; at the threshold a light haptic tick and "New chat"
- * appears under it. Let go there → new chat. [pull] is 0..1+ of the threshold.
- */
-@Composable
-fun NewChatPull(pull: Float, armed: Boolean, modifier: Modifier = Modifier) {
-    if (pull <= 0.02f) return
-    val f = pull.coerceIn(0f, 1f)
-    val circle = (8f + 27f * f).dp
-    val blue by animateColorAsState(if (armed) Color(0xFF6DB4FF) else Color(0xFF3A3A3A), tween(140), label = "pullc")
-    Column(modifier.graphicsLayer { alpha = (f * 1.6f).coerceAtMost(1f) }, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(circle).clip(CircleShape).background(blue), contentAlignment = Alignment.Center) {
-            if (f > 0.55f) GkIcon(Gk.newChat, "New chat", (18f * f).dp, if (armed) Color(0xFF111111) else Color(0xFFBDBDBD))
-        }
-        AnimatedVisibility(armed, enter = fadeIn(tween(120)) + expandVertically(), exit = fadeOut(tween(100)) + shrinkVertically()) {
-            Text("New chat", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = P.text, modifier = Modifier.padding(top = 7.dp))
         }
     }
 }

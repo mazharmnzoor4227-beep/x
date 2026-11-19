@@ -4,7 +4,8 @@ do_install() {
   p 30 "Downloading rustup"
   curl -fsSL --connect-timeout 20 https://sh.rustup.rs -o /tmp/rustup.sh || die "rustup download failed"
   p 40 "Installing Rust (minimal)"
-  RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo sh /tmp/rustup.sh -y --profile minimal --no-modify-path >/dev/null 2>&1 || die "Rust install failed"
+  # rustup's own output stays in the install log: a failure with no diagnostics is undebuggable.
+  RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo sh /tmp/rustup.sh -y --profile minimal --no-modify-path || die "Rust install failed"
   rm -f /tmp/rustup.sh
   for b in /opt/cargo/bin/*; do ln -sf "$b" /usr/local/bin/; done
   echo 'export RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo' > /etc/profile.d/axion-rust.sh

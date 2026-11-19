@@ -173,7 +173,7 @@ class V052ScreensTest {
         flow<Map<String, ToolRecord>>(g.devtools, "_records").value = mapOf("core" to ToolRecord("2.43.0", 0, installedAt = 1))
     }
     private val setupLines = listOf(
-        "Axion 0.5.2 · Installing Antigravity CLI · Sun Nov 01 17:40:12 GMT+05:00 2026 · Android 14 (arm64-v8a)",
+        "X 0.5.2 · Installing Antigravity CLI · Sun Nov 01 17:40:12 GMT+05:00 2026 · Android 14 (arm64-v8a)",
         "[linux] Downloading Ubuntu 24.04 · 28 of 28 MB", "[linux] Checking the download", "[linux] Unpacking Ubuntu 24.04 · 3412 files", "[linux] Linux is ready",
         "[agy] download https://storage.googleapis.com/antigravity-public/antigravity-cli/1.1.27-5211191891591168/linux-arm/cli_linux_arm64.tar.gz")
 

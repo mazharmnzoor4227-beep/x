@@ -172,7 +172,7 @@ class ScheduledRunWorker(appCtx: Context, params: WorkerParameters) : CoroutineW
                     agent.run(
                         emptyList(), UserItem(effectivePrompt),
                         attempts = { attempts }, sink = sink,
-                        profile = Profile(settings.assistantName.ifBlank { "Axion" }, settings.userName, settings.replyLanguage, settings.instructions),
+                        profile = Profile(settings.assistantName.ifBlank { "X" }, settings.userName, settings.replyLanguage, settings.instructions),
                         intent = IntentGate.classify(entry.prompt, false),
                     )
                 }

@@ -25,7 +25,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 
 /**
- * P1-1 (§6.1): the GitHub account in Axion.
+ * P1-1 (§6.1): the GitHub account in X.
  *
  * Storage: the token is KeyVault-encrypted (AES-256-GCM, Android Keystore) exactly
  * like provider keys. The OAuth App client ID is NOT a secret (it is public by
@@ -191,7 +191,7 @@ object GitHubDeviceFlowClient {
             .header("Accept", "application/json").post(body.toRequestBody(JSONT)).build())
             .execute().use { it.code to (it.body?.string().orEmpty()) }
         if (code !in 200..299) error("GitHub answered $code: ${text.take(160)}")
-        return runCatching { Json.parseToJsonElement(text).jsonObject }.getOrElse { error("GitHub answered with something Axion couldn't read.") }
+        return runCatching { Json.parseToJsonElement(text).jsonObject }.getOrElse { error("GitHub answered with something X couldn't read.") }
     }
 
     suspend fun start(clientId: String, http: OkHttpClient = Http.quick): GitHubDeviceFlow.DeviceCode = withContext(Dispatchers.IO) {

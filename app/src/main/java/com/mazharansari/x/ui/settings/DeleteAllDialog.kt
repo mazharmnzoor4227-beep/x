@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * v0.5.2 "Delete all data": what goes, then a typed confirmation, then the wipe (which closes Axion).
+ * v0.5.2 "Delete all data": what goes, then a typed confirmation, then the wipe (which closes X).
  * (It lived in the old PolicyScreens.kt next to the policy pages; the dialog stays — Data Controls and
  * About both use it — so it keeps its own file now that the policy screens are gone.)
  */
@@ -31,21 +31,21 @@ fun DeleteAllDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
     var typed by remember { mutableStateOf(vm.debugTyped) }
     var working by remember { mutableStateOf(false) }
     val danger = Color(0xFFF04438)
-    AlertDialog(onDismissRequest = { if (!working) onDismiss() }, containerColor = p.card, shape = RoundedCornerShape(24.dp),
+    AlertDialog(onDismissRequest = { if (!working) onDismiss() }, containerColor = p.card, shape = RoundedCornerShape(10.dp),
         title = { Text("Delete all data?", style = Type.title, color = p.text) },
         text = {
             Column {
-                Text("This erases everything Axion keeps on this phone and closes the app:", style = Type.body, color = p.text2)
+                Text("This erases everything X keeps on this phone and closes the app:", style = Type.body, color = p.text2)
                 Spacer(Modifier.height(8.dp))
                 listOf("API keys and publishing tokens", "Antigravity sign-ins", "All chats and Build projects", "Uploaded and created files", "Linux, developer tools and local models", "Settings").forEach {
                     Text("•  $it", style = Type.body.copy(fontSize = 15.sp), color = p.text)
                 }
                 Spacer(Modifier.height(10.dp))
-                Text("It can't be undone. To keep your keys, export them first (Settings → Export / import keys). Files in Downloads/Axion are not touched.", style = Type.small, color = p.text2)
+                Text("It can't be undone. To keep your keys, export them first (Settings → Export / import keys). Files in Downloads/X are not touched.", style = Type.small, color = p.text2)
                 Spacer(Modifier.height(12.dp))
                 Text("Type DELETE to confirm", style = Type.small.copy(fontWeight = FontWeight.SemiBold), color = p.text)
                 Spacer(Modifier.height(6.dp))
-                if (!vm.debugNoField) Field(typed, { typed = it }, "DELETE") else Text(typed.ifEmpty { "DELETE" }, style = Type.body, color = if (typed.isEmpty()) p.text3 else p.text, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(p.chip).padding(horizontal = 14.dp, vertical = 13.dp))
+                if (!vm.debugNoField) Field(typed, { typed = it }, "DELETE") else Text(typed.ifEmpty { "DELETE" }, style = Type.body, color = if (typed.isEmpty()) p.text3 else p.text, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.chip).padding(horizontal = 14.dp, vertical = 13.dp))
             }
         },
         confirmButton = {
@@ -55,7 +55,7 @@ fun DeleteAllDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
                 scope.launch {
                     val r = withContext(Dispatchers.IO) { runCatching { vm.g.build.store.list.value.forEach { vm.g.build.stopPreview(it.id) } }; DataWiper.wipe(ctx.applicationContext, clearAndroid = !vm.debugNoClear) }
                     if (!r.androidCleared) {
-                        // Android's clear didn't run (tests / very old phones): restart Axion fresh.
+                        // Android's clear didn't run (tests / very old phones): restart X fresh.
                         vm.toast = "All data deleted"
                         if (!vm.debugNoClear) runCatching {
                             ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)?.let { i -> ctx.startActivity(i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)) }

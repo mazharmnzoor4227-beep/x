@@ -8,10 +8,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** P1-7 (ME-9): download file names, the Downloads/Axion folder rule, and progress maths. */
+/** P1-7 (ME-9): download file names, the Downloads/X folder rule, and progress maths. */
 class BrowserDownloadsTest {
-    @Test fun downloadFolderIsAxion() {
-        assertEquals("Axion", BrowserDownloads.DIR)
+    @Test fun downloadFolderIsX() {
+        assertEquals("X", BrowserDownloads.DIR)
     }
 
     @Test fun progressPercentIsBounded() {

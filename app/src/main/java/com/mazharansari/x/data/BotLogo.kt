@@ -8,7 +8,7 @@ package com.mazharansari.x.data
  * - "file:<absolute path>" — a gallery image the user picked, copied into the
  *   app's own storage so it survives the gallery permission being revoked.
  * - "" — no logo yet; the UI shows the bot's initial instead.
- * Original Axion code.
+ * Original X code.
  */
 sealed interface BotLogo {
     data class Builtin(val id: String) : BotLogo

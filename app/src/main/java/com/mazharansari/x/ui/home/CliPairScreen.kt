@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
  * over the existing login flow — NOT a new flow. The state machine is
  * [AgyLoginState] from antigravity/AgyLogin.kt: begin() starts the CLI in a
  * real terminal, AwaitingCode carries the Google sign-in URL, and the code
- * the user pastes goes straight into [AgyLogin.submitCode]. Axion never sees
+ * the user pastes goes straight into [AgyLogin.submitCode]. X never sees
  * the password or the token. The phone does not run the CLI natively — it
  * runs inside Linux on the phone, so Linux + agy must be installed first.
  */
@@ -75,7 +75,7 @@ fun CliPairScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit
                 }
             }
             items(accounts, key = { it.email }) { a ->
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).clip(RoundedCornerShape(16.dp)).background(p.card).padding(horizontal = 14.dp, vertical = 12.dp),
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).clip(RoundedCornerShape(10.dp)).background(p.card).padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(p.surface), contentAlignment = Alignment.Center) {
                         GkIcon(Gk.agent, null, 20.dp, p.text)
@@ -90,7 +90,7 @@ fun CliPairScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit
             }
             item { SectionLabel("Pair a new account") }
             item {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(20.dp)).background(p.card).padding(16.dp)) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(10.dp)).background(p.card).padding(16.dp)) {
                     when (st) {
                         is AgyLoginState.Idle -> {
                             if (!agyInstalled) {
@@ -132,7 +132,7 @@ fun CliPairScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit
                             err?.let { Text(it, style = Type.small, color = p.danger, modifier = Modifier.padding(top = 6.dp)) }
                             Spacer(Modifier.height(10.dp))
                             val submit = rememberTap { runCatching { g.agyLogin.submitCode(code) }.onFailure { err = it.message } }
-                            Box(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(50)).background(if (code.isBlank()) p.surface2 else p.text).clickable(enabled = code.isNotBlank(), onClick = submit), contentAlignment = Alignment.Center) {
+                            Box(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(8.dp)).background(if (code.isBlank()) p.surface2 else p.text).clickable(enabled = code.isNotBlank(), onClick = submit), contentAlignment = Alignment.Center) {
                                 Text("Continue", style = Type.body.copy(fontWeight = FontWeight.SemiBold), color = if (code.isBlank()) p.text3 else p.onAccent)
                             }
                             Spacer(Modifier.height(10.dp))
@@ -176,9 +176,9 @@ fun CliPairScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit
 private fun PairButton(label: String, filled: Boolean = true, onClick: () -> Unit) {
     val p = P
     val tap = rememberTap(onClick)
-    Box(Modifier.height(44.dp).clip(RoundedCornerShape(50))
+    Box(Modifier.height(44.dp).clip(RoundedCornerShape(8.dp))
         .background(if (filled) p.text else p.surface)
-        .border(1.dp, p.border, RoundedCornerShape(50))
+        .border(1.dp, p.border, RoundedCornerShape(8.dp))
         .clickable(onClick = tap).padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
         Text(label, style = Type.body.copy(fontWeight = FontWeight.SemiBold), color = if (filled) p.onAccent else p.text)
     }

@@ -13,6 +13,7 @@ import com.github.takahirom.roborazzi.captureScreenRoboImage
 import com.mazharansari.x.agent.PdfWriter
 import com.mazharansari.x.data.*
 import com.mazharansari.x.ui.ChatViewModel
+import com.mazharansari.x.ui.Route
 import com.mazharansari.x.voice.ReadAloudPlayer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.encodeToString
@@ -118,7 +119,9 @@ Clawora Beauty — original Korean skincare, Cash on Delivery all over Pakistan.
         compose.waitForIdle()
         insets(sc)
         var vm: ChatViewModel? = null
-        sc.onActivity { vm = ViewModelProvider(it)[ChatViewModel::class.java]; vm!!.open(id) }
+        // Redesign round 2: the app opens on the Home list — navigate to the
+        // chat screen first, then open the conversation into it.
+        sc.onActivity { vm = ViewModelProvider(it)[ChatViewModel::class.java]; vm!!.debugStart = Route.Chat; vm!!.open(id) }
         compose.waitUntil(5000) { compose.onAllNodesWithText("Thought for", substring = true).fetchSemanticsNodes().isNotEmpty() }
         compose.mainClock.autoAdvance = false
         return sc to vm!!
@@ -130,7 +133,7 @@ Clawora Beauty — original Korean skincare, Cash on Delivery all over Pakistan.
     }
 
     private fun list() = compose.onAllNodes(hasScrollToNodeAction()).onFirst()
-    /** Scroll to the reply's end without dragging past it (a drag past the end is the pull-up-for-new-chat gesture). */
+    /** Scroll to the reply's end without dragging past it. */
     private fun toEnd() {
         list().performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.ScrollBy) { it(0f, 20_000f) }; compose.mainClock.advanceTimeBy(1500)
     }

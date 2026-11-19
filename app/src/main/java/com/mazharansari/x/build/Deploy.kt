@@ -21,7 +21,7 @@ enum class DeployProvider(val id: String, val title: String, val tokenPage: Stri
     VERCEL("vercel", "Vercel", "https://vercel.com/account/settings/tokens", "Account token", "Free · live in ~20 s · yourname.vercel.app"),
     CLOUDFLARE("cloudflare", "Cloudflare Pages", "https://dash.cloudflare.com/profile/api-tokens", "API token with Pages: Edit",
         "Free · needs Web (Node) in Developer tools · yourname.pages.dev"),
-    GITHUB("github", "GitHub Pages", "https://github.com/settings/tokens/new?scopes=repo&description=Axion", "Token with repo scope",
+    GITHUB("github", "GitHub Pages", "https://github.com/settings/tokens/new?scopes=repo&description=X", "Token with repo scope",
         "Free · first publish takes ~1 min · you.github.io/name");
     companion object { fun byId(id: String?) = entries.firstOrNull { it.id == id } }
 }
@@ -134,7 +134,7 @@ class Deployer(private val http: OkHttpClient = Http.download, private val api: 
         val (rc, _) = call(gh("/repos/$owner/$repo"))
         if (rc == 404) {
             progress("Creating repository $owner/$repo")
-            val (cc, cb) = call(gh("/user/repos").post(buildJsonObject { put("name", repo); put("auto_init", true); put("description", "Made with Axion") }.toString().toRequestBody(JSONT)))
+            val (cc, cb) = call(gh("/user/repos").post(buildJsonObject { put("name", repo); put("auto_init", true); put("description", "Made with X") }.toString().toRequestBody(JSONT)))
             if (cc !in 200..299) fail("GitHub repo", cc, cb)
             delay(1500)
         }
@@ -153,7 +153,7 @@ class Deployer(private val http: OkHttpClient = Http.download, private val api: 
         val (hc, hb) = call(gh("/repos/$owner/$repo/git/ref/heads/gh-pages"))
         val parent = if (hc == 200) ((obj(hb)["object"] as? JsonObject)?.str("sha")) else null
         val (cc, cb) = call(gh("/repos/$owner/$repo/git/commits").post(buildJsonObject {
-            put("message", "Publish from Axion"); put("tree", obj(tb).str("sha")); putJsonArray("parents") { parent?.let { add(it) } }
+            put("message", "Publish from X"); put("tree", obj(tb).str("sha")); putJsonArray("parents") { parent?.let { add(it) } }
         }.toString().toRequestBody(JSONT)))
         if (cc !in 200..299) fail("GitHub commit", cc, cb)
         val sha = obj(cb).str("sha")

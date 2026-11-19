@@ -5,7 +5,7 @@ import com.mazharansari.x.R
 /**
  * Official brand marks for provider / connector rows (res/drawable/brand_<id>.xml).
  * Sources: lobe-icons static SVGs (colour variant where it exists; black mono marks recoloured white
- * for Axion's dark #1E1E1E tiles). Returns null for unknown ids so callers can fall back to the letter badge.
+ * for X's dark #1E1E1E tiles). Returns null for unknown ids so callers can fall back to the letter badge.
  */
 object BrandLogos {
     private val map: Map<String, Int> = mapOf(

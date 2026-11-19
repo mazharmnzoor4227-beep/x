@@ -32,7 +32,7 @@ class TelegramBot(
         const val POLL_FAILURE_BACKOFF_MS = 5_000L
         const val PAUSED_MESSAGE = "Telegram control paused. Turn it back on in Settings."
 
-        const val HELP_TEXT = "Hi, this is Axion. Send me a message and I will answer it here.\n" +
+        const val HELP_TEXT = "Hi, this is X. Send me a message and I will answer it here.\n" +
             "\n" +
             "Commands:\n" +
             "/start - show this help\n" +

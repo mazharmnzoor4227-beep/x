@@ -44,7 +44,7 @@ fun SecureScreen() {
 }
 
 /**
- * Copying a secret: Android 13+ hides it from the clipboard preview (EXTRA_IS_SENSITIVE) and Axion clears the clipboard
+ * Copying a secret: Android 13+ hides it from the clipboard preview (EXTRA_IS_SENSITIVE) and X clears the clipboard
  * after [clearAfterMs] if it still holds what we copied. Plain text that happens to contain a key gets the same care.
  */
 object SecureClipboard {

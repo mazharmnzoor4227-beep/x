@@ -55,7 +55,7 @@ class LiveToolBridge private constructor(
                 )
             } + LiveCallProtocol.LiveToolDecl(
                 name = LiveCallProtocol.END_CALL,
-                description = "End this call. Call it only after a short spoken goodbye, when the user says goodbye (for example \"Axion ab tum jao\" or \"bye\").",
+                description = "End this call. Call it only after a short spoken goodbye, when the user says goodbye (for example \"X ab tum jao\" or \"bye\").",
                 parameters = JSONObject().put("type", "object").put("properties", JSONObject()),
             )
             return LiveToolBridge(declarations, enabled.associateBy { it.spec.name }, ToolContext(workspace, skills))

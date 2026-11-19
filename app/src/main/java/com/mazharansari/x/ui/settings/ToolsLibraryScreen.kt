@@ -24,13 +24,13 @@ private fun iconFor(g: ToolGroup) = when (g.id) {
     "commands" -> Gk.terminal; "skills" -> Gk.skills; "connectors" -> Gk.connectors; else -> Gk.agent
 }
 
-/** v0.6 (Phase 3.4) Tools library: every tool Axion's agent can use, in plain words, each with an on/off switch. Original Axion screen. */
+/** v0.6 (Phase 3.4) Tools library: every tool X's agent can use, in plain words, each with an on/off switch. Original X screen. */
 @Composable
 fun ToolsLibraryScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
     val s = vm.g.settings.state.collectAsState().value
     val p = P
     SettingsPage("Tools library", back) {
-        Text("Axion picks the right tool for each task and tells you which one it used. Switch a tool off and Axion will politely say it is off instead of doing that kind of task.",
+        Text("X picks the right tool for each task and tells you which one it used. Switch a tool off and X will politely say it is off instead of doing that kind of task.",
             style = Type.small, color = p.text2, modifier = Modifier.padding(horizontal = 30.dp, vertical = 8.dp))
         val on = ToolCatalog.groups.count { ToolCatalog.isEnabled(it, s.toolSwitches) }
         SectionLabel("$on of ${ToolCatalog.groups.size} tools on")

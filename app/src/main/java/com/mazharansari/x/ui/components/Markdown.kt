@@ -108,7 +108,7 @@ fun Markdown(text: String, modifier: Modifier = Modifier) {
     // the text it was — never as raw percent-escapes.
     val decoded = remember(text) { com.mazharansari.x.ui.chat.MessageText.decodeIfEncoded(text) }
     val blocks = remember(decoded) { MdParser.parse(decoded) }
-    // Axion spaces blocks 12 dp apart (bullet pitch 36 dp = 24 sp line + 12).
+    // X spaces blocks 12 dp apart (bullet pitch 36 dp = 24 sp line + 12).
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         blocks.forEach { b ->
             when (b) {
@@ -118,13 +118,13 @@ fun Markdown(text: String, modifier: Modifier = Modifier) {
                         style = Type.body.copy(fontSize = when (b.level) { 1 -> 22.sp; 2 -> 19.sp; else -> 17.sp }, fontWeight = FontWeight.SemiBold, lineHeight = 28.sp),
                         color = p.text, modifier = Modifier.padding(top = 4.dp),
                     )
-                    // A top-level heading gets Axion's accent rule under it — the mark of
+                    // A top-level heading gets X's accent rule under it — the mark of
                     // a master prompt / deep report, not a plain wall of text.
-                    if (b.level == 1) Box(Modifier.padding(top = 6.dp).size(width = 32.dp, height = 3.dp).clip(RoundedCornerShape(50)).background(p.accent))
+                    if (b.level == 1) Box(Modifier.padding(top = 6.dp).size(width = 32.dp, height = 3.dp).clip(RoundedCornerShape(2.dp)).background(p.accent))
                 }
                 is MdBlock.Para -> Text(remember(b.text, p) { MdParser.inline(b.text, p) }, style = Type.body, color = p.text)
                 is MdBlock.ListItem -> Row(Modifier.padding(start = (b.indent * 16).dp)) {
-                    // Axion: bullet 8 dp in, its text 19 dp in, both in the text colour
+                    // X: bullet 8 dp in, its text 19 dp in, both in the text colour
                     if (b.marker == "•") Box(Modifier.width(19.dp)) { Text("•", style = Type.body, color = p.text, modifier = Modifier.padding(start = 6.dp)) }
                     else Text(b.marker, style = Type.body, color = p.text, modifier = Modifier.width(24.dp))
                     Text(remember(b.text, p) { MdParser.inline(b.text, p) }, style = Type.body, color = p.text)
@@ -148,7 +148,7 @@ fun CodeBlock(lang: String, code: String, title: String? = null) {
     val ctxClip = androidx.compose.ui.platform.LocalContext.current
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(copied) { if (copied) { delay(1500); copied = false } }
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(p.code).border(1.dp, p.border, RoundedCornerShape(13.dp))) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.code).border(1.dp, p.border, RoundedCornerShape(10.dp))) {
         Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 0.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(title ?: lang.ifBlank { "code" }, style = Type.small, color = p.text2, modifier = Modifier.weight(1f))
             IconTap(if (copied) Gk.check else Gk.copy, "Copy", 18.dp) { com.mazharansari.x.security.SecureClipboard.copy(ctxClip, "Code", code); copied = true }
@@ -168,7 +168,7 @@ fun MdTable(rows: List<List<String>>) {
     val cols = rows.maxOf { it.size }
     // One width per column (from its longest cell) so every row lines up like a real table.
     val widths = remember(rows) { (0 until cols).map { c -> (rows.maxOf { it.getOrElse(c) { "" }.replace("**", "").length } * 7.6f + 26f).coerceIn(64f, 230f).dp } }
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, p.border, RoundedCornerShape(14.dp)).horizontalScroll(rememberScrollState())) {
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).border(1.dp, p.border, RoundedCornerShape(10.dp)).horizontalScroll(rememberScrollState())) {
         Column {
             rows.forEachIndexed { r, row ->
                 Row(Modifier.background(if (r == 0) p.surface else Color.Transparent).height(IntrinsicSize.Min).drawBehind {

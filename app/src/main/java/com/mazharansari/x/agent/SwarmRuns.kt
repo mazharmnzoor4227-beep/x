@@ -32,7 +32,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * normal chats (section "worker", hidden from the chat drawer) — no second storage system.
  * It is saved when the worker starts (so its card can be tapped while it is still working)
  * and finished when the worker settles, so the chat stays viewable after the run ends.
- * Original Axion code; no code copied from any other project.
+ * Original X code; no code copied from any other project.
  */
 
 /** Live status of one bot. STARTING = created, first step not yet done. */
@@ -50,7 +50,7 @@ data class BotRun(
     /** Parent: the run id ("run-<aid>"); worker: the worker card id (the update id). */
     val id: String,
     val kind: BotKind,
-    /** The parent bot's given name ("Axion" by default, or an installed/created bot's name). Workers leave this blank and show their role. */
+    /** The parent bot's given name ("X" by default, or an installed/created bot's name). Workers leave this blank and show their role. */
     val name: String = "",
     /** Worker: the parent run's conversation id; parent: null. */
     val parentId: String?,
@@ -119,7 +119,7 @@ class BotRegistry(private val chats: ConversationStore? = null) {
 
     /**
      * A parent run starts: its card appears in the Bots section at once, under the bot's
-     * given name ([name] — "Axion" by default, or an installed/created bot's name).
+     * given name ([name] — "X" by default, or an installed/created bot's name).
      */
     fun registerParent(runId: String, conversationId: String, name: String, task: String) {
         val now = System.currentTimeMillis()

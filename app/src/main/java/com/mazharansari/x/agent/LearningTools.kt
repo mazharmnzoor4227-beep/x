@@ -9,8 +9,8 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * v0.10 — the Hermes learning loop as Axion tools (pattern from Hermes Agent's memory + skills
- * design; all code is Axion's own):
+ * v0.10 — the Hermes learning loop as X tools (pattern from Hermes Agent's memory + skills
+ * design; all code is X's own):
  *  - memory_add / memory_replace / memory_remove / memory_read: the agent curates a small,
  *    bounded persistent memory (user preferences + facts/lessons) that is injected into every
  *    future system prompt and is fully visible/editable in Settings → Memory.
@@ -185,7 +185,7 @@ class SessionSearchTool : Tool {
         if (hits.isEmpty()) return ToolOutput("No past conversation mentions \"$q\".")
         val fmt = SimpleDateFormat("d MMM yyyy", Locale.ENGLISH)
         val out = hits.joinToString("\n\n") { h ->
-            "[${fmt.format(Date(h.updatedAt))}] ${h.title.ifBlank { "Chat" }} — ${if (h.role.name == "USER") "user" else "Axion"}: ${h.excerpt}"
+            "[${fmt.format(Date(h.updatedAt))}] ${h.title.ifBlank { "Chat" }} — ${if (h.role.name == "USER") "user" else "X"}: ${h.excerpt}"
         }
         return ToolOutput("Found ${hits.size} matches in past chats:\n\n$out", doneTitle = "Searched past chats")
     }

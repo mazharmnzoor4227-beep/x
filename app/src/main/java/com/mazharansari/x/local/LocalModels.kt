@@ -31,29 +31,48 @@ object LlamaNative {
     @JvmStatic external fun generate(handle: Long, prompt: String, maxTokens: Int, temperature: Float, cb: TokenCallback): Int
 }
 
-/** Downloadable on-device models (addendum 6). Sizes and SHA-256 are Hugging Face's own (checked 1 Nov 2026). */
+/**
+ * Downloadable on-device models — the curated shortlist (redesign round 2,
+ * Addendum G, research 2026-11-19). Exactly three, all ~1–2 GB, all fitting
+ * a 4 GB RAM phone; nothing is bundled in the APK, each downloads only on
+ * tap and is SHA-256-checked. [purpose] is the label the Models screen
+ * shows (coding / chat / Hindi / all-rounder).
+ *
+ *  - LFM3-1.7B (default): chat + agent + Hindi, 1.10 GB, ~1.4 GB RAM at
+ *    runtime. Needs llama.cpp v0.8.0+ — the vendored copy IS v0.8.0
+ *    (third_party/llama.cpp/CMakeLists.txt: MAJOR 0 MINOR 8 PATCH 0,
+ *    commit dde879bc, 2026-11-01), so no upgrade was needed.
+ *  - Qwen2.5-Coder-1.5B-Instruct: CODING only. HumanEval 70.7%.
+ *  - Qwen3-1.7B-Instruct-2507: ALL-ROUNDER, ~1.28 GB. Its exact GGUF
+ *    filename/size/SHA-256 could NOT be confirmed (the Hugging Face API
+ *    fetch was refused, 401; web search confirmed only the naming
+ *    convention, not the file), so its [url] is blank on purpose and the
+ *    store refuses to download it until the file is confirmed — never a
+ *    guessed URL. Fill in url/bytes/sha256 here when the file is verified.
+ *
+ * REJECTED (do not re-add): Qwen3-4B and Gemma 3 4B (do not fit 4 GB RAM);
+ * Qwen3-0.6B and Gemma 3 1B (too weak); SmolLM2-1.7B (superseded);
+ * DeepSeek-R1-Distill-1.5B (bad chat, burns context on thinking traces).
+ * CAVEAT, shown honestly in the Models screen: no candidate covers Urdu
+ * properly — Hindi yes, Urdu limited.
+ * Sizes and SHA-256 below are Hugging Face's own (checked 1 Nov 2026).
+ */
 enum class LocalModel(val id: String, val title: String, val family: String, val params: String, val url: String, val bytes: Long, val sha256: String,
-                      val minRamGb: Int, val ctx: Int, val blurb: String) {
+                      val minRamGb: Int, val ctx: Int, val purpose: String, val blurb: String) {
     LFM3_1_7B("lfm3-1.7b", "LFM3 1.7B", "Liquid AI", "1.7B · Q4_K_M",
         "https://huggingface.co/LiquidAI/LFM3-1.7B-GGUF/resolve/main/LFM3-1.7B-Q4_K_M.gguf",
         1_099_627_808, "3793e1e6e2266919d6e015287221b41100175a98eddaba92e111aed3b05c93c4", 4, 8192,
-        "Axion's recommended offline brain (the owner's saved model). Fast chat, summaries, translation and quick answers with no internet — Hindi/Urdu supported, long memory (8k)."),
+        "Chat · Agent · Hindi — default",
+        "Default. Chat + agent + Hindi. Fast offline chat, summaries, translation and quick answers with no internet — Hindi works well, Urdu is limited. Long memory (8k)."),
     QWEN_CODER_1_5B("qwen2.5-coder-1.5b", "Qwen2.5-Coder 1.5B", "Qwen", "1.5B · Q4_K_M",
         "https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf",
         1_117_320_768, "cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046", 4, 4096,
-        "Best small coder. Short scripts, explaining code, small fixes."),
-    QWEN_CODER_3B("qwen2.5-coder-3b", "Qwen2.5-Coder 3B", "Qwen", "3B · Q4_K_M",
-        "https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf",
-        2_104_932_800, "724fb256bec1ff062b2f65e4569e871ad2e95ab2a3989723d1769c54294730b7", 6, 4096,
-        "Stronger coder, about half the speed of 1.5B. Needs a phone with 6 GB+ RAM."),
-    GEMMA3_1B("gemma-3-1b", "Gemma 3 1B", "Gemma", "1B · Q4_K_M",
-        "https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF/resolve/main/google_gemma-3-1b-it-Q4_K_M.gguf",
-        806_058_496, "12bf0fff8815d5f73a3c9b586bd8fee8e7b248c935de70dec367679873d0f29d", 3, 4096,
-        "Fastest. Everyday chat and simple questions; weak at code."),
-    GEMMA3_4B("gemma-3-4b", "Gemma 3 4B", "Gemma", "4B · Q4_K_M",
-        "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-Q4_K_M.gguf",
-        2_489_758_112, "4996030242583a40aa151ff93f49ed787ac8c25e4120c3ae4588b2e2a7d1ae94", 8, 4096,
-        "Best general chat of the four, slowest. Needs 8 GB+ RAM.");
+        "Coding only",
+        "Coding only. Short scripts, explaining code, small fixes. HumanEval 70.7%."),
+    QWEN3_1_7B("qwen3-1.7b", "Qwen3 1.7B", "Qwen", "1.7B · Q4_K_M",
+        "", 0, "", 4, 4096,
+        "All-rounder",
+        "All-rounder — chat and code in one model. Download link not confirmed yet: the exact file is being checked, so this one cannot download until the next update.");
     companion object { fun byId(id: String?) = entries.firstOrNull { it.id == id } }
 }
 
@@ -73,7 +92,7 @@ class LocalModelStore(private val ctx: Context) {
     private val _state = MutableStateFlow(LocalModel.entries.associate { it.id to (if (file(it).isFile) DlState.Ready else DlState.None) as DlState })
     val state: StateFlow<Map<String, DlState>> = _state.asStateFlow()
 
-    fun file(m: LocalModel) = File(dir, m.url.substringAfterLast('/'))
+    fun file(m: LocalModel) = File(dir, m.url.substringAfterLast('/').ifBlank { ".${m.id}.missing" })
     private fun partial(m: LocalModel) = File(dir, m.url.substringAfterLast('/') + ".part")
     private fun set(m: LocalModel, s: DlState) { _state.value = _state.value + (m.id to s) }
     fun downloaded(): List<LocalModel> = LocalModel.entries.filter { file(it).isFile }
@@ -87,6 +106,7 @@ class LocalModelStore(private val ctx: Context) {
     }
 
     fun download(m: LocalModel) {
+        if (m.url.isBlank()) { set(m, DlState.Failed("Download link not confirmed yet — the exact file is being checked. Try again after the next update.")); return }
         if (jobs[m.id]?.isActive == true) return
         jobs[m.id] = scope.launch {
             try {
@@ -173,8 +193,8 @@ class LocalLlmClient(private val model: File, private val ctx: Int = 4096, priva
         /** System + the most recent turns that fit in [budgetChars] (~3 chars per token). */
         fun toMessages(items: List<ChatItem>, budgetChars: Int): List<Pair<String, String>> {
             val sys = items.filterIsInstance<SystemItem>().firstOrNull()?.text?.let { s ->
-                // the full Axion system prompt is long; small models do better with the essentials
-                "You are Axion, a helpful assistant running offline on the user's phone. Reply in the user's own language and script (Roman Urdu stays Roman Urdu). Be concise. Use Markdown code blocks for code.\n" +
+                // the full X system prompt is long; small models do better with the essentials
+                "You are X, a helpful assistant running offline on the user's phone. Reply in the user's own language and script (Roman Urdu stays Roman Urdu). Be concise. Use Markdown code blocks for code.\n" +
                     s.lines().filter { it.contains("User's name", true) || it.contains("Instructions", true) }.joinToString("\n").take(400)
             }
             val turns = items.mapNotNull { when (it) { is UserItem -> "user" to it.text; is AssistantItem -> it.text.takeIf { t -> t.isNotBlank() }?.let { t -> "assistant" to t }; else -> null } }

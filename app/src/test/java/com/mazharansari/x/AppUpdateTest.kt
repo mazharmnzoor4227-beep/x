@@ -61,7 +61,7 @@ class AppUpdateTest {
     private fun local(i: UpdateInfo) = i.copy(url = "$base/a.apk")
 
     @Test fun rules() {
-        val i = UpdateRules.parse("""{"versionCode":6,"versionName":"0.5.0","url":"https://claworabeauty.store/uploads/dl/axion/Axion-0.5.0.apk","sha256":"${"AB".repeat(32)}","size":5,"notes":"x","extra":1}""")
+        val i = UpdateRules.parse("""{"versionCode":6,"versionName":"0.5.0","url":"https://example.invalid/x-0.5.0.apk","sha256":"${"AB".repeat(32)}","size":5,"notes":"x","extra":1}""")
         assertEquals("ab".repeat(32), i.sha256)
         assertTrue(UpdateRules.isNewer(i, 5)); assertFalse(UpdateRules.isNewer(i, 6))
         for (bad in listOf("not json", """{"versionCode":7,"versionName":"x","url":"http://a/b.apk","sha256":"${"a".repeat(64)}"}""", """{"versionCode":7,"versionName":"x","url":"https://a/b.apk","sha256":"abc"}"""))
@@ -93,7 +93,7 @@ class AppUpdateTest {
     @Test fun foreignSignatureRefused() = runBlocking {
         feed(7); val u = updater(6, certs = listOf("11".repeat(32)))
         val r = u.download(local((u.check() as UpdateState.Available).info))
-        assertTrue("$r", r is UpdateState.Failed && r.message.contains("isn't signed with Axion's key"))
+        assertTrue("$r", r is UpdateState.Failed && r.message.contains("isn't signed with X's key"))
     }
 
     @Test fun serverErrorsAndOffline() = runBlocking {
@@ -103,10 +103,17 @@ class AppUpdateTest {
         assertTrue("$off", off is UpdateState.Failed && (off as UpdateState.Failed).message.startsWith("No internet") )
     }
 
-    // ---- P0-2 (CR-2): both feeds, higher versionCode wins, one dead host is not fatal ----
+    // ---- Redesign round 2 (Addendum C): X has no update feed yet. The two Axion feeds are
+    // gone; the default list is empty, and the default updater says so instead of offering
+    // anything. The multi-feed machinery below is kept for X's own feed, when it exists. ----
 
-    @Test fun defaultFeedsCoverBothHosts() {
-        assertEquals(listOf("https://axion.130-210-62-94.sslip.io/dl/latest.json", "https://claworabeauty.store/uploads/dl/axion/latest.json"), UpdateRules.FEEDS)
+    @Test fun defaultFeedsEmptyUntilXHasItsOwn() {
+        assertTrue("no feed is configured until X has its own", UpdateRules.FEEDS.isEmpty())
+    }
+
+    @Test fun defaultUpdaterSaysNotSetUp() = runBlocking {
+        val st = AppUpdater(ApplicationProvider.getApplicationContext(), currentCode = 6).check()
+        assertTrue("$st", st is UpdateState.Failed && (st as UpdateState.Failed).message.contains("not set up"))
     }
 
     @Test fun bothFeedsHigherVersionWins() = runBlocking {

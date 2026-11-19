@@ -199,19 +199,20 @@ class V04ScreensTest {
     }
 
     /** Composer focused (keyboard up) → tap ☰: the composer loses focus, so the keyboard can't sit over the menu. */
-    @Test fun drawerClosesKeyboard() {
+    @Test fun backFromChatClosesKeyboard() {
         seed()
-        val (sc, vm) = launch()
+        // Redesign round 2: the drawer is gone. The same behaviour — leaving
+        // the chat screen drops keyboard focus — now happens on Back: focus
+        // the composer, tap the chat header's Back chevron, and the Home
+        // list's search field must not be focused.
+        val sc = route(Route.Chat)
         val field = compose.onAllNodes(hasSetTextAction()).onFirst()
         field.performClick(); compose.mainClock.advanceTimeBy(300)
         field.assertIsFocused()
-        // Redesign: the header menu button is now labelled "Open menu"
-        // (ChatScreen.kt header); the drawer still dismisses the keyboard
-        // via DismissKeyboard() while it is open.
-        compose.onNodeWithContentDescription("Open menu").performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
         compose.mainClock.advanceTimeBy(800)
         compose.onAllNodes(hasSetTextAction()).onFirst().assertIsNotFocused()
-        cap("08_drawer_keyboard_closed"); sc.close()
+        cap("08_back_keyboard_closed"); sc.close()
     }
 
     @Test fun callNoKey() {

@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.os.StatFs
 import android.system.Os
+import android.util.Log
 import com.mazharansari.x.llm.Http
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,7 +43,7 @@ object LinuxSlim {
     const val MARKER = "opt/axion/.slim-v1"
     const val DPKG_CFG = "etc/dpkg/dpkg.cfg.d/01-axion-nodoc"
     val DPKG_TEXT = """
-        # Axion: keep Linux small on the phone (same idea as Ubuntu minimized images)
+        # X: keep Linux small on the phone (same idea as Ubuntu minimized images)
         path-exclude=/usr/share/doc/*
         path-include=/usr/share/doc/*/copyright
         path-exclude=/usr/share/man/*
@@ -91,7 +92,7 @@ sealed interface LinuxState {
 
 /**
  * The PRoot Ubuntu sandbox, ported from Kodex's RuntimeInstaller (process(), writeResolver(), ensureRootfsCompatibilityLinks(),
- * tar extraction with budget checks) and cut down to what Axion needs. Nothing is downloaded until the user asks for a tool.
+ * tar extraction with budget checks) and cut down to what X needs. Nothing is downloaded until the user asks for a tool.
  */
 class LinuxRuntime(private val ctx: Context) {
     val home = File(ctx.filesDir, "linux")
@@ -130,7 +131,11 @@ class LinuxRuntime(private val ctx: Context) {
                 if (!sum.equals(LinuxBase.ROOTFS_SHA256, true)) { download.delete(); error("The Ubuntu download was damaged (checksum). Tap install again.") }
                 report(LinuxProgress("Unpacking ${LinuxBase.UBUNTU}", 0.65f))
                 val staging = File(home, "ubuntu.staging").apply { deleteRecursively(); mkdirs() }
-                extractTarGz(download, staging) { n -> report(LinuxProgress("Unpacking ${LinuxBase.UBUNTU} · $n files", 0.65f + 0.3f * (n / 3500f).coerceAtMost(1f))) }
+                val skippedLinks = mutableListOf<String>()
+                extractTarGz(download, staging, onCount = { n -> report(LinuxProgress("Unpacking ${LinuxBase.UBUNTU} · $n files", 0.65f + 0.3f * (n / 3500f).coerceAtMost(1f))) }, onSkipped = { skippedLinks += it })
+                // Absolute links were rewritten inside the rootfs (see extractTarGz); the ones
+                // skipped here pointed outside it and can never be load-bearing inside it.
+                if (skippedLinks.isNotEmpty()) Log.w("LinuxRuntime", "ensureBase skipped ${skippedLinks.size} symlink(s) pointing outside the rootfs: ${skippedLinks.take(5)}")
                 rootfs.deleteRecursively()
                 check(staging.renameTo(rootfs)) { "Could not move the Linux files into place" }
                 File(rootfs, LinuxBase.ROOTFS_MARKER).writeText(LinuxBase.ROOTFS_URL.substringAfterLast('/'))
@@ -348,10 +353,10 @@ class LinuxRuntime(private val ctx: Context) {
         fun resolverText(network: List<String>): String {
             val net = network.filter { it.isNotBlank() && !it.contains('%') }.sortedBy { if (it.contains(':')) 1 else 0 }
             val servers = (net.take(1) + listOf("8.8.8.8", "1.1.1.1")).distinct().take(3)
-            return "# written by Axion at each start\n" + servers.joinToString("") { "nameserver $it\n" } + "options timeout:3 attempts:2\n"
+            return "# written by X at each start\n" + servers.joinToString("") { "nameserver $it\n" } + "options timeout:3 attempts:2\n"
         }
         fun hostsText(pins: Map<String, String>): String = "127.0.0.1 localhost\n::1 localhost ip6-localhost\n" +
-            if (pins.isEmpty()) "" else "# Axion: package servers as Android resolved them (refreshed at each start)\n" + pins.entries.sortedBy { it.key }.joinToString("") { "${it.value} ${it.key}\n" }
+            if (pins.isEmpty()) "" else "# X: package servers as Android resolved them (refreshed at each start)\n" + pins.entries.sortedBy { it.key }.joinToString("") { "${it.value} ${it.key}\n" }
 
         val FAKE_PROC = linkedMapOf(
             "loadavg" to "0.12 0.07 0.02 2/165 765\n",
@@ -415,14 +420,20 @@ class LinuxRuntime(private val ctx: Context) {
             return md.digest().joinToString("") { "%02x".format(it) }
         }
 
-        /** tar.gz → dir with symlinks, hard links and modes kept; refuses paths that escape [dest]. */
-        fun extractTarGz(archive: File, dest: File, onCount: (Int) -> Unit = {}) {
+        /** tar.gz → dir with symlinks, hard links and modes kept.
+         * Symlink policy (redesign round 2, Addendum A): an absolute target is REWRITTEN to a
+         * path relative to the link's parent inside [dest] — rootfs tarballs legitimately
+         * contain rootfs-absolute links (e.g. /usr/bin/foo -> /etc/alternatives/foo), and
+         * resolving them against the host used to abort the whole install with "Unsafe symlink
+         * target in archive". A target that still escapes [dest] after normalisation (absolute
+         * or relative) cannot be load-bearing inside the rootfs, so the link is SKIPPED and
+         * reported via [onSkipped] instead of aborting — nothing is ever written outside
+         * [dest]. Entry paths that escape [dest] and hard-link targets that escape are still
+         * refused outright (the whole extraction fails). */
+        fun extractTarGz(archive: File, dest: File, onCount: (Int) -> Unit = {}, onSkipped: (String) -> Unit = {}) {
             val canonical = dest.canonicalPath
             // A path is inside the destination only on a real boundary: "/tmp/x2" is not inside "/tmp/x".
             fun inside(path: String) = path == canonical || path.startsWith(canonical + File.separator)
-            /** Where a symlink points once the OS resolves it (relative targets: from the link's own parent). */
-            fun symlinkTarget(link: File, linkName: String): File =
-                if (File(linkName).isAbsolute) File(linkName) else File(link.parentFile, linkName)
             val hardLinks = mutableListOf<Pair<File, File>>()
             var n = 0
             TarArchiveInputStream(GZIPInputStream(BufferedInputStream(archive.inputStream(), 1 shl 16))).use { tar ->
@@ -439,16 +450,31 @@ class LinuxRuntime(private val ctx: Context) {
                         when {
                             e.isDirectory -> target.mkdirs()
                             e.isSymbolicLink -> {
-                                // The link TARGET (e.linkName) is an arbitrary path in the archive:
-                                // resolve it the way the filesystem will and refuse it if it escapes.
-                                val resolved = symlinkTarget(target, e.linkName)
-                                require(inside(resolved.canonicalPath)) { "Unsafe symlink target in archive: $name -> ${e.linkName}" }
-                                target.parentFile?.mkdirs(); target.delete()
-                                // Os.symlink is a silent no-op in JVM unit tests (returnDefaultValues),
-                                // so verify the link really exists and fall back to the NIO call.
-                                val linked = runCatching { Os.symlink(e.linkName, target.absolutePath) }.isSuccess &&
-                                    java.nio.file.Files.isSymbolicLink(target.toPath())
-                                if (!linked) java.nio.file.Files.createSymbolicLink(target.toPath(), java.nio.file.Paths.get(e.linkName))
+                                // The link TARGET (e.linkName) is an arbitrary path in the archive.
+                                // Absolute targets are rewritten to dest-relative (see the KDoc);
+                                // escaping targets are skipped and reported, never planted.
+                                val raw = e.linkName
+                                val canonDest = java.nio.file.Paths.get(canonical)
+                                val linkParent = canonDest.resolve(name).parent
+                                val stored: String? = if (File(raw).isAbsolute) {
+                                    val abs = canonDest.resolve(raw.trimStart('/')).normalize()
+                                    if (!inside(abs.toString())) {
+                                        onSkipped("Skipped symlink $name -> $raw (target escapes the extraction directory)"); null
+                                    } else linkParent.relativize(abs).toString().ifEmpty { "." }
+                                } else {
+                                    val resolved = linkParent.resolve(raw).normalize()
+                                    if (!inside(resolved.toString())) {
+                                        onSkipped("Skipped symlink $name -> $raw (target escapes the extraction directory)"); null
+                                    } else raw
+                                }
+                                if (stored != null) {
+                                    target.parentFile?.mkdirs(); target.delete()
+                                    // Os.symlink is a silent no-op in JVM unit tests (returnDefaultValues),
+                                    // so verify the link really exists and fall back to the NIO call.
+                                    val linked = runCatching { Os.symlink(stored, target.absolutePath) }.isSuccess &&
+                                        java.nio.file.Files.isSymbolicLink(target.toPath())
+                                    if (!linked) java.nio.file.Files.createSymbolicLink(target.toPath(), java.nio.file.Paths.get(stored))
+                                }
                             }
                             e.isLink -> {
                                 // Hard-link targets are archive-root-relative; an absolute one used

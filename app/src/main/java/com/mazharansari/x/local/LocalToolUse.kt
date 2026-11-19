@@ -72,7 +72,7 @@ object LocalToolUse {
 
     /** The tool-call system prompt: short (small models, 4k context) and strict about the format. */
     fun buildToolPrompt(tools: List<ToolSpec>): String = buildString {
-        appendLine("You are Axion, running offline on the user's phone. You can use tools. Reply with exactly ONE JSON object and nothing else.")
+        appendLine("You are X, running offline on the user's phone. You can use tools. Reply with exactly ONE JSON object and nothing else.")
         appendLine("TOOLS:")
         for (t in tools) {
             appendLine("- ${t.name} ${t.parameters} — ${t.description.lineSequence().firstOrNull().orEmpty().take(120)}")

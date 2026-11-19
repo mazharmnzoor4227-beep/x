@@ -13,7 +13,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -42,10 +41,10 @@ import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeChild
 
-/** The screen's blur source; popovers sit over the chat (the haze is kept for the drawer scrim path). */
+/** The screen's blur source; popovers sit over the chat (the haze is kept for the sheet scrim path). */
 val LocalHaze = staticCompositionLocalOf<HazeState?> { null }
 
-private val PopShape = RoundedCornerShape(13.dp)
+private val PopShape = RoundedCornerShape(10.dp)
 
 /**
  * X anchored popover: a card that grows out of the composer's bottom-left corner
@@ -84,7 +83,7 @@ fun BoxScope.GlassPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp
 fun PopRow(icon: Int, title: String, subtitle: String? = null, selected: Boolean = false, dim: Boolean = false, badge: String? = null, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp).heightIn(min = if (subtitle != null) 57.dp else 48.dp).clip(RoundedCornerShape(13.dp))
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp).heightIn(min = if (subtitle != null) 57.dp else 48.dp).clip(RoundedCornerShape(10.dp))
             .background(if (selected) p.accentSoft else Color.Transparent)
             .clickable(onClick = tap).padding(start = 14.dp, end = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -95,7 +94,7 @@ fun PopRow(icon: Int, title: String, subtitle: String? = null, selected: Boolean
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(title, style = Type.body.copy(fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium), color = if (dim) p.text3 else p.text, maxLines = 1)
                 if (badge != null) Text(badge, style = Type.tiny.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium), color = p.text2,
-                    modifier = Modifier.padding(start = 8.dp).clip(RoundedCornerShape(50)).background(p.accentSoft).padding(horizontal = 7.dp, vertical = 1.dp))
+                    modifier = Modifier.padding(start = 8.dp).clip(RoundedCornerShape(6.dp)).background(p.accentSoft).padding(horizontal = 7.dp, vertical = 1.dp))
             }
             if (subtitle != null) Text(subtitle, style = Type.small.copy(fontSize = 14.sp, lineHeight = 18.sp), color = if (selected) p.text.copy(alpha = 0.8f) else p.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -168,8 +167,8 @@ fun AxionSheet(onDismiss: () -> Unit, skipPartial: Boolean = true, content: @Com
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = skipPartial),
         containerColor = p.card, contentColor = p.text, scrimColor = Color.Black.copy(alpha = 0.6f),
-        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
-        dragHandle = { Box(Modifier.padding(top = 10.dp, bottom = 8.dp).size(width = 34.dp, height = 4.dp).clip(RoundedCornerShape(50)).background(p.border)) },
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        dragHandle = { Box(Modifier.padding(top = 10.dp, bottom = 8.dp).size(width = 32.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(p.border)) },
     ) { Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 12.dp), content = content) }
 }
 

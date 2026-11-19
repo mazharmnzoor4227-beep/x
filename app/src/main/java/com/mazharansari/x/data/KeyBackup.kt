@@ -41,9 +41,9 @@ object KeyBackup {
     }
 
     fun import(file: String, password: String): List<Entry> {
-        val env = runCatching { json.decodeFromString<Envelope>(file) }.getOrElse { throw IllegalArgumentException("This isn't an Axion keys file") }
-        require(env.format == "axion-keys") { "This isn't an Axion keys file" }
-        require(env.v in 1..2 && env.kdf == "PBKDF2WithHmacSHA256" && env.iter in ITER_RANGE) { "This keys file is from an unknown version of Axion." }
+        val env = runCatching { json.decodeFromString<Envelope>(file) }.getOrElse { throw IllegalArgumentException("This isn't an X keys file") }
+        require(env.format == "axion-keys") { "This isn't an X keys file" }
+        require(env.v in 1..2 && env.kdf == "PBKDF2WithHmacSHA256" && env.iter in ITER_RANGE) { "This keys file is from an unknown version of X." }
         val plain = runCatching {
             val c = Cipher.getInstance("AES/GCM/NoPadding").apply {
                 init(Cipher.DECRYPT_MODE, key(password, unb64(env.salt), env.iter), GCMParameterSpec(128, unb64(env.iv)))

@@ -81,7 +81,7 @@ fun ExpandableStep(s: Step, size: Int = 15, startOpen: Boolean = false, onOpenWo
 fun CodeBox(header: String, code: String, lang: String, modifier: Modifier = Modifier) {
     val p = P
     val clip = androidx.compose.ui.platform.LocalClipboardManager.current
-    val shape = RoundedCornerShape(13.dp)
+    val shape = RoundedCornerShape(10.dp)
     val text = remember(code, lang) { highlight(code.take(60_000), lang) }
     Column(modifier.fillMaxWidth().clip(shape).background(p.code).border(1.dp, if (p.isDark) Color(0xFF222222) else p.border, shape)) {
         Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -122,7 +122,7 @@ fun highlight(code: String, lang: String): AnnotatedString {
             val style = when {
                 l.startsWith("+++") || l.startsWith("---") -> SpanStyle(color = Color(0xFF8A8A8A))
                 l.startsWith("@@") -> SpanStyle(color = Color(0xFF82AAFF))
-                l.startsWith("+") -> SpanStyle(color = Color(0xFFA5B4FC), background = Color(0x1F818CF8))   // 2026-11-19: added lines are indigo, never green
+                l.startsWith("+") -> SpanStyle(color = Color(0xFFE0A63F), background = Color(0x1FE0A63F))   // 2026-11-19: added lines are bronze, never green
                 l.startsWith("-") -> SpanStyle(color = Color(0xFFFFA198), background = Color(0x1FF85149))
                 else -> SpanStyle(color = Color(0xFFB0B0B0))
             }

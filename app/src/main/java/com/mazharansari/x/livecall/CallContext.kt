@@ -6,7 +6,7 @@ import com.mazharansari.x.data.Role
 
 /**
  * v0.8.2 — Call memory (owner, 2026-11-07): a long call dropped, he called back into the SAME
- * chat, and Axion remembered nothing — because the call's setup only ever carried the static
+ * chat, and X remembered nothing — because the call's setup only ever carried the static
  * system instruction, never the conversation. The turns were already being saved into the chat
  * (see ChatViewModel.appendCallTurn); they were just never handed back to the next call.
  *
@@ -26,7 +26,7 @@ object CallContext {
             .filter { it.text.isNotBlank() && it.status != MsgStatus.STREAMING }
             .takeLast(maxMessages)
         if (usable.isEmpty()) return ""
-        val lines = usable.map { m -> (if (m.role == Role.USER) "User: " else "Axion: ") + m.text.trim() }
+        val lines = usable.map { m -> (if (m.role == Role.USER) "User: " else "X: ") + m.text.trim() }
         var start = 0
         var joined = lines.joinToString("\n")
         while (joined.length > maxChars && start < lines.size - 1) {

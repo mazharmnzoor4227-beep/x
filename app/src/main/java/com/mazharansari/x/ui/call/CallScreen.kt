@@ -52,7 +52,7 @@ import kotlin.math.roundToInt
 
 /**
  * Live call (v0.3) — two real modes, picked with the chip at the top:
- *  • Same voice (default): Axion listens, answers with your connected AI, and speaks with the voice you picked in
+ *  • Same voice (default): X listens, answers with your connected AI, and speaks with the voice you picked in
  *    Voice Library — the exact read-aloud voice. Turn-based; tap the orb to cut in.
  *  • Gemini Live: Kodex's real-time call (Gemini Live native audio, gemini-3.8-live, ported from vayro), full-duplex
  *    and interruptible, but it talks in Gemini's own voices (default Kore) — Google's API can't use a phone/Edge voice.
@@ -317,7 +317,7 @@ private fun ColumnScope.CallBody(
 @Composable
 private fun CallChip(label: String, icon: Int, on: Boolean, onClick: () -> Unit) {
     val p = P
-    Row(Modifier.clip(RoundedCornerShape(50)).background(if (on) p.text else (if (p.isDark) Color(0xFF1B1B1B) else Color(0xFFF2F2F2))).clickable(onClick = onClick)
+    Row(Modifier.clip(RoundedCornerShape(6.dp)).background(if (on) p.text else (if (p.isDark) Color(0xFF1B1B1B) else Color(0xFFF2F2F2))).clickable(onClick = onClick)
         .padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
         GkIcon(icon, null, 18.dp, if (on) p.bg else p.text)
         Spacer(Modifier.width(8.dp))
@@ -359,7 +359,7 @@ fun FloatingCallOrb(vm: ChatViewModel, onOpen: () -> Unit) {
                 })
             }
             Box(
-                Modifier.align(Alignment.TopEnd).size(24.dp).clip(RoundedCornerShape(50)).background(Color(0xFFE5252A))
+                Modifier.align(Alignment.TopEnd).size(24.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFFE5252A))
                     .clickable(remember { MutableInteractionSource() }, null) { vm.endLiveCall() },
                 contentAlignment = Alignment.Center,
             ) { Text("✕", color = Color.White, fontSize = 12.sp) }

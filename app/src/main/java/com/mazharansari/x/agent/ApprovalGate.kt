@@ -34,7 +34,7 @@ interface Approver {
 }
 
 /**
- * v0.12: the approval gate for shell work — the one surface in Axion that can do
+ * v0.12: the approval gate for shell work — the one surface in X that can do
  * anything (delete, install, send) without a narrower tool's own limits.
  *
  * Rules, in order:

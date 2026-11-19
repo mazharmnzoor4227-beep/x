@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -50,21 +49,20 @@ import com.mazharansari.x.ui.components.*
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.provider.OpenableColumns
-import com.mazharansari.x.ui.mascot.LogoMark
+import com.mazharansari.x.llm.Http
 import com.mazharansari.x.voice.PiperPack
 import com.mazharansari.x.ui.home.FileActions
 import com.mazharansari.x.ui.home.openFile
 import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
 
-/** Dots settings page: centred 24sp title, back chevron at left, white cards. */
+/** Settings page (round 2): left-aligned 22sp title, back chevron at left. */
 @Composable
 fun SettingsPage(title: String, onBack: () -> Unit, close: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxSize().background(P.page2)) {
         Row(Modifier.fillMaxWidth().statusBarsPadding().height(64.dp).padding(start = 6.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconTap(if (close) Gk.close else Gk.arrowLeft, if (close) "Close" else "Back", 24.dp, P.text, 44.dp, onBack)
-            Text(title, style = Type.display.copy(fontSize = 24.sp), color = P.text, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.width(44.dp))
+            Text(title, style = Type.title, color = P.text, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 28.dp), content = content)
     }
@@ -86,9 +84,9 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
     val memCount = memData.user.size + memData.notes.size
     SettingsPage("Settings", back, close = true) {
         // profile card
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.card).clickable { nav(Route.Customize) }.padding(16.dp),
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).clickable { nav(Route.Customize) }.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(56.dp).clip(CircleShape).border(2.dp, if (p.isDark) Color(0xFF3A3A3A) else p.border, CircleShape).padding(4.dp)) { Avatar(s.userName.ifBlank { "You" }, 48.dp) }
+            Box(Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)).border(2.dp, if (p.isDark) Color(0xFF3A3A3A) else p.border, RoundedCornerShape(8.dp)).padding(4.dp)) { Avatar(s.userName.ifBlank { "You" }, 48.dp) }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 // v0.5.2: a fresh install shows "You" + "Add your name" — never the developer's name.
@@ -96,8 +94,8 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
                 Text(if (s.userName.isBlank()) "Add your name" else "Edit profile", style = Type.small.copy(fontSize = 15.sp), color = p.text2)
             }
         }
-        // Dots providers card (same layout, blue pill button)
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(p.card).padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+        // Providers card
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically) {
             GkIcon(Gk.connectors, null, 24.dp, p.text)
             Spacer(Modifier.width(14.dp))
@@ -105,7 +103,7 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
                 Text(if (keys.isEmpty()) "Connect a free AI key" else "${keys.size} AI key${if (keys.size > 1) "s" else ""} connected", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = p.text)
                 Text(if (keys.isEmpty()) "Gemini, Groq, OpenRouter & more" else "Auto-switch when a limit hits", style = Type.tiny.copy(fontSize = 13.sp), color = p.text2)
             }
-            Box(Modifier.height(30.dp).clip(RoundedCornerShape(24.dp)).background(p.blue).clickable { nav(Route.Connectors) }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.height(30.dp).clip(RoundedCornerShape(8.dp)).background(p.blue).clickable { nav(Route.Connectors) }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
                 Text(if (keys.isEmpty()) "Connect" else "Manage", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = Color.White)
             }
         }
@@ -115,24 +113,24 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
             SettingsRow(Gk.voice, "Voice & Language", subtitle = PiperPack.of(s.voicePref).displayName) { nav(Route.Language) }
             SettingsRow(Gk.sliders, "Advanced") { nav(Route.Advanced) }
         }
-        SectionLabel("Axion")
+        SectionLabel("Assistant")
         SettingsGroup {
-            SettingsRow(Gk.wand, "Customize Axion") { nav(Route.Customize) }
+            SettingsRow(Gk.wand, "Customize X") { nav(Route.Customize) }
             SettingsRow(Gk.connectors, "Connectors", subtitle = if (keys.isEmpty()) "None" else keys.joinToString(", ") { it.provider.name }.take(40)) { nav(Route.Connectors) }
             SettingsRow(Gk.skills, "Skills", subtitle = "${skills.count { it.enabled }} enabled") { nav(Route.Skills) }
             SettingsRow(Gk.github, "GitHub", subtitle = vm.g.github.state.collectAsState().value.let { if (it.tokenBlob.isBlank()) "Clone, commit and push from your phone" else "Connected" + it.login.let { l -> if (l.isBlank()) "" else " · @$l" } }) { nav(Route.GitHub) }
-            SettingsRow(Gk.brain, "Memory", subtitle = memCount.let { if (it == 0) "What Axion remembers about you" else "$it saved" }) { nav(Route.Memory) }
-            SettingsRow(Gk.shield, "Approvals", subtitle = vm.g.approvals.rules.collectAsState().value.size.let { if (it == 0) "Commands Axion may run without asking" else "$it remembered" }) { nav(Route.Approvals) }
-            SettingsRow(Gk.clock, "Schedules", subtitle = vm.g.schedules.entries.collectAsState().value.count { it.enabled }.let { if (it == 0) "Tasks Axion runs on a schedule" else "$it active" }) { nav(Route.Schedules) }
+            SettingsRow(Gk.brain, "Memory", subtitle = memCount.let { if (it == 0) "What X remembers about you" else "$it saved" }) { nav(Route.Memory) }
+            SettingsRow(Gk.shield, "Approvals", subtitle = vm.g.approvals.rules.collectAsState().value.size.let { if (it == 0) "Commands X may run without asking" else "$it remembered" }) { nav(Route.Approvals) }
+            SettingsRow(Gk.clock, "Schedules", subtitle = vm.g.schedules.entries.collectAsState().value.count { it.enabled }.let { if (it == 0) "Tasks X runs on a schedule" else "$it active" }) { nav(Route.Schedules) }
             SettingsRow(Gk.tool, "Tools library", subtitle = com.mazharansari.x.agent.ToolCatalog.groups.count { com.mazharansari.x.agent.ToolCatalog.isEnabled(it, s.toolSwitches) }.let { "$it of ${com.mazharansari.x.agent.ToolCatalog.groups.size} on" }) { nav(Route.ToolsLibrary) }   // axion-p3
-            SettingsRow(Gk.globe, "Browser", subtitle = "Axion's own — real pages, forms, screenshots") { nav(Route.Browser) }
+            SettingsRow(Gk.globe, "Browser", subtitle = "X's own — real pages, forms, screenshots") { nav(Route.Browser) }
             SettingsRow(Gk.terminal, "Terminal", subtitle = "Linux shell — run commands yourself") { nav(Route.Terminal) }
             SettingsRow(Gk.terminal, "Developer tools", subtitle = "Linux · Python, Node, C++, PHP…") { nav(Route.DevTools) }
             // P1-3 Turbo (server): the user's own server as an opt-in cloud sandbox for long jobs.
             SettingsRow(Gk.rocket, "Turbo (server)", subtitle = vm.g.cloud.settings.collectAsState().value.let { if (it.enabled && it.host.isNotBlank()) "On · ${it.hostLabel()}" else "Your own server for long builds" }) { nav(Route.Turbo) }
             SettingsRow(Gk.rocket, "Antigravity", subtitle = vm.g.agy.store.collectAsState().value.accounts.size.let { if (it == 0) "Multi-account, auto-switch" else "$it account${if (it > 1) "s" else ""}" }) { nav(Route.Antigravity) }
             SettingsRow(Gk.usage, "Quota", subtitle = "Used, left and reset times") { nav(Route.Quota) }
-            SettingsRow(Gk.voice, "Telegram control", subtitle = vm.g.telegram.settings.collectAsState().value.let { s -> if (!s.enabled) "Text Axion from anywhere — off by default" else if (s.allowedChatId != 0L) "On · paired chat ${s.allowedChatId}" else "On · waiting for /start to pair" }) { nav(Route.Telegram) }
+            SettingsRow(Gk.voice, "Telegram control", subtitle = vm.g.telegram.settings.collectAsState().value.let { s -> if (!s.enabled) "Text X from anywhere — off by default" else if (s.allowedChatId != 0L) "On · paired chat ${s.allowedChatId}" else "On · waiting for /start to pair" }) { nav(Route.Telegram) }
             ToggleRow(Gk.globe, "Status page", if (s.statusServer) vm.g.statusServer.url + " — read-only, this phone only" else "A read-only status page on this phone (chats, schedules, quota, jobs)", s.statusServer) { vm.g.setStatusServer(it) }
         }
         SectionLabel("Data & Information")
@@ -143,7 +141,7 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
         }
         Spacer(Modifier.height(18.dp))
         SettingsGroup {
-            SettingsRow(Gk.info, "About Axion") { nav(Route.About) }
+            SettingsRow(Gk.info, "About X") { nav(Route.About) }
             SettingsRow(Gk.help, "Report a problem") { nav(Route.About) }
         }
         Text("X ${BuildConfig.VERSION_NAME}", style = Type.small.copy(fontSize = 15.sp), color = p.text2, modifier = Modifier.fillMaxWidth().padding(top = 26.dp), textAlign = TextAlign.Center)
@@ -161,7 +159,7 @@ fun AppearanceScreen(vm: ChatViewModel, back: () -> Unit) {
             listOf(Triple("system", "System", Gk.settings), Triple("dark", "Dark", Gk.moon), Triple("light", "Light", Gk.sun)).forEach { (id, label, icon) ->
                 val sel = s.theme == id
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(22.dp)).background(if (sel) p.accent else p.card).clickable { vm.g.settings.update { it.copy(theme = id) } },
+                    Box(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(10.dp)).background(if (sel) p.accent else p.card).clickable { vm.g.settings.update { it.copy(theme = id) } },
                         contentAlignment = Alignment.Center) { GkIcon(icon, null, 24.dp, if (sel) p.onAccent else p.text2) }
                     Spacer(Modifier.height(10.dp))
                     Text(label, style = Type.body.copy(fontSize = 16.sp, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Medium), color = if (sel) p.text else p.text2)
@@ -187,9 +185,10 @@ fun AppearanceScreen(vm: ChatViewModel, back: () -> Unit) {
 /**
  * Voice & Language (spec §10.10): the read-aloud / voice-call voice
  * preference. First pick is Piper Urdu Aegis (offline, on-device) — see
- * voice/PiperVoice.kt. Until the Piper engine (sherpa-onnx) is bundled, a
- * Piper pick reads in the phone's built-in Urdu/Hindi voice; the screen
- * says so plainly and shows each pack's real download state.
+ * voice/PiperVoice.kt. The Piper engine (sherpa-onnx) IS bundled since
+ * redesign round 2; a Piper pick reads in the phone's built-in Urdu/Hindi
+ * voice only while the pack or the shared espeak-ng-data is missing — the
+ * screen says so plainly and shows each pack's real download state.
  */
 @Composable
 fun LanguageScreen(vm: ChatViewModel, back: () -> Unit) {
@@ -197,6 +196,10 @@ fun LanguageScreen(vm: ChatViewModel, back: () -> Unit) {
     val ctx = LocalContext.current
     val store = vm.g.piperVoices
     var imported by remember { mutableStateOf(0) }
+    var espeakBusy by remember { mutableStateOf(false) }
+    var espeakProgress by remember { mutableIntStateOf(0) }
+    var espeakRefresh by remember { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
     val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         var n = 0
         uris.forEach { uri ->
@@ -232,9 +235,29 @@ fun LanguageScreen(vm: ChatViewModel, back: () -> Unit) {
                         chevron = false,
                         trailing = { if (st.downloaded) GkIcon(Gk.check, "Downloaded", 22.dp, P.text) }) { }
                 }
+                key(espeakRefresh) {
+                    val espeakOk = store.espeakReady()
+                    SettingsRow(null, "Pronunciation data (espeak-ng-data)",
+                        subtitle = when {
+                            espeakBusy -> "Downloading · $espeakProgress%"
+                            espeakOk -> "Ready · ${store.espeakBytes() / 1_048_576} MB — shared by all Piper packs"
+                            else -> "Not downloaded — one download, shared by all Piper packs"
+                        },
+                        chevron = false,
+                        trailing = { if (espeakOk) GkIcon(Gk.check, "Downloaded", 22.dp, P.text) }) {
+                            if (!espeakBusy && !espeakOk) {
+                                espeakBusy = true; espeakProgress = 0
+                                scope.launch {
+                                    val ok = store.downloadEspeakData(Http.download) { espeakProgress = it }
+                                    espeakBusy = false; espeakRefresh++
+                                    vm.toast = if (ok) "Pronunciation data downloaded" else "Download failed — check the connection and try again"
+                                }
+                            }
+                        }
+                }
             }
         }
-        Text("The Piper engine is not installed yet, so a Piper pick reads in the phone's built-in Urdu/Hindi voice for now. Import a pack's two files (Files → pick the .onnx and the .json) and it will be ready the day the engine lands.",
+        Text("The Piper engine (sherpa-onnx) is built into the app. Import a pack's two files (Files → pick the .onnx and the .json — the converted copies, not the raw ones) and download the pronunciation data once; then the Piper voice reads on-device. Until a pack and the data are both ready, a Piper pick reads in the phone's built-in Urdu/Hindi voice. Kokoro Hindi is a different model family and reads in the phone voice for now.",
             style = Type.small.copy(fontSize = 13.sp, lineHeight = 19.sp), color = P.text2,
             modifier = Modifier.padding(start = 30.dp, end = 24.dp, top = 10.dp))
         SettingsGroup {
@@ -268,7 +291,7 @@ private fun Field(label: String, value: String, onChange: (String) -> Unit, plac
     val p = P
     Column(Modifier.fillMaxWidth()) {
         Text(label, style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.text2, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
-        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.card).padding(horizontal = 16.dp, vertical = 15.dp)) {
+        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(horizontal = 16.dp, vertical = 15.dp)) {
             if (value.isEmpty()) Text(placeholder, style = Type.body, color = p.text3)
             BasicTextField(value, onChange, textStyle = Type.body.copy(color = p.text), cursorBrush = SolidColor(p.text), minLines = minLines, modifier = Modifier.fillMaxWidth())
         }
@@ -281,7 +304,7 @@ private fun SecretField(label: String, value: String, onChange: (String) -> Unit
     val p = P
     Column(Modifier.fillMaxWidth()) {
         Text(label, style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.text2, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
-        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(p.card).padding(horizontal = 16.dp, vertical = 15.dp)) {
+        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(horizontal = 16.dp, vertical = 15.dp)) {
             if (value.isEmpty()) Text(placeholder, style = Type.body, color = p.text3)
             BasicTextField(value, onChange, textStyle = Type.body.copy(color = p.text), cursorBrush = SolidColor(p.text),
                 visualTransformation = PasswordVisualTransformation(), minLines = minLines, modifier = Modifier.fillMaxWidth())
@@ -384,11 +407,11 @@ fun CustomizeScreen(vm: ChatViewModel, back: () -> Unit) {
     var asst by remember { mutableStateOf(s.assistantName) }
     var lang by remember { mutableStateOf(s.replyLanguage) }
     var instr by remember { mutableStateOf(s.instructions) }
-    DisposableEffect(Unit) { onDispose { vm.g.settings.update { it.copy(userName = name.trim(), assistantName = asst.trim().ifBlank { "Axion" }, replyLanguage = lang.trim(), instructions = instr.trim()) } } }
-    SettingsPage("Customize Axion", back) {
+    DisposableEffect(Unit) { onDispose { vm.g.settings.update { it.copy(userName = name.trim(), assistantName = asst.trim().ifBlank { "X" }, replyLanguage = lang.trim(), instructions = instr.trim()) } } }
+    SettingsPage("Customize X", back) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             Field("Your name", name, { name = it }, "Your name")
-            Field("What should Axion call itself?", asst, { asst = it }, "Axion")
+            Field("What should X call itself?", asst, { asst = it }, "X")
             Field("Reply language", lang, { lang = it }, "Roman Urdu")
             Field("Custom instructions", instr, { instr = it }, "I run Clawora Beauty (Korean skincare, Karachi). Keep answers short. Prices in PKR.", minLines = 5)
             Text("Saved automatically.", style = Type.small, color = P.text3)
@@ -445,7 +468,7 @@ fun DataScreen(vm: ChatViewModel, back: () -> Unit) {
     }
     if (confirm == "all") { DeleteAllDialog(vm) { confirm = null }; return }
     confirm?.let { what ->
-        AlertDialog(onDismissRequest = { confirm = null }, containerColor = p.card, shape = RoundedCornerShape(24.dp),
+        AlertDialog(onDismissRequest = { confirm = null }, containerColor = p.card, shape = RoundedCornerShape(10.dp),
             title = { Text(if (what == "chats") "Delete all conversations?" else "Clear all sandbox files?", style = Type.title, color = p.text) },
             text = { Text("This can't be undone.", style = Type.body, color = p.text2) },
             confirmButton = { TextButton({
@@ -463,9 +486,8 @@ fun AboutScreen(vm: ChatViewModel, back: () -> Unit, nav: (Route) -> Unit = {}) 
     if (deleteAll) DeleteAllDialog(vm) { deleteAll = false; vm.debugDeleteAll = false }
     SettingsPage("About", back) {
         Column(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            LogoMark(72.dp)
+            Wordmark(fontSize = 28.sp)
             Spacer(Modifier.height(12.dp))
-            Text("X", style = Type.title.copy(fontSize = 24.sp), color = p.text)
             Text("Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", style = Type.small, color = p.text2)
             Text("Developer: Mazhar Ansari", style = Type.small, color = p.text2)
         }
@@ -480,13 +502,13 @@ fun AboutScreen(vm: ChatViewModel, back: () -> Unit, nav: (Route) -> Unit = {}) 
         SettingsGroup {
             SettingsRow(Gk.shield, "Open-source licences", subtitle = "Compose, OkHttp, jsoup, Coil, kotlinx, Haze (Apache 2.0) · llama.cpp (MIT) · Google Sans Flex & Code (OFL) · voices and voice engine from vayro/Kodex (MIT) · Edge read-aloud protocol after edge-tts (LGPL-3.0, re-implemented)", chevron = false)
             SettingsRow(Gk.help, "Report a problem", subtitle = "Opens your email app") {
-                runCatching { ctx.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")).putExtra(Intent.EXTRA_SUBJECT, "Axion ${BuildConfig.VERSION_NAME} problem")) }
+                runCatching { ctx.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")).putExtra(Intent.EXTRA_SUBJECT, "X ${BuildConfig.VERSION_NAME} problem")) }
             }
         }
     }
 }
 
-/** v0.5 in-app updates: check, download with progress, verify (SHA-256 + Axion's signing key), then Android's installer. */
+/** v0.5 in-app updates: check, download with progress, verify (SHA-256 + X's signing key), then Android's installer. Update check is DISABLED until X has its own feed (Addendum C) — see AppUpdater. */
 @Composable
 private fun UpdateCard(vm: ChatViewModel) {
     val p = P; val ctx = LocalContext.current; val scope = rememberCoroutineScope()
@@ -500,9 +522,9 @@ private fun UpdateCard(vm: ChatViewModel) {
         life.lifecycle.addObserver(o); onDispose { life.lifecycle.removeObserver(o) }
     }
     fun installNow(f: java.io.File) { if (!up.canInstall()) needPermission = true else runCatching { up.install(f) }.onFailure { vm.toast = it.message } }
-    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.card).padding(16.dp)) {
+    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(16.dp)) {
         when (val s = st) {
-            UpdateState.Idle -> Text("Axion checks for a new version once a day. You can check now too.", style = Type.small, color = p.text2)
+            UpdateState.Idle -> Text("X does not check for updates yet — its own update feed is not set up. The button below will say so too.", style = Type.small, color = p.text2)
             UpdateState.Checking -> Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(16.dp), color = p.text, strokeWidth = 2.dp); Spacer(Modifier.width(10.dp))
                 Text("Checking for updates…", style = Type.small, color = p.text2)
@@ -518,13 +540,13 @@ private fun UpdateCard(vm: ChatViewModel) {
                 Text("Downloading ${UpdateRules.mb(s.done)} of ${UpdateRules.mb(s.total)}", style = Type.tiny, color = p.text2, modifier = Modifier.padding(top = 6.dp))
             }
             is UpdateState.Verifying -> { UpdateInfoBlock(s.info); Text("Checking the download (checksum and signing key)…", style = Type.small, color = p.text2, modifier = Modifier.padding(top = 10.dp)) }
-            is UpdateState.Ready -> { UpdateInfoBlock(s.info); Text("Downloaded and verified: checksum matches and it's signed with Axion's key.", style = Type.small, color = p.textSecondary, modifier = Modifier.padding(top = 10.dp)) }
+            is UpdateState.Ready -> { UpdateInfoBlock(s.info); Text("Downloaded and verified: checksum matches and it's signed with X's key.", style = Type.small, color = p.textSecondary, modifier = Modifier.padding(top = 10.dp)) }
             is UpdateState.Failed -> { s.info?.let { UpdateInfoBlock(it) }; Text(s.message, style = Type.small, color = Color(0xFFF04438), modifier = Modifier.padding(top = if (s.info != null) 10.dp else 0.dp)) }
         }
         if (needPermission) {
-            Column(Modifier.padding(top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (p.isDark) Color(0xFF2A2210) else Color(0xFFFFF4DC)).padding(12.dp)) {
-                Text("Allow Axion to install updates", style = Type.small.copy(fontWeight = FontWeight.SemiBold), color = p.text)
-                Text("Android asks once: turn on \"Allow from this source\" for Axion, then come back and tap Install.", style = Type.small, color = p.text2, modifier = Modifier.padding(top = 4.dp))
+            Column(Modifier.padding(top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (p.isDark) Color(0xFF2A2210) else Color(0xFFFFF4DC)).padding(12.dp)) {
+                Text("Allow X to install updates", style = Type.small.copy(fontWeight = FontWeight.SemiBold), color = p.text)
+                Text("Android asks once: turn on \"Allow from this source\" for X, then come back and tap Install.", style = Type.small, color = p.text2, modifier = Modifier.padding(top = 4.dp))
                 Spacer(Modifier.height(8.dp))
                 SmallButton("Open settings", filled = true) { runCatching { ctx.startActivity(up.installPermissionIntent()) } }
             }
@@ -544,7 +566,7 @@ private fun UpdateCard(vm: ChatViewModel) {
 private fun UpdateInfoBlock(info: UpdateInfo) {
     val p = P
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Axion ${info.versionName}", style = Type.row, color = p.text, modifier = Modifier.weight(1f))
+        Text("X ${info.versionName}", style = Type.row, color = p.text, modifier = Modifier.weight(1f))
         Badge("New", p.accent)
     }
     if (info.notes.isNotBlank()) Text(info.notes, style = Type.small.copy(fontSize = 13.5.sp, lineHeight = 19.sp), color = p.text2, modifier = Modifier.padding(top = 6.dp))
@@ -557,7 +579,7 @@ fun FilesScreen(vm: ChatViewModel, back: () -> Unit) {
     val files by produceState(emptyList<java.io.File>()) { value = withContext(kotlinx.coroutines.Dispatchers.IO) { vm.g.workspace.root.walkTopDown().onEnter { it.name != "node_modules" }.filter { it.isFile && !it.path.contains("/.") }.sortedByDescending { it.lastModified() }.take(200).toList() } }
     Column(Modifier.fillMaxSize().background(p.page2)) {
         ScreenHeader("Library", back)
-        if (files.isEmpty()) Text("Files you upload and files Axion creates (PDFs, code, sites) show up here.", style = Type.body, color = p.text2, modifier = Modifier.padding(24.dp))
+        if (files.isEmpty()) Text("Files you upload and files X creates (PDFs, code, sites) show up here.", style = Type.body, color = p.text2, modifier = Modifier.padding(24.dp))
         LazyColumn(Modifier.weight(1f).navigationBarsPadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(files, key = { it.path }) { f ->
                 val a = com.mazharansari.x.data.Artifact(f.name, com.mazharansari.x.agent.Mime.of(f.name), f.absolutePath, f.length())

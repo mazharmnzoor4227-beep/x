@@ -66,7 +66,7 @@ fun UserBubble(m: Message, onLongPress: () -> Unit = {}) {
         if (text.isNotBlank()) {
             SelectionContainer(Modifier.fillMaxWidth(0.8f)) {
                 Text(text, style = Type.body.copy(fontSize = 15.sp, lineHeight = 22.sp), color = p.text,
-                    modifier = Modifier.clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 4.dp)).background(p.userBubble)
+                    modifier = Modifier.clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomStart = 10.dp, bottomEnd = 4.dp)).background(p.userBubble)
                         .padding(horizontal = 16.dp, vertical = 12.dp))
             }
         }
@@ -78,9 +78,9 @@ fun AttachmentChip(a: Attachment, onRemove: (() -> Unit)? = null) {
     val p = P
     Box {
         if (a.mime.startsWith("image/")) {
-            AsyncImage(a.path, a.name, modifier = Modifier.size(64.dp).clip(RoundedCornerShape(13.dp)).background(p.card), contentScale = ContentScale.Crop)
+            AsyncImage(a.path, a.name, modifier = Modifier.size(64.dp).clip(RoundedCornerShape(10.dp)).background(p.card), contentScale = ContentScale.Crop)
         } else {
-            Row(Modifier.height(56.dp).widthIn(max = 230.dp).clip(RoundedCornerShape(13.dp)).background(p.card).padding(horizontal = 12.dp),
+            Row(Modifier.height(56.dp).widthIn(max = 230.dp).clip(RoundedCornerShape(10.dp)).background(p.card).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 GkIcon(if (a.mime.contains("pdf")) Gk.pdf else if (a.mime.contains("zip")) Gk.folder else Gk.file, null, 22.dp, if (a.mime.contains("pdf")) Color(0xFFFF4245) else p.text2)
                 Spacer(Modifier.width(10.dp))
@@ -90,7 +90,7 @@ fun AttachmentChip(a: Attachment, onRemove: (() -> Unit)? = null) {
                 }
             }
         }
-        if (onRemove != null) Box(Modifier.align(Alignment.TopEnd).padding(2.dp).size(20.dp).clip(CircleShape).background(p.chip).clickable(onClick = onRemove), contentAlignment = Alignment.Center) {
+        if (onRemove != null) Box(Modifier.align(Alignment.TopEnd).padding(2.dp).size(20.dp).clip(RoundedCornerShape(4.dp)).background(p.chip).clickable(onClick = onRemove), contentAlignment = Alignment.Center) {
             GkIcon(Gk.close, "Remove", 12.dp, p.text)
         }
     }
@@ -100,7 +100,7 @@ fun sizeLabel(b: Long) = when { b >= 1_048_576 -> "%.1f MB".format(b / 1_048_576
 
 fun durationLabel(ms: Long): String { val s = (ms / 1000).coerceAtLeast(1); return if (s >= 60) "${s / 60}m ${s % 60}s" else "${s}s" }
 
-/** One run of same-kind steps, shown the way Axion groups them ("Loaded 1 skill", "Running 2 commands"). */
+/** One run of same-kind steps, shown the way X groups them ("Loaded 1 skill", "Running 2 commands"). */
 internal data class StepRun(val kind: StepKind, val steps: List<Step>)
 
 internal fun runsOf(steps: List<Step>): List<StepRun> {
@@ -166,7 +166,7 @@ fun AssistantMessage(
         }
         val pages = m.steps.count { it.kind == StepKind.BROWSE && it.status == StepStatus.DONE }
         if (pages > 0 && !streaming) { Spacer(Modifier.height(10.dp)); SourcesPill(pages, onOpenThoughts) }
-        // Axion puts the document card first, then the words about it; images stay under the text.
+        // X puts the document card first, then the words about it; images stay under the text.
         val (docs, images) = m.artifacts.partition { !it.mime.startsWith("image/") }
         docs.forEach { a -> Spacer(Modifier.height(12.dp)); ArtifactCard(a, { onOpenFile(a) }, { onDownload(a) }) }
         // P1-6: a deep-research report's Sources list is shown as its own card in chat, not
@@ -251,7 +251,7 @@ enum class StatusKind { Done, Running, Failed, Paused }
 fun StatusPill(text: String, kind: StatusKind) {
     val p = P
     val c = when (kind) { StatusKind.Done -> p.statusDone; StatusKind.Running -> p.statusRunning; StatusKind.Failed -> p.statusFailed; StatusKind.Paused -> p.statusPaused }
-    Row(Modifier.clip(RoundedCornerShape(50)).background(c.copy(alpha = 0.14f)).padding(horizontal = 9.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.clip(RoundedCornerShape(6.dp)).background(c.copy(alpha = 0.14f)).padding(horizontal = 9.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         if (kind == StatusKind.Running) { PulseDot(); Spacer(Modifier.width(6.dp)) }
         Text(text, style = Type.small.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium), color = c)
     }
@@ -286,7 +286,7 @@ fun StepLine(s: Step, compact: Boolean = false) {
 fun BashCard(s: Step) {
     var open by rememberSaveable(s.id) { mutableStateOf(false) }
     val clip = androidx.compose.ui.platform.LocalClipboardManager.current
-    val shape = RoundedCornerShape(13.dp)
+    val shape = RoundedCornerShape(10.dp)
     Column(Modifier.fillMaxWidth().clip(shape).background(Color(0xFF17181C)).border(1.dp, Color(0xFF26262B), shape)) {
         Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             GkIcon(Gk.terminal, null, 16.dp, Color(0xFFF2F1EE))
@@ -330,8 +330,8 @@ fun BashCard(s: Step) {
 @Composable
 private fun SourcesPill(pages: Int, onClick: () -> Unit) {
     val p = P
-    Row(Modifier.height(36.dp).clip(RoundedCornerShape(50)).background(p.card).border(1.dp, p.border, RoundedCornerShape(50)).clickable(onClick = onClick).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(20.dp).clip(CircleShape).background(p.chip), contentAlignment = Alignment.Center) { GkIcon(Gk.globe, null, 13.dp, p.text) }
+    Row(Modifier.height(36.dp).clip(RoundedCornerShape(6.dp)).background(p.card).border(1.dp, p.border, RoundedCornerShape(6.dp)).clickable(onClick = onClick).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)).background(p.chip), contentAlignment = Alignment.Center) { GkIcon(Gk.globe, null, 13.dp, p.text) }
         Spacer(Modifier.width(8.dp))
         Text("$pages page${if (pages > 1) "s" else ""}", style = Type.small.copy(fontSize = 15.sp), color = p.text)
     }
@@ -345,7 +345,7 @@ private fun SourcesPill(pages: Int, onClick: () -> Unit) {
 @Composable
 private fun SourcesList(sources: List<CitationCheck.CitedSource>) {
     val p = P
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(p.card).border(1.dp, p.border, RoundedCornerShape(13.dp)).padding(horizontal = 14.dp, vertical = 12.dp)) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).border(1.dp, p.border, RoundedCornerShape(10.dp)).padding(horizontal = 14.dp, vertical = 12.dp)) {
         Text("Sources", style = Type.label, color = p.text)
         Spacer(Modifier.height(8.dp))
         sources.forEach { s ->
@@ -362,28 +362,28 @@ private fun SourcesList(sources: List<CitationCheck.CitedSource>) {
 }
 
 /**
- * v0.3.1 — Axion's PDF deliverable (mazhar's 10:33 recording): no header, just page 1 filling the reply width in a 16 dp
+ * v0.3.1 — X's PDF deliverable (mazhar's 10:33 recording): no header, just page 1 filling the reply width in a 16 dp
  * rounded card, and a dark "PDF" tag (99×60 dp, 15 dp corners, 22 sp) centred 43 dp above the card's bottom edge.
- * Tap → Axion's own viewer (every page, share, download). Other files keep the named card.
+ * Tap → X's own viewer (every page, share, download). Other files keep the named card.
  */
 @Composable
 fun ArtifactCard(a: Artifact, onOpen: () -> Unit, onDownload: () -> Unit) {
     val p = P
     val isPdf = a.mime == "application/pdf"
     if (isPdf) {
-        val shape = RoundedCornerShape(16.dp)
+        val shape = RoundedCornerShape(10.dp)
         val bmp by produceState<Bitmap?>(null, a.path) { value = withContext(Dispatchers.IO) { pdfPageBitmap(a.path, 0, 900) } }
         Box(Modifier.fillMaxWidth().height(236.dp).clip(shape).background(Color.White).clickable(onClick = onOpen)
             .semantics { contentDescription = "PDF ${a.name}" }) {
             bmp?.let { Image(it.asImageBitmap(), null, contentScale = ContentScale.FillWidth, alignment = Alignment.TopCenter, modifier = Modifier.fillMaxSize()) }
-            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 13.dp).size(99.dp, 60.dp).clip(RoundedCornerShape(15.dp)).background(Color(0xE6191919)),
+            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 13.dp).size(99.dp, 60.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xE6191919)),
                 contentAlignment = Alignment.Center) {
                 Text("PDF", style = Type.body.copy(fontSize = 22.sp, lineHeight = 26.sp), color = Color.White)
             }
         }
         return
     }
-    val shape = RoundedCornerShape(13.dp)
+    val shape = RoundedCornerShape(10.dp)
     Column(Modifier.fillMaxWidth().clip(shape).background(p.card).border(1.dp, p.border, shape).clickable(onClick = onOpen)) {
         Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             GkIcon(Gk.file, null, 22.dp, p.accent)
@@ -400,7 +400,7 @@ fun ArtifactCard(a: Artifact, onOpen: () -> Unit, onDownload: () -> Unit) {
     }
 }
 
-/** Page [index] of a PDF: Axion's own page image when Axion made it, else the phone's PDF renderer. */
+/** Page [index] of a PDF: X's own page image when X made it, else the phone's PDF renderer. */
 fun pdfPageBitmap(path: String, index: Int, width: Int): Bitmap? {
     val f = File(path)
     val pre = File(com.mazharansari.x.agent.PdfWriter.previewDir(f), "page_%03d.png".format(index + 1))
@@ -428,8 +428,8 @@ fun pdfPageCount(path: String): Int {
 fun ImageArtifact(a: Artifact, onOpen: () -> Unit, onDownload: () -> Unit) {
     Box(Modifier.fillMaxWidth(0.82f)) {
         AsyncImage(a.path, a.name, contentScale = ContentScale.FillWidth,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(P.surface).clickable(onClick = onOpen))
-        Row(Modifier.align(Alignment.BottomEnd).padding(8.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.55f))) {
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(P.surface).clickable(onClick = onOpen))
+        Row(Modifier.align(Alignment.BottomEnd).padding(8.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.55f))) {
             IconTap(Gk.download, "Save", tint = Color.White, onClick = onDownload)
         }
     }
@@ -441,7 +441,7 @@ private fun ErrorCard(msg: String) {
     // v0.3: one friendly line; the provider's own words only behind "Details" (format: "line\u0001details").
     val line = msg.substringBefore('\u0001'); val details = msg.substringAfter('\u0001', "")
     var open by remember { mutableStateOf(false) }
-    Row(Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(p.danger.copy(alpha = 0.08f)).border(1.dp, p.border, RoundedCornerShape(13.dp)).padding(12.dp)) {
+    Row(Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.danger.copy(alpha = 0.08f)).border(1.dp, p.border, RoundedCornerShape(10.dp)).padding(12.dp)) {
         GkIcon(Gk.info, null, 18.dp, p.danger)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
@@ -455,7 +455,7 @@ private fun ErrorCard(msg: String) {
 }
 
 /**
- * Axion action row (v0.3.1, measured): copy · share · 👍 · 👎 · read-aloud · regenerate — 18 dp grey glyphs on a 48 dp
+ * X action row (v0.3.1, measured): copy · share · 👍 · 👎 · read-aloud · regenerate — 18 dp grey glyphs on a 48 dp
  * pitch, the first glyph centred 24 dp from the screen edge (so the row starts 12 dp left of the text).
  */
 @Composable

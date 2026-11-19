@@ -18,7 +18,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -38,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.mazharansari.x.ui.mascot.MascotLogo
+import com.mazharansari.x.ui.components.Wordmark
 import com.mazharansari.x.ui.components.Gk
 import com.mazharansari.x.ui.components.GkIcon
 import com.mazharansari.x.ui.theme.P
@@ -55,7 +54,7 @@ object Onboarding {
 }
 
 /**
- * The intro: the mascot logo grows in out of a soft glow, the name and tagline rise in, then it moves on by itself
+ * The intro: the wordmark rises in out of a soft bronze glow, the tagline rises in, then it moves on by itself
  * (~1.8 s). Tap anywhere or Skip to go on at once. Shown on the first launch only.
  */
 @Composable
@@ -73,24 +72,22 @@ fun IntroScreen(onDone: () -> Unit) {
     fun seg(a: Float, b: Float) = ((t - a) / (b - a)).coerceIn(0f, 1f)
     val markIn = FastOutSlowInEasing.transform(seg(0f, 0.45f))
     val glow = seg(0.05f, 0.6f).let { if (it < 1f) it else 1f } * (1f - 0.35f * seg(0.6f, 1f))
-    val nameIn = FastOutSlowInEasing.transform(seg(0.35f, 0.7f))
     val tagIn = FastOutSlowInEasing.transform(seg(0.55f, 0.9f))
     Box(Modifier.fillMaxSize().background(Color(0xFF000000)).clickable(remember { MutableInteractionSource() }, null) { finish() }) {
         Canvas(Modifier.fillMaxSize()) {
             val c = Offset(size.width / 2, size.height * 0.42f)
-            drawCircle(Brush.radialGradient(listOf(Color(0xFF4F46E5).copy(alpha = 0.28f * glow), Color.Transparent), c, size.minDimension * 0.62f), size.minDimension * 0.62f, c)
+            drawCircle(Brush.radialGradient(listOf(Color(0xFFE0A63F).copy(alpha = 0.28f * glow), Color.Transparent), c, size.minDimension * 0.62f), size.minDimension * 0.62f, c)
         }
         Column(Modifier.fillMaxWidth().align(Alignment.Center).offset(y = (-40).dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            MascotLogo(96.dp, thinking = false, Modifier.graphicsLayer { alpha = markIn; scaleX = 0.6f + 0.4f * markIn; scaleY = 0.6f + 0.4f * markIn; rotationZ = -18f * (1f - markIn) })
-            Spacer(Modifier.height(26.dp))
-            Text("X", style = Type.title.copy(fontSize = 40.sp, lineHeight = 46.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp), color = Color.White,
-                modifier = Modifier.graphicsLayer { alpha = nameIn; translationY = 28f * (1f - nameIn) })
+            Box(Modifier.graphicsLayer { alpha = markIn; scaleY = 0.6f + 0.4f * markIn; translationY = 28f * (1f - markIn) }) {
+                Wordmark(fontSize = 40.sp)
+            }
             Spacer(Modifier.height(8.dp))
             Text("Your AI agent, right on your phone", style = Type.body.copy(fontSize = 16.sp), color = Color(0xFFB4B4B4),
                 modifier = Modifier.graphicsLayer { alpha = tagIn; translationY = 20f * (1f - tagIn) })
         }
         Text("Skip", style = Type.body.copy(fontWeight = FontWeight.Medium), color = Color(0xFF9A9A9A),
-            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp).clip(RoundedCornerShape(50)).clickable { finish() }.padding(horizontal = 14.dp, vertical = 8.dp))
+            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp).clip(RoundedCornerShape(8.dp)).clickable { finish() }.padding(horizontal = 14.dp, vertical = 8.dp))
     }
 }
 
@@ -126,18 +123,18 @@ fun PermissionsOnboarding(onDone: () -> Unit, showAll: Boolean = Onboarding.forc
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 28.dp)) {
             Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    pages.indices.forEach { i -> Box(Modifier.height(6.dp).width(if (i == index) 22.dp else 6.dp).clip(RoundedCornerShape(50)).background(if (i == index) p.text else p.text3)) }
+                    pages.indices.forEach { i -> Box(Modifier.height(6.dp).width(if (i == index) 22.dp else 6.dp).clip(RoundedCornerShape(3.dp)).background(if (i == index) p.text else p.text3)) }
                 }
                 Spacer(Modifier.weight(1f))
                 Text("Skip all", style = Type.body.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.text2,
-                    modifier = Modifier.clip(RoundedCornerShape(50)).clickable { onDone() }.padding(horizontal = 12.dp, vertical = 8.dp))
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onDone() }.padding(horizontal = 12.dp, vertical = 8.dp))
             }
             AnimatedContent(targetState = page, label = "perm", modifier = Modifier.weight(1f),
                 transitionSpec = { (slideInHorizontally(tween(260)) { it / 3 } + fadeIn(tween(220))) togetherWith (slideOutHorizontally(tween(260)) { -it / 3 } + fadeOut(tween(160))) }) { pg ->
                 Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Box(Modifier.size(120.dp), contentAlignment = Alignment.Center) {
-                        Canvas(Modifier.fillMaxSize()) { drawCircle(Brush.radialGradient(listOf(Color(0xFF3B6BFF).copy(alpha = 0.30f), Color.Transparent))) }
-                        Box(Modifier.size(84.dp).clip(CircleShape).background(p.card), contentAlignment = Alignment.Center) { GkIcon(pg.icon, null, 38.dp, p.text) }
+                        Canvas(Modifier.fillMaxSize()) { drawCircle(Brush.radialGradient(listOf(Color(0xFFE0A63F).copy(alpha = 0.30f), Color.Transparent))) }
+                        Box(Modifier.size(84.dp).clip(RoundedCornerShape(12.dp)).background(p.card), contentAlignment = Alignment.Center) { GkIcon(pg.icon, null, 38.dp, p.text) }
                     }
                     Spacer(Modifier.height(30.dp))
                     Text(pg.title, style = Type.title.copy(fontSize = 28.sp, lineHeight = 34.sp), color = p.text, textAlign = TextAlign.Center)
@@ -145,7 +142,7 @@ fun PermissionsOnboarding(onDone: () -> Unit, showAll: Boolean = Onboarding.forc
                     Text(pg.body, style = Type.body.copy(fontSize = 16.sp, lineHeight = 24.sp), color = p.text2, textAlign = TextAlign.Center)
                 }
             }
-            Box(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(50)).background(p.accent).clickable {
+            Box(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(8.dp)).background(p.accent).clickable {
                 when {
                     PermPages.granted(ctx, page) -> next()
                     page.permission != null -> launcher.launch(page.permission)
@@ -153,7 +150,7 @@ fun PermissionsOnboarding(onDone: () -> Unit, showAll: Boolean = Onboarding.forc
                 }
             }, contentAlignment = Alignment.Center) { Text("Allow", style = Type.body.copy(fontWeight = FontWeight.SemiBold), color = p.onAccent) }
             Text("Not now", style = Type.body.copy(fontWeight = FontWeight.Medium), color = p.text, textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 18.dp).clip(RoundedCornerShape(50)).clickable { next() }.padding(vertical = 12.dp))
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 18.dp).clip(RoundedCornerShape(8.dp)).clickable { next() }.padding(vertical = 12.dp))
         }
     }
 }

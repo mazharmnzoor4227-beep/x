@@ -116,7 +116,7 @@ internal fun parseObscuraElements(text: String): List<Pair<BrowserElement, Strin
 }
 
 /**
- * The Obscura browser engine: Axion's agent browser over Obscura's MCP server
+ * The Obscura browser engine: X's agent browser over Obscura's MCP server
  * (`obscura mcp`, stdio, inside on-device Linux). The mapping, tool by tool:
  * open → browser_navigate + snapshot; read → browser_markdown +
  * browser_interactive_elements; click → browser_click by ref (browser_evaluate

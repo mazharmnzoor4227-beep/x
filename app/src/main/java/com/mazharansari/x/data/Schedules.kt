@@ -20,7 +20,7 @@ import java.util.Locale
 enum class ScheduleType { ONCE, DAILY, WEEKLY }
 
 /**
- * v0.12 (Hermes-style scheduler): one task Axion runs on its own at a set time.
+ * v0.12 (Hermes-style scheduler): one task X runs on its own at a set time.
  * The agent creates these with the schedule_* tools from the user's own words
  * ("kal subah 9 baje…", "har Monday…"); WorkManager does the waking, the entry
  * itself lives here so Settings → Schedules and the agent see the same list.

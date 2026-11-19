@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * Ported 1:1 from vayro/Kodex (ui/voice/VoiceRecognizer.kt), with the language taken from Axion's settings.
+ * Ported 1:1 from vayro/Kodex (ui/voice/VoiceRecognizer.kt), with the language taken from X's settings.
  * In-app speech recognition for the chat composer. Uses [SpeechRecognizer]
  * directly, so tapping the mic never opens the system speech dialog.
  *

@@ -12,7 +12,7 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * One HTTP connection to Axion's hosts is painfully slow on some networks — the owner's
+ * One HTTP connection to X's hosts is painfully slow on some networks — the owner's
  * 11 MB update crawled for ~10 minutes on a single flow, while the same server answers
  * several flows at full speed (and a phone's route to the server is what it is). This
  * fetcher splits a file into segments and pulls them over parallel ranged connections

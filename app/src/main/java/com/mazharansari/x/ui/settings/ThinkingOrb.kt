@@ -11,7 +11,7 @@ import kotlin.math.sqrt
 
 /**
  * Which of the owner's two chosen orbs the call screen shows (picked from the thinking-orbs preview,
- * 2026-11-03): Listening while he talks, Composing while Axion speaks/thinks, Frozen (a still
+ * 2026-11-03): Listening while he talks, Composing while X speaks/thinks, Frozen (a still
  * listening frame) for Connecting / Error / Ended.
  */
 enum class OrbMode { Listening, Composing, Frozen }

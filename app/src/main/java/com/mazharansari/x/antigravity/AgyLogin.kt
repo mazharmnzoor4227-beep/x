@@ -23,7 +23,7 @@ sealed interface AgyLoginState {
  * runs agy in a real PTY, answers its terminal handshake, picks "1. Google OAuth", scrapes the Google URL (the user opens it,
  * signs in, and pastes the one-time code back), auto-answers the colour/rendering/privacy (opt-out)/trust screens, reads the
  * signed-in email, then /quit. agy writes its token into a staging folder that becomes the account's own folder.
- * Axion never reads the token.
+ * X never reads the token.
  */
 class AgyLogin(private val linux: LinuxRuntime, private val accounts: AgyAccounts) {
     private val _state = MutableStateFlow<AgyLoginState>(AgyLoginState.Idle)

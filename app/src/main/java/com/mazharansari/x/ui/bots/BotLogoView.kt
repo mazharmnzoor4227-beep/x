@@ -1,89 +1,71 @@
 package com.mazharansari.x.ui.bots
 
-import android.content.Context
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import com.mazharansari.x.data.BotLogo
-import com.mazharansari.x.ui.components.Gk
-import com.mazharansari.x.ui.components.GkIcon
 import com.mazharansari.x.ui.theme.P
-import java.io.File
-
-/** The built-in logo id → its glyph. Every id in [BotLogo.BUILTINS] must map here. */
-fun builtinIcon(id: String): Int = when (id) {
-    "brain" -> Gk.brain
-    "agent" -> Gk.agent
-    "rocket" -> Gk.rocket
-    "sparkles" -> Gk.sparkles
-    "bolt" -> Gk.bolt
-    "hammer" -> Gk.hammer
-    "globe" -> Gk.globe
-    "person" -> Gk.person
-    "gem" -> Gk.gem
-    "shield" -> Gk.shield
-    "wand" -> Gk.wand
-    "cube" -> Gk.cube
-    else -> Gk.brain
-}
 
 /**
- * Phase 2 — a bot's logo wherever it appears (chat list, chat header, Bots section,
- * Bot Store): a gallery photo fills the circle; a built-in logo is its glyph on an
- * accent-tinted circle; no logo yet is the bot's initial on the same tint.
+ * Monogram tiles (redesign round 2, spec §2.5): the ONLY avatar in the app.
+ * Every bot — and the user — is a rounded-square tile (8dp corners) with the
+ * first TWO initials, uppercase, on a deterministic muted fill picked from
+ * the name's hash. No cartoon face, no glyph, no gallery photo: the stored
+ * [logo] string is deliberately ignored (the field stays in storage, so
+ * nothing is lost if the decision is revisited). The "Change logo" picker
+ * and the photo feature are deleted with BotsScreen.
+ *
+ * Fills (dark theme; light theme uses the same hues at 12% tint on white
+ * with dark text — see [monogramFill]):
+ * slate #3A4150, bronze-deep #6B4A1F, plum #4A3542, navy #24344D, stone #4A4438.
  */
-@Composable
-fun BotLogoView(logo: String, name: String, size: Dp, modifier: Modifier = Modifier) {
-    val p = P
-    when (val l = BotLogo.parse(logo)) {
-        is BotLogo.Custom -> AsyncImage(
-            model = File(l.path), contentDescription = "$name logo",
-            modifier = modifier.size(size).clip(CircleShape).background(p.chip),
-            contentScale = ContentScale.Crop,
-        )
-        is BotLogo.Builtin -> Box(
-            modifier.size(size).clip(CircleShape).background(p.accent.copy(alpha = 0.16f)),
-            contentAlignment = Alignment.Center,
-        ) { GkIcon(builtinIcon(l.id), "$name logo", size * 0.55f, p.accent) }
-        BotLogo.None -> Box(
-            modifier.size(size).clip(CircleShape).background(p.accent.copy(alpha = 0.16f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(name.take(1).uppercase(), color = p.accent, fontSize = (size.value * 0.42f).sp,
-                fontWeight = FontWeight.SemiBold, fontFamily = androidx.compose.ui.text.font.FontFamily.Default)
-        }
+private val MONOGRAM_FILLS_DARK = listOf(
+    Color(0xFF3A4150), Color(0xFF6B4A1F), Color(0xFF4A3542), Color(0xFF24344D), Color(0xFF4A4438),
+)
+private val MONOGRAM_FILLS_LIGHT = listOf(
+    Color(0xFFE8EAF0), Color(0xFFF3E8D2), Color(0xFFF0E6EC), Color(0xFFE2E9F2), Color(0xFFEDEAE2),
+)
+
+/** Deterministic fill for a name: same name, same tile, on every screen. */
+fun monogramFill(name: String): Color {
+    val dark = P.bg.red < 0.5f
+    val fills = if (dark) MONOGRAM_FILLS_DARK else MONOGRAM_FILLS_LIGHT
+    val idx = (name.lowercase().hashCode() and 0x7FFFFFFF) % fills.size
+    return fills[idx]
+}
+
+/** The two initials for a name: first letters of the first two words, else first two letters. */
+fun monogramInitials(name: String): String {
+    val words = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    return when {
+        words.size >= 2 -> (words[0].first() + "" + words[1].first()).uppercase()
+        words.size == 1 -> words[0].take(2).uppercase()
+        else -> "X"
     }
 }
 
-/**
- * Copy a gallery image into the app's own storage so the logo survives the gallery
- * permission being revoked. Returns the absolute path, or null when it cannot be read.
- * The file is stored as-is (no downscale yet — coil downsamples on display).
- */
-fun saveBotLogo(ctx: Context, botId: String, uri: Uri): String? {
-    return runCatching {
-        val dir = File(ctx.filesDir, "bot-logos").apply { mkdirs() }
-        val safe = botId.replace(Regex("[^A-Za-z0-9._-]"), "_").take(40)
-        val out = File(dir, "logo_$safe.jpg")
-        ctx.contentResolver.openInputStream(uri)?.use { input ->
-            out.outputStream().use { output -> input.copyTo(output) }
-        } ?: return null
-        out.absolutePath
-    }.getOrNull()
+@Composable
+fun BotLogoView(logo: String, name: String, size: Dp, modifier: Modifier = Modifier) {
+    val p = P
+    val dark = p.bg.red < 0.5f
+    Box(
+        modifier.size(size).clip(RoundedCornerShape(8.dp)).background(monogramFill(name)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            monogramInitials(name),
+            color = if (dark) Color.White else Color(0xFF16181D),
+            fontSize = (size.value * 0.36f).sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
 }
-
-/** The label under a built-in logo in the picker. */
-fun builtinLabel(id: String): String = BotLogo.BUILTINS.firstOrNull { it.id == id }?.label ?: id

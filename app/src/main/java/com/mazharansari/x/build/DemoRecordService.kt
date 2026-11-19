@@ -146,7 +146,7 @@ class DemoRecordService : Service() {
         }
         return NotificationCompat.Builder(this, CHANNEL)
             .setContentTitle("Recording build demo")
-            .setContentText("Axion is recording the screen. Stop it from the Preview tab to share the video.")
+            .setContentText("X is recording the screen. Stop it from the Preview tab to share the video.")
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setOngoing(true)
             .build()

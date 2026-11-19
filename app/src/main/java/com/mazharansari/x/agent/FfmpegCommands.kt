@@ -6,11 +6,11 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
- * v0.6 (Phase 1.5/1.6) VIDEO SKILL — pure command builders for local ffmpeg (runs inside Axion's PRoot Ubuntu, no cloud).
+ * v0.6 (Phase 1.5/1.6) VIDEO SKILL — pure command builders for local ffmpeg (runs inside X's PRoot Ubuntu, no cloud).
  * Tool contract inspired by the operations list of kajisho5/ffmpeg-skill (MIT, see third_party/NOTICE-ffmpeg-skill.md): trim, captions,
- * reframe, loudness normalisation, compress-to-size, audio extraction, platform presets. All code here is Axion's own.
+ * reframe, loudness normalisation, compress-to-size, audio extraction, platform presets. All code here is X's own.
  * Everything that reaches a shell goes through [q]; user text never gets near the command line except as a quoted argument or as
- * the content of an .srt file Axion writes itself.
+ * the content of an .srt file X writes itself.
  */
 object FfmpegCommands {
     enum class Aspect(val id: String, val w: Int, val h: Int) {

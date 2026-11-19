@@ -33,6 +33,9 @@ class AxionApp : Application() {
         // 2026-11-19: the standing natural voice preference + Piper pack store (see voice/PiperVoice.kt).
         com.mazharansari.x.voice.ReadAloudPlayer.voicePref = { graph.settings.state.value.voicePref }
         com.mazharansari.x.voice.ReadAloudPlayer.piperStore = { graph.piperVoices }
+        // Redesign round 2, Addendum F: the bundled Piper engine (sherpa-onnx v1.10.42).
+        // The engine object is cheap; the model loads lazily on first speak, per pack.
+        com.mazharansari.x.voice.PiperVoiceEngines.engine = com.mazharansari.x.voice.SherpaPiperEngine
         com.mazharansari.x.voice.ReadAloudPlayer.customVoice = { graph.customVoice.current.value }
         com.mazharansari.x.agent.Agent.pluginTools = { graph.plugins.allTools() }
         // P2-1: resume Telegram control after a restart when it was left on.
@@ -146,7 +149,7 @@ class Graph(val app: Application) {
     val devtools by lazy { com.mazharansari.x.linux.DevTools(app, linux) }
     /** P2-3 (ME-16): persisted background-job records, so a force-stop/reboot shows jobs as interrupted instead of losing them. */
     val jobRecords by lazy { com.mazharansari.x.data.JobRecordStore(File(app.filesDir, "job-records")) }
-    // v0.9 — Axion's own browser (one shared WebView for the Browser screen + the agent) and the terminal:
+    // v0.9 — X's own browser (one shared WebView for the Browser screen + the agent) and the terminal:
     // one persistent shell session + background jobs, both on the same PRoot Ubuntu.
     val browser by lazy { com.mazharansari.x.browser.BrowserController(app) { linux } }
     val shell by lazy { com.mazharansari.x.linux.ShellSession(linux) }

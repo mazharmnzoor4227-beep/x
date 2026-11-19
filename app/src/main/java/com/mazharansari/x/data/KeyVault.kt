@@ -57,7 +57,7 @@ object KeyVault {
     }
 
     private fun testPlain(plain: String): String {
-        if (!isTestRuntime) throw VaultUnavailable("This phone's secure key storage (Android Keystore) isn't working, so Axion won't save the key in plain text. Restart the phone and try again.")
+        if (!isTestRuntime) throw VaultUnavailable("This phone's secure key storage (Android Keystore) isn't working, so X won't save the key in plain text. Restart the phone and try again.")
         return "plain:" + Base64.encodeToString(plain.toByteArray(), Base64.NO_WRAP)
     }
 

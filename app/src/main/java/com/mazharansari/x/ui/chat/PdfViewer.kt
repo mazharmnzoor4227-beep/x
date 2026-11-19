@@ -10,7 +10,6 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -40,7 +39,7 @@ import kotlinx.coroutines.withContext
 private val renderLock = Mutex()
 
 /**
- * v0.3.1 — tapping Grok's PDF card opens the document full screen inside the app. Axion's version: dark page,
+ * v0.3.1 — tapping Grok's PDF card opens the document full screen inside the app. X's version: dark page,
  * ✕ · name · share · download on top, every page as a white sheet, pinch or double-tap to zoom, "2 / 5" counter.
  */
 @Composable
@@ -79,6 +78,6 @@ fun PdfViewer(a: Artifact, onClose: () -> Unit, onShare: () -> Unit, onDownload:
         // page counter
         val first by remember { derivedStateOf { list.firstVisibleItemIndex } }
         Text("${(first + 1).coerceAtMost(count)} / $count", style = Type.small.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium), color = Color.White,
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp).clip(CircleShape).background(Color(0xE6252525)).padding(horizontal = 14.dp, vertical = 7.dp))
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xE6252525)).padding(horizontal = 14.dp, vertical = 7.dp))
     }
 }

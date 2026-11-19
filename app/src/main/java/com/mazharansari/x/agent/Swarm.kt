@@ -26,7 +26,7 @@ import kotlinx.serialization.json.buildJsonObject
  *    ([ApprovalGate.hardReason]) — destructive or payment commands never run from a worker;
  *  - only the parent agent merges results and acts on them in the open chat.
  *
- * Original Axion code, following the existing Subagents.kt pattern (bounded workers, isolated
+ * Original X code, following the existing Subagents.kt pattern (bounded workers, isolated
  * failures, merged + deduped facts). No code was copied from any other project.
  */
 

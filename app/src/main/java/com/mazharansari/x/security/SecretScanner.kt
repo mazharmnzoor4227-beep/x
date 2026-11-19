@@ -93,7 +93,7 @@ object SecretScanner {
         for (h in hits) {
             sb.append(text, at, h.start)
             val s = text.substring(h.start, h.end)
-            sb.append(if (s.startsWith("-----BEGIN")) "-----BEGIN [private key removed by Axion]-----" else mask(s))
+            sb.append(if (s.startsWith("-----BEGIN")) "-----BEGIN [private key removed by X]-----" else mask(s))
             at = h.end
         }
         sb.append(text, at, text.length)
@@ -142,7 +142,7 @@ object SecretScanner {
         return out
     }
 
-    /** Before a file leaves Axion (share, open in another app, save to Downloads): the user-facing reason to stop, or null. */
+    /** Before a file leaves X (share, open in another app, save to Downloads): the user-facing reason to stop, or null. */
     fun leaveCheck(f: File, known: Collection<String> = safeKnown()): String? {
         if (!f.isFile || f.length() > 2L * 1024 * 1024) return null
         val ext = f.extension.lowercase()
@@ -157,7 +157,7 @@ object SecretScanner {
         "$what stopped: a secret key was found in your project, and publishing it would make it public.\n" +
             findings.take(5).joinToString("\n") { "• ${it.file}, line ${it.line}: ${it.kind} (${it.preview})" } +
             (if (findings.size > 5) "\n…and ${findings.size - 5} more." else "") +
-            "\nRemove the key from these files (or ask the Build agent to), then try again. Keys belong in Axion's settings, never in project files."
+            "\nRemove the key from these files (or ask the Build agent to), then try again. Keys belong in X's settings, never in project files."
     )
 
     fun requireClean(root: File, what: String, known: Collection<String> = safeKnown()) {

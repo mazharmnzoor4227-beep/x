@@ -16,7 +16,7 @@ import java.io.File
 import kotlin.math.min
 
 /**
- * v0.6 (Phase 1.6) VIDEO SKILL tools — everything runs on the phone with ffmpeg inside Axion's Ubuntu (no cloud, no keys).
+ * v0.6 (Phase 1.6) VIDEO SKILL tools — everything runs on the phone with ffmpeg inside X's Ubuntu (no cloud, no keys).
  * `video_probe` reads a video's size/length; `video_edit` does trim, captions, reframe, reel, normalize, compress, extract_audio, preset.
  * The pure command logic is in [FfmpegCommands] (unit-tested, including runs against a real ffmpeg).
  * Idea/tool contract credit: kajisho5/ffmpeg-skill (MIT) — see third_party/NOTICE-ffmpeg-skill.md.
@@ -27,7 +27,7 @@ internal object VideoRunner {
     fun linux(ctx: ToolContext): LinuxRuntime {
         val l = LinuxHub.linux
         if (l == null || !l.isInstalled() || ctx.workspace.root.canonicalPath != l.workspaceHost.canonicalPath)
-            throw Fail("Video editing runs locally inside Axion's Linux. Install it first: Settings → Developer tools → Linux. Then ask again.")
+            throw Fail("Video editing runs locally inside X's Linux. Install it first: Settings → Developer tools → Linux. Then ask again.")
         return l
     }
 
@@ -79,7 +79,7 @@ class VideoEditTool : Tool {
             "trim: start+end. reframe: aspect 9:16|1:1|16:9 and fit fill|blur. captions: burn text onto the video — pass `captions` as the words to show (spread over the video, or the trimmed part) or as SRT text, or `srt_path`. " +
             "reel = reframe to 9:16 + captions + loudness in one go (the 'make this a reel with captions' request). normalize = fix loudness. compress: target_mb. extract_audio: format mp3|m4a|wav. " +
             "preset: instagram_reel | tiktok | youtube_shorts | youtube | instagram_post | whatsapp_status (right size, length cap, bitrate, loudness). " +
-            "The result is saved in outputs/ and in the phone's Gallery (Movies/Axion). There is no speech-to-text here: caption words come from the user or from you.",
+            "The result is saved in outputs/ and in the phone's Gallery (Movies/X). There is no speech-to-text here: caption words come from the user or from you.",
         schema {
             str("operation", "trim | reframe | captions | reel | normalize | compress | extract_audio | preset")
             str("path", "Input video, relative to the workspace, e.g. uploads/clip.mp4")
@@ -119,7 +119,7 @@ class VideoEditTool : Tool {
         if (start != null && end != null) require(end > start) { "end must be after start" }
         val cut = (end ?: probe.durationSec) - (start ?: 0.0)
 
-        // captions → an .srt Axion writes itself (user text never reaches the command line)
+        // captions → an .srt X writes itself (user text never reaches the command line)
         fun srtFor(durSec: Double): String? {
             val given = args.s("srt_path")?.takeIf { it.isNotBlank() }
             if (given != null) { val sf = ctx.workspace.resolve(given); require(sf.isFile) { "No such file: $given" }; return FfmpegCommands.requireFilterSafe(ctx.workspace.rel(sf)) }

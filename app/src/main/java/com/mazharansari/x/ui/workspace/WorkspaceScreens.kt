@@ -37,7 +37,7 @@ import java.util.Locale
  * Workspace stack destinations (2026-11-19, X-NEW-UI-SPEC §6). Reached from
  * the drawer → Workspace, or from chat. No dock, no home tiles. Every list
  * starts empty and shows only real data from the stores — no demo rows,
- * no fake counts. Every screen is a standard subpage: back chevron + 20sp
+ * no fake counts. Every screen is a standard subpage: back chevron + 22sp
  * title + the same status-bar gap (ScreenHeader) as everywhere else.
  */
 
@@ -55,7 +55,7 @@ private fun WorkspaceEmpty(icon: Int, title: String, line: String, actionLabel: 
         Text(line, style = Type.small.copy(fontSize = 14.sp, lineHeight = 20.sp), color = p.textSecondary)
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.height(20.dp))
-            Box(Modifier.height(48.dp).clip(RoundedCornerShape(12.dp)).background(p.accent).clickable(onClick = onAction).padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.height(48.dp).clip(RoundedCornerShape(8.dp)).background(p.accent).clickable(onClick = onAction).padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
                 Text(actionLabel, style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.onAccent)
             }
         }
@@ -67,7 +67,7 @@ private fun WorkspaceCard(onClick: (() -> Unit)? = null, content: @Composable Co
     val p = P
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(16.dp)).background(p.surface).border(1.dp, p.border, RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(10.dp)).background(p.surface).border(1.dp, p.border, RoundedCornerShape(10.dp))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(16.dp), content = content,
     )
@@ -78,12 +78,12 @@ private fun AddRow(hint: String, button: String, onAdd: (String) -> Unit) {
     val p = P
     var t by remember { mutableStateOf("") }
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(12.dp)).background(p.surface).border(1.dp, p.border, RoundedCornerShape(12.dp)).padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(10.dp)).background(p.surface).border(1.dp, p.border, RoundedCornerShape(10.dp)).padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) {
             if (t.isEmpty()) Text(hint, style = Type.small.copy(fontSize = 15.sp), color = p.muted)
             BasicTextField(t, { t = it }, singleLine = true, textStyle = Type.small.copy(fontSize = 15.sp, color = p.text), cursorBrush = SolidColor(p.text), modifier = Modifier.fillMaxWidth())
         }
         Spacer(Modifier.width(8.dp))
-        Box(Modifier.height(48.dp).clip(RoundedCornerShape(12.dp)).background(if (t.isBlank()) p.surfaceSunken else p.accent).clickable(enabled = t.isNotBlank()) { onAdd(t); t = "" }.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.height(48.dp).clip(RoundedCornerShape(8.dp)).background(if (t.isBlank()) p.surfaceSunken else p.accent).clickable(enabled = t.isNotBlank()) { onAdd(t); t = "" }.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
             Text(button, style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = if (t.isBlank()) p.muted else p.onAccent)
         }
     }
@@ -155,7 +155,7 @@ fun IdeasScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit) 
         AddRow("Save an idea…", "Save") { vm.g.ideas.add(it, area) }
         Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("You", "Store").forEach { a ->
-                Box(Modifier.height(32.dp).clip(RoundedCornerShape(20.dp)).background(if (area == a) p.accentSoft else p.surface).border(1.dp, if (area == a) p.accent else p.border, RoundedCornerShape(20.dp)).clickable { area = a }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.height(32.dp).clip(RoundedCornerShape(6.dp)).background(if (area == a) p.accentSoft else p.surface).border(1.dp, if (area == a) p.accent else p.border, RoundedCornerShape(6.dp)).clickable { area = a }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
                     Text(a, style = Type.label, color = if (area == a) p.accent else p.text)
                 }
             }
@@ -195,24 +195,24 @@ fun GoalsScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit) 
         ScreenHeader("Goals", back)
         if (!adding) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Box(Modifier.height(48.dp).clip(RoundedCornerShape(12.dp)).background(p.accent).clickable { adding = true }.padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.height(48.dp).clip(RoundedCornerShape(8.dp)).background(p.accent).clickable { adding = true }.padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
                     Text("New goal", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.onAccent)
                 }
             }
         } else {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(p.surface).border(1.dp, p.border, RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 12.dp)) {
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.surface).border(1.dp, p.border, RoundedCornerShape(10.dp)).padding(horizontal = 14.dp, vertical = 12.dp)) {
                     if (title.isEmpty()) Text("Goal title", style = Type.small.copy(fontSize = 15.sp), color = p.muted)
                     BasicTextField(title, { title = it }, singleLine = true, textStyle = Type.small.copy(fontSize = 15.sp, color = p.text), cursorBrush = SolidColor(p.text), modifier = Modifier.fillMaxWidth())
                 }
                 Spacer(Modifier.height(8.dp))
-                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(p.surface).border(1.dp, p.border, RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 12.dp)) {
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.surface).border(1.dp, p.border, RoundedCornerShape(10.dp)).padding(horizontal = 14.dp, vertical = 12.dp)) {
                     if (stepsText.isEmpty()) Text("Steps — one per line", style = Type.small.copy(fontSize = 15.sp), color = p.muted)
                     BasicTextField(stepsText, { stepsText = it }, textStyle = Type.small.copy(fontSize = 15.sp, lineHeight = 22.sp, color = p.text), cursorBrush = SolidColor(p.text), modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp))
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.height(48.dp).clip(RoundedCornerShape(12.dp)).background(if (title.isBlank()) p.surfaceSunken else p.accent).clickable(enabled = title.isNotBlank()) {
+                    Box(Modifier.height(48.dp).clip(RoundedCornerShape(8.dp)).background(if (title.isBlank()) p.surfaceSunken else p.accent).clickable(enabled = title.isNotBlank()) {
                         vm.g.goals.add(title, stepsText.lines()); title = ""; stepsText = ""; adding = false
                     }.padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
                         Text("Save goal", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = if (title.isBlank()) p.muted else p.onAccent)
@@ -350,7 +350,7 @@ fun ComputerScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Uni
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Browser", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = p.text)
-                            Text("Axion's own browser — real pages, forms, screenshots", style = Type.small.copy(fontSize = 13.sp), color = p.textSecondary)
+                            Text("X's own browser — real pages, forms, screenshots", style = Type.small.copy(fontSize = 13.sp), color = p.textSecondary)
                         }
                         Text("Take control", style = Type.small.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium), color = p.accent)
                     }
@@ -417,7 +417,7 @@ fun CodeDiffScreen(vm: ChatViewModel, projectId: String, back: () -> Unit) {
                 }
                 WorkspaceCard(onClick = { expanded = if (isOpen) null else change.path }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(if (selected.contains(change.path)) p.accentSoft else p.surfaceSunken).clickable { selected = if (selected.contains(change.path)) selected - change.path else selected + change.path }, contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(if (selected.contains(change.path)) p.accentSoft else p.surfaceSunken).clickable { selected = if (selected.contains(change.path)) selected - change.path else selected + change.path }, contentAlignment = Alignment.Center) {
                             if (selected.contains(change.path)) GkIcon(Gk.check, "Selected", 20.dp, p.accent)
                         }
                         Spacer(Modifier.width(12.dp))
@@ -429,7 +429,7 @@ fun CodeDiffScreen(vm: ChatViewModel, projectId: String, back: () -> Unit) {
                     }
                     if (isOpen) {
                         Spacer(Modifier.height(12.dp))
-                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(p.codeBg).padding(vertical = 8.dp)) {
+                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.codeBg).padding(vertical = 8.dp)) {
                             if (change.binary) {
                                 Text("Binary file — no text diff.", style = Type.mono.copy(fontSize = 13.sp), color = p.codeText, modifier = Modifier.padding(horizontal = 12.dp))
                             } else if (diffLines.isEmpty()) {
@@ -450,7 +450,7 @@ fun CodeDiffScreen(vm: ChatViewModel, projectId: String, back: () -> Unit) {
             item {
                 Text("Tests pass. Nothing is committed.", style = Type.small.copy(fontSize = 13.sp), color = p.muted, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(12.dp)).background(if (selected.isEmpty()) p.surfaceSunken else p.accent).clickable(enabled = selected.isNotEmpty()) { vm.approveReviewFor(projectId, selected); applied = true }.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(8.dp)).background(if (selected.isEmpty()) p.surfaceSunken else p.accent).clickable(enabled = selected.isNotEmpty()) { vm.approveReviewFor(projectId, selected); applied = true }.padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
                         Text("Apply ${selected.size} file${if (selected.size == 1) "" else "s"}", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = if (selected.isEmpty()) p.muted else p.onAccent)
                     }
                     TextButton(onClick = { vm.rejectReviewFor(projectId); back() }) { Text("Discard", color = p.danger) }

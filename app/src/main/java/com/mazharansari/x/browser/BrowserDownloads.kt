@@ -8,9 +8,9 @@ import java.net.URLDecoder
  * DownloadManager; everything here is the part that can be wrong quietly:
  * the file name, the folder, and the progress maths.
  *
- * Downloads save into the public Downloads folder, under Downloads/Axion, so
+ * Downloads save into the public Downloads folder, under Downloads/X, so
  * the user finds them in any file manager and can open or share them outside
- * Axion. Nothing is ever written outside that folder.
+ * X. Nothing is ever written outside that folder.
  */
 enum class DownloadStatus { DOWNLOADING, COMPLETE, FAILED }
 
@@ -28,7 +28,7 @@ data class DownloadState(
 
 object BrowserDownloads {
     /** Subfolder of the public Downloads folder. */
-    const val DIR = "Axion"
+    const val DIR = "X"
 
     /** 0..100, or -1 while [total] is unknown (<= 0). Never over 100, never negative. */
     fun progressPercent(received: Long, total: Long): Int {
@@ -93,7 +93,7 @@ object BrowserDownloads {
     }
 
     /**
-     * Makes [raw] safe as one file name inside Downloads/Axion: path separators,
+     * Makes [raw] safe as one file name inside Downloads/X: path separators,
      * drive letters and control characters go, leading dots go (no hidden files),
      * and an empty result becomes "download". The name never contains a slash,
      * so it can never escape the folder.
@@ -112,7 +112,7 @@ object BrowserDownloads {
 
     /**
      * A name that does not collide with [existing] (the files already in
-     * Downloads/Axion): "photo.jpg" becomes "photo (1).jpg", then " (2)", …
+     * Downloads/X): "photo.jpg" becomes "photo (1).jpg", then " (2)", …
      */
     fun uniqueFileName(existing: Set<String>, name: String): String {
         if (name !in existing) return name

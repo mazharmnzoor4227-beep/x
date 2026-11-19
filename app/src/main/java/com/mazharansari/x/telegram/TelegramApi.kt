@@ -22,7 +22,7 @@ data class TelegramUpdate(
 )
 
 interface TelegramApi {
-    /** Bot username (getMe), e.g. "AxionBot". */
+    /** Bot username (getMe), e.g. "XBot". */
     suspend fun getMe(): Result<String>
 
     /** Long-poll for updates with id >= [offset]. */

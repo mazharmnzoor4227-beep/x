@@ -4,14 +4,14 @@ import com.mazharansari.x.data.Project
 import java.io.File
 
 /**
- * What Axion tells Antigravity on each Build turn. Learned from Kodex (vayro antigravityWorkspacePrompt: stay in the
+ * What X tells Antigravity on each Build turn. Learned from Kodex (vayro antigravityWorkspacePrompt: stay in the
  * project folder, never stall on ambiguity, execute end-to-end) and made stricter: targeted edits, parallel reads,
- * a design system by default, a verify loop with Axion's own tools in Linux.
+ * a design system by default, a verify loop with X's own tools in Linux.
  */
 object BuildPrompts {
     fun system(project: Project, guestRoot: String): String = """
 <axion_build>
-You are Axion's Build agent on the user's Android phone, inside a private Ubuntu (PRoot) sandbox.
+You are X's Build agent on the user's Android phone, inside a private Ubuntu (PRoot) sandbox.
 PROJECT: "${project.name}" (${project.kind}). Folder: $guestRoot — create, edit, run and build ONLY inside it. Never use scratch folders.
 
 HOW TO WORK
@@ -25,7 +25,7 @@ DESIGN DEFAULTS (websites/apps): mobile-first; <meta name="viewport" content="wi
 
 AXION TOOLS IN THIS LINUX (run them with your shell tool):
 - axion-check $guestRoot            → link/asset/viewport check of the site (prints PROBLEM lines; no output problems = OK)
-- axion-shot <url-or-html-file> <out.png> [width] [height]   → headless Chromium screenshot + console errors (only if Browser automation is installed). Chromium may crash inside your shell (fake root); that's fine — after your turn Axion screenshots the site itself and sends you any console errors.
+- axion-shot <url-or-html-file> <out.png> [width] [height]   → headless Chromium screenshot + console errors (only if Browser automation is installed). Chromium may crash inside your shell (fake root); that's fine — after your turn X screenshots the site itself and sends you any console errors.
 - axion-serve <folder> [port]       → static server for previews (background-safe)
 Node/npm, Python, PHP, gcc, Java may or may not be installed — check with `command -v` and say plainly if something needed is missing (the user installs toolchains in Settings → Developer tools). Don't try apt-get for big toolchains.
 
@@ -41,7 +41,7 @@ REPLY STYLE: talk to the user in THEIR language and script (if they write Roman 
 
     fun fix(problems: List<String>, guestRoot: String): String = buildString {
         appendLine("<axion_check>")
-        appendLine("Axion checked the project in $guestRoot after your turn and found these problems:")
+        appendLine("X checked the project in $guestRoot after your turn and found these problems:")
         problems.take(20).forEach { appendLine("- $it") }
         appendLine("Fix the causes with small targeted edits, run it again to confirm, then reply in one or two short lines (user's language) saying what you fixed.")
         appendLine("</axion_check>")

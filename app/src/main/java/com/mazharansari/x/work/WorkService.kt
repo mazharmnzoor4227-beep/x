@@ -16,11 +16,11 @@ import com.mazharansari.x.MainActivity
 
 /**
  * Phase C (v0.8.0) — background work: keeps chat and Build runs alive while the owner is in
- * another screen, another app, or has swiped Axion away.
+ * another screen, another app, or has swiped X away.
  *
  * The runs themselves live in ChatViewModel / the app graph (they already outlive any single
  * screen); this service's one job is to keep the PROCESS alive while [RunRegistry] says work
- * is in flight: a foreground notification ("Axion is working — …") plus a partial wake lock.
+ * is in flight: a foreground notification ("X is working — …") plus a partial wake lock.
  * It starts on the registry's 0→1 edge and stops on the 1→0 edge, so it never idles.
  *
  * Honest platform limits: Settings → Force stop ends everything (Android rule, no app can
@@ -101,7 +101,7 @@ class WorkService : Service() {
         val text = if (titles.size == 1) titles[0] else "${titles.size} tasks running"
         val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CH) else @Suppress("DEPRECATION") Notification.Builder(this)
         return b.setSmallIcon(android.R.drawable.stat_sys_upload)
-            .setContentTitle("Axion is working")
+            .setContentTitle("X is working")
             .setContentText(text)
             .setStyle(Notification.BigTextStyle().bigText(titles.joinToString("\n")))
             .setOngoing(true)

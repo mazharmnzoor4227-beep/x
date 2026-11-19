@@ -59,7 +59,7 @@ fun TelegramScreen(vm: ChatViewModel, back: () -> Unit) {
             Modifier.weight(1f).verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 6.dp),
         ) {
-            Note("Text Axion from anywhere — it replies on Telegram and can run tasks. The bot is off by default and talks to one paired chat only. Your bot token is encrypted on this phone; never share it with anyone.")
+            Note("Text X from anywhere — it replies on Telegram and can run tasks. The bot is off by default and talks to one paired chat only. Your bot token is encrypted on this phone; never share it with anyone.")
             Spacer(Modifier.height(16.dp))
             SectionLabel("Bot token")
             if (hasToken) {
@@ -111,14 +111,14 @@ fun TelegramScreen(vm: ChatViewModel, back: () -> Unit) {
                 SectionLabel("Pairing request")
                 SettingsRow(
                     Gk.person, settings.pendingPairName.ifBlank { "Telegram user" },
-                    subtitle = "Chat ${settings.pendingPairChatId} sent /start — approve it to let this chat talk to Axion.",
+                    subtitle = "Chat ${settings.pendingPairChatId} sent /start — approve it to let this chat talk to X.",
                     chevron = false,
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     BigButtonOutline("Approve") {
                         g.telegram.approvePair()
-                        msg = "Chat paired — only this chat can talk to Axion now."
+                        msg = "Chat paired — only this chat can talk to X now."
                     }
                     BigButtonOutline("Reject") { g.telegram.rejectPair() }
                 }
@@ -127,7 +127,7 @@ fun TelegramScreen(vm: ChatViewModel, back: () -> Unit) {
                 Spacer(Modifier.height(16.dp))
                 SectionLabel("Paired chat")
                 Text(
-                    "Chat ${settings.allowedChatId} is paired — only this chat can talk to Axion.",
+                    "Chat ${settings.allowedChatId} is paired — only this chat can talk to X.",
                     style = Type.small, color = p.text2,
                 )
                 Spacer(Modifier.height(10.dp))

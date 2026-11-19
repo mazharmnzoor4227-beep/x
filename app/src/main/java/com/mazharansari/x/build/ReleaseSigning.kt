@@ -20,7 +20,7 @@ import java.io.File
  * The keystore file itself is staged into the phone workspace's private `.axion-signing/`
  * folder (outside every project, never in the repo, never in the APK) and deleted when the
  * build ends; the copy the file picker made in the app cache is deleted as soon as it is
- * staged. This feature NEVER touches Axion's own signing keystore
+ * staged. This feature NEVER touches X's own signing keystore
  * (../keys/keystore.properties / the release signing config in app/build.gradle.kts).
  */
 data class ReleaseSigningRequest(

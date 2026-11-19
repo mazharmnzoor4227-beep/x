@@ -103,7 +103,7 @@ class AgyBrain(
             accounts.markUsed(acc.email)
             val sameAccount = p.agyAccount.equals(acc.email, true)
             val conversation = if (sameAccount && !fresh) p.agyConversation else null
-            if (conversation == null && !fresh && !promptNow.contains("<axion_build>\nYou are Axion")) promptNow = BuildPrompts.system(p, store.guestPath(p)) + "\n\n" + promptNow
+            if (conversation == null && !fresh && !promptNow.contains("<axion_build>\nYou are X")) promptNow = BuildPrompts.system(p, store.guestPath(p)) + "\n\n" + promptNow
             events(BrainEvent.Note("Antigravity · ${acc.label.ifBlank { acc.email }}"))
             val out = File(linux.home, "agy-build-${System.nanoTime()}.log")
             val cwd = store.guestPath(p)

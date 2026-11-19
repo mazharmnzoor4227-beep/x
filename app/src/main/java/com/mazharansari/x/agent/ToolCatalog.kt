@@ -1,8 +1,8 @@
 package com.mazharansari.x.agent
 
 /**
- * v0.6 (Phase 3.4) TOOLS LIBRARY — the user-facing list of everything Axion's agent can do, each with a plain description and an on/off switch.
- * Original Axion design (a library of ready tools the user can switch on and off is the general idea; nothing from any other project's code).
+ * v0.6 (Phase 3.4) TOOLS LIBRARY — the user-facing list of everything X's agent can do, each with a plain description and an on/off switch.
+ * Original X design (a library of ready tools the user can switch on and off is the general idea; nothing from any other project's code).
  * One group = one switch = one or more agent tools. Planning tools are internal and always on. MCP connector tools (names `mcp_…`) form the "Connectors" group.
  */
 data class ToolGroup(
@@ -22,22 +22,22 @@ object ToolCatalog {
             setOf("web_search", "browse_url", "http_request"), refusal = "searching the web or opening pages"),
         ToolGroup("research", "Deep research", "Investigates a topic properly instead of one quick search: plans sub-questions, searches several angles, reads the best sources in full, follows up on gaps in extra rounds, cross-checks claims across sources and writes a cited report (saved in outputs/research/). Takes minutes, not seconds.",
             setOf("deep_research", "subagent_research", "subagent_swarm"), refusal = "doing deep research"),
-        ToolGroup("browser", "Browser", "Axion's own web browser: opens real pages (JavaScript, forms, logins), reads them, clicks, types, scrolls and takes screenshots. Watch or take over in the Browser screen.",
+        ToolGroup("browser", "Browser", "X's own web browser: opens real pages (JavaScript, forms, logins), reads them, clicks, types, scrolls and takes screenshots. Watch or take over in the Browser screen.",
             setOf("browser_open", "browser_read", "browser_click", "browser_type", "browser_scroll", "browser_back", "browser_forward", "browser_reload", "browser_search", "browser_screenshot", "browser_tabs", "browser_downloads"),
             refusal = "using the built-in browser"),
-        ToolGroup("files", "Files & workspace", "Reads your uploaded files (PDF, documents, ZIP), lists them and writes code or text files into Axion's workspace.",
+        ToolGroup("files", "Files & workspace", "Reads your uploaded files (PDF, documents, ZIP), lists them and writes code or text files into X's workspace.",
             setOf("read_file", "write_file", "list_files", "extract_zip"), refusal = "reading or writing files"),
         ToolGroup("documents", "PDF reports", "Turns text into a formatted PDF report you can download.", setOf("create_pdf"), refusal = "making PDF documents"),
         ToolGroup("images", "Image generation", "Creates pictures from a description (posters, logos, product shots) with your connected image model.", setOf("generate_image"), refusal = "generating images"),
         ToolGroup("video", "Video editing", "Edits videos on your phone: trim, captions, reel size (9:16), loudness, compress, extract audio, platform presets. Needs Developer tools (Linux).",
             setOf("video_probe", "video_edit"), refusal = "editing videos"),
-        ToolGroup("commands", "Run commands", "Runs shell commands in Axion's Linux (Python, Node, ffmpeg …) to build, convert or analyse things: quick commands, a persistent shell session (directory and variables carry over) and background jobs for long work.",
+        ToolGroup("commands", "Run commands", "Runs shell commands in X's Linux (Python, Node, ffmpeg …) to build, convert or analyse things: quick commands, a persistent shell session (directory and variables carry over) and background jobs for long work.",
             setOf("run_command", "shell_session", "shell_reset", "run_background", "job_output", "job_kill", "job_rerun"),
             sensitive = true, refusal = "running commands"),
-        ToolGroup("skills", "Skills", "Loads your installed skills, installs new ones from GitHub when you share a link, and lets Axion write and improve its own learned skills.", setOf("load_skill", "install_skills_from_github", "skill_create", "skill_update", "skill_delete", "skill_view"), refusal = "using or installing skills"),
-        ToolGroup("learning", "Memory & learning", "Axion's persistent memory: it saves your preferences, facts and lessons and recalls them in future chats, and can search your past conversations. Everything it saves is visible in Settings → Memory.",
+        ToolGroup("skills", "Skills", "Loads your installed skills, installs new ones from GitHub when you share a link, and lets X write and improve its own learned skills.", setOf("load_skill", "install_skills_from_github", "skill_create", "skill_update", "skill_delete", "skill_view"), refusal = "using or installing skills"),
+        ToolGroup("learning", "Memory & learning", "X's persistent memory: it saves your preferences, facts and lessons and recalls them in future chats, and can search your past conversations. Everything it saves is visible in Settings → Memory.",
             setOf("memory_add", "memory_replace", "memory_remove", "memory_read", "session_search"), refusal = "remembering things or searching past chats"),
-        ToolGroup("schedule", "Scheduled tasks", "Runs a task later on its own — once, daily or weekly. At the set time Axion does the task by itself, saves the result as a new chat and notifies you. Manage them in Settings → Schedules.",
+        ToolGroup("schedule", "Scheduled tasks", "Runs a task later on its own — once, daily or weekly. At the set time X does the task by itself, saves the result as a new chat and notifies you. Manage them in Settings → Schedules.",
             setOf("schedule_create", "schedule_list", "schedule_delete"), refusal = "scheduling tasks"),
         ToolGroup("github", "GitHub", "Clones a repo into /workspace/repos, edits its files, commits with your name and email, pushes, opens pull requests and reads CI status. Pushes to main/master, force-pushes and merges always ask first; a push is refused when the diff contains a secret. Connect GitHub in Settings → GitHub.",
             setOf("github_clone", "github_status", "github_branch", "github_commit", "github_push", "github_pr", "github_ci"),
@@ -58,7 +58,7 @@ object ToolCatalog {
     /** The result of a call to a switched-off tool (the model should relay it politely). */
     fun refusalFor(toolName: String): String {
         val g = groupOf(toolName)
-        return "The user switched OFF the tool \"${g?.title ?: toolName}\" in Settings → Tools library, so Axion cannot do that. Politely tell them it is off and that they can turn it on in Settings → Tools library; do not try another way around it."
+        return "The user switched OFF the tool \"${g?.title ?: toolName}\" in Settings → Tools library, so X cannot do that. Politely tell them it is off and that they can turn it on in Settings → Tools library; do not try another way around it."
     }
 
     fun promptNote(switches: Map<String, Boolean>): String {

@@ -28,14 +28,14 @@ interface BuildBrain {
     suspend fun turn(project: Project, prompt: String, fresh: Boolean, events: (BrainEvent) -> Unit): BrainResult
 }
 
-/** Axion's own checks after the brain's turn (fast, parallel). */
+/** X's own checks after the brain's turn (fast, parallel). */
 interface BuildVerifier {
     data class Report(val problems: List<String>, val notes: List<String> = emptyList(), val screenshot: File? = null, val previewable: Boolean = false)
     suspend fun verify(project: Project, folder: File, onStep: (Step) -> Unit): Report
 }
 
 /**
- * The Build agent loop (addendum 5): brain turn (plan → write/edit files → run commands) → Axion verifies (link check,
+ * The Build agent loop (addendum 5): brain turn (plan → write/edit files → run commands) → X verifies (link check,
  * build, headless-Chromium screenshot + console errors) → if something is wrong, the same brain conversation gets the exact
  * errors and fixes them with small edits → verify again (up to [maxFixRounds]) → one design self-review on the screenshot
  * for a new site. Every tool step becomes a live step card; while a file is being written its code streams into the card,

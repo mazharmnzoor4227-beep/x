@@ -197,7 +197,7 @@ class BuildHub(private val ctx: Context, private val linux: LinuxRuntime, privat
      * they are never written to disk, never stored, never logged — the Gradle command that
      * carries them is never logged either, and every output line is scrubbed before it is
      * shown. The staged keystore copy is deleted when the build ends, whatever happens.
-     * Axion's own signing keystore is never touched by this path.
+     * X's own signing keystore is never touched by this path.
      */
     fun buildReleaseApk(p: Project, req: ReleaseSigningRequest) {
         val key = "${p.id}:apk-release"

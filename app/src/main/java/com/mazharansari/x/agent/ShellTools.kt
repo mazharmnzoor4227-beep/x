@@ -75,7 +75,7 @@ class ShellResetTool : Tool {
 class RunBackgroundTool : Tool {
     override val spec = ToolSpec(
         "run_background",
-        "Start a long Linux command in the BACKGROUND (builds, big downloads, servers, long conversions) and get a job number at once, without waiting. The command runs in /workspace inside Axion's Ubuntu. Check it with job_output, stop it with job_kill. For anything under a few minutes, run_command or shell_session is simpler.",
+        "Start a long Linux command in the BACKGROUND (builds, big downloads, servers, long conversions) and get a job number at once, without waiting. The command runs in /workspace inside X's Ubuntu. Check it with job_output, stop it with job_kill. For anything under a few minutes, run_command or shell_session is simpler.",
         schema { str("command", "The shell command to run in the background") },
     )
     override fun label(args: JsonObject) = StepLabel(StepKind.COMMAND, "Background", args.s("command").orEmpty().take(80))

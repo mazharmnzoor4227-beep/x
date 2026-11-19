@@ -76,28 +76,28 @@ fun QuotaBar(fraction: Double?, modifier: Modifier = Modifier, height: Dp = 6.dp
     val p = P
     val f = fraction?.coerceIn(0.0, 1.0)
     val fill = when { f == null -> Color.Transparent; f <= 0.0001 -> Red; f < 0.2 -> Amber; else -> p.text.copy(alpha = 0.9f) }
-    Box(modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(50)).background(if (p.isDark) Color(0xFF2A2A2A) else Color(0xFFE3E3E3))) {
-        if (f != null) Box(Modifier.fillMaxWidth(f.toFloat().coerceAtLeast(if (f > 0) 0.015f else 0f)).fillMaxHeight().clip(RoundedCornerShape(50)).background(fill))
+    Box(modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(3.dp)).background(if (p.isDark) Color(0xFF2A2A2A) else Color(0xFFE3E3E3))) {
+        if (f != null) Box(Modifier.fillMaxWidth(f.toFloat().coerceAtLeast(if (f > 0) 0.015f else 0f)).fillMaxHeight().clip(RoundedCornerShape(3.dp)).background(fill))
     }
 }
 
 @Composable
 internal fun Card(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
-    Column(modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(P.card).padding(16.dp), content = content)
+    Column(modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(P.card).padding(16.dp), content = content)
 
 @Composable
 internal fun Note(text: String, modifier: Modifier = Modifier) = Text(text, style = Type.small.copy(fontSize = 13.sp), color = P.text2, modifier = modifier)
 
 @Composable
 internal fun Badge(text: String, color: Color) =
-    Box(Modifier.clip(RoundedCornerShape(50)).background(color.copy(alpha = 0.16f)).padding(horizontal = 8.dp, vertical = 2.dp)) {
+    Box(Modifier.clip(RoundedCornerShape(6.dp)).background(color.copy(alpha = 0.16f)).padding(horizontal = 8.dp, vertical = 2.dp)) {
         Text(text, style = Type.tiny.copy(fontWeight = FontWeight.Medium), color = color, maxLines = 1)
     }
 
 @Composable
 internal fun SmallButton(text: String, filled: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
-    Box(Modifier.height(34.dp).clip(RoundedCornerShape(50)).background(if (filled) p.text else if (p.isDark) Color(0xFF2C2C2C) else Color(0xFFE9E9E9))
+    Box(Modifier.height(34.dp).clip(RoundedCornerShape(8.dp)).background(if (filled) p.text else if (p.isDark) Color(0xFF2C2C2C) else Color(0xFFE9E9E9))
         .then(if (enabled) Modifier.clickable(onClick = tap) else Modifier).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
         Text(text, style = Type.small.copy(fontWeight = FontWeight.SemiBold), color = if (filled) p.bg else p.text.copy(alpha = if (enabled) 1f else 0.4f))
     }
@@ -108,7 +108,7 @@ internal fun SmallButton(text: String, filled: Boolean = false, enabled: Boolean
 internal fun ConfirmDialog(title: String, body: String, confirm: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     val p = P
     androidx.compose.ui.window.Dialog(onDismiss) {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(p.page2).padding(20.dp)) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.page2).padding(20.dp)) {
             Text(title, style = Type.title, color = p.text)
             Text(body, style = Type.small, color = p.text2, modifier = Modifier.padding(top = 8.dp))
             Spacer(Modifier.height(16.dp))
@@ -123,7 +123,7 @@ internal fun ConfirmDialog(title: String, body: String, confirm: String, onDismi
 @Composable
 internal fun BigButton(text: String, enabled: Boolean = true, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
-    Box(modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(50)).background(if (enabled) p.text else p.text3)
+    Box(modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(8.dp)).background(if (enabled) p.text else p.text3)
         .then(if (enabled) Modifier.clickable(onClick = tap) else Modifier), contentAlignment = Alignment.Center) {
         Text(text, style = Type.row, color = p.bg)
     }
@@ -132,7 +132,7 @@ internal fun BigButton(text: String, enabled: Boolean = true, modifier: Modifier
 @Composable
 internal fun Field(value: String, onChange: (String) -> Unit, hint: String, password: Boolean = false, mono: Boolean = false) {
     val p = P
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (p.isDark) Color(0xFF2A2A2A) else Color(0xFFEDEDED)).padding(horizontal = 14.dp, vertical = 13.dp)) {
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (p.isDark) Color(0xFF2A2A2A) else Color(0xFFEDEDED)).padding(horizontal = 14.dp, vertical = 13.dp)) {
         if (value.isEmpty()) Text(hint, style = Type.body, color = p.text3)
         BasicTextField(value, onChange, singleLine = true, textStyle = (if (mono) Type.mono.copy(fontSize = 15.sp) else Type.body).copy(color = p.text), cursorBrush = SolidColor(p.text),
             visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None, modifier = Modifier.fillMaxWidth())
@@ -155,7 +155,7 @@ internal fun ToolBadge(t: Toolchain, size: Dp = 40.dp) {
 fun ProviderLogo(id: String, size: Dp) {
     val p = P
     val res = BrandLogos.res(id)
-    Box(Modifier.size(size).clip(CircleShape).background(if (p.isDark) Color(0xFF2C2C2C) else Color(0xFFE6E6E6)), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size).clip(RoundedCornerShape(8.dp)).background(if (p.isDark) Color(0xFF2C2C2C) else Color(0xFFE6E6E6)), contentAlignment = Alignment.Center) {
         if (res != null) androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(res), null, Modifier.size(size * 0.62f))
         else Text(id.take(1).uppercase(), color = p.text, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.Bold)
     }
@@ -303,7 +303,7 @@ fun ToolSheet(vm: ChatViewModel, t: Toolchain, onDismiss: () -> Unit) {
         // sizes
         Row(Modifier.padding(horizontal = 16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             fun box(label: String, value: String) = @Composable {
-                Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(p.card).padding(12.dp)) {
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(p.card).padding(12.dp)) {
                     Text(value, style = Type.row.copy(fontSize = 16.sp), color = p.text); Text(label, style = Type.tiny, color = p.text2)
                 }
             }
@@ -315,7 +315,7 @@ fun ToolSheet(vm: ChatViewModel, t: Toolchain, onDismiss: () -> Unit) {
         if (t.needs.isNotEmpty() && !installed) Note("Needs ${t.needs.joinToString { Toolchain.byId(it)?.title ?: it }} — it's added automatically.", Modifier.padding(horizontal = 24.dp, vertical = 2.dp))
         // progress + log
         if (working || st is ToolStatus.Failed || (logs[t.id]?.isNotEmpty() == true && !installed)) {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (p.isDark) Color(0xFF111111) else Color(0xFFF1F1F1)).padding(14.dp)) {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (p.isDark) Color(0xFF111111) else Color(0xFFF1F1F1)).padding(14.dp)) {
                 if (st is ToolStatus.Working) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("${st.action} · ${st.percent}%", style = Type.small.copy(fontWeight = FontWeight.SemiBold), color = p.text, modifier = Modifier.weight(1f))
@@ -345,7 +345,7 @@ fun ToolSheet(vm: ChatViewModel, t: Toolchain, onDismiss: () -> Unit) {
 @Composable
 internal fun BigButtonOutline(text: String, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
-    Box(Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(50)).border(1.dp, p.text3, RoundedCornerShape(50)).clickable(onClick = tap), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(8.dp)).border(1.dp, p.text3, RoundedCornerShape(8.dp)).clickable(onClick = tap), contentAlignment = Alignment.Center) {
         Text(text, style = Type.row, color = Red)
     }
 }
@@ -369,7 +369,7 @@ fun AntigravityScreen(vm: ChatViewModel, back: () -> Unit, nav: (Route) -> Unit,
     val agyStatus = toolStatus["agy"]
 
     SettingsPage("Antigravity", back) {
-        Note("Google's Antigravity agent, signed in with several Google accounts. When one account hits its limit, Axion switches to the next and continues the same task.",
+        Note("Google's Antigravity agent, signed in with several Google accounts. When one account hits its limit, X switches to the next and continues the same task.",
             Modifier.padding(start = 30.dp, end = 30.dp, top = 4.dp, bottom = 12.dp))
         Card {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -444,7 +444,7 @@ fun AntigravityScreen(vm: ChatViewModel, back: () -> Unit, nav: (Route) -> Unit,
         // (One chat screen now: builds happen through chat when asked, there is no Build tab.)
         SectionLabel("Where it runs")
         SettingsGroup { SettingsRow(Gk.hammer, "Builds", "Every build runs on these accounts. Ask uses your API keys only.", chevron = false) {} }
-        Note("Antigravity runs its own tools (files, commands) in Linux. Axion's PDF, web search and image tools aren't used inside an Antigravity reply.", Modifier.padding(start = 30.dp, end = 30.dp, top = 10.dp))
+        Note("Antigravity runs its own tools (files, commands) in Linux. X's PDF, web search and image tools aren't used inside an Antigravity reply.", Modifier.padding(start = 30.dp, end = 30.dp, top = 10.dp))
         Spacer(Modifier.height(10.dp))
         SettingsGroup {
             SettingsRow(Gk.brain, "Model", value = store.model.ifBlank { "Antigravity default" }, onClick = { scope.launch { runCatching { g.agyProbe.models() } } })
@@ -479,12 +479,12 @@ private fun LoginSheet(vm: ChatViewModel, force: AgyLoginState?, onDismiss: () -
     var err by remember { mutableStateOf<String?>(null) }
     AxionSheet({ if (st !is AgyLoginState.AwaitingCode && st !is AgyLoginState.Completing) onDismiss() else { g.agyLogin.cancel(); onDismiss() } }) {
         Text("Add Antigravity account", style = Type.title, color = p.text, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
-        Note("Sign in with the Google account you want to add. Axion never sees your password or token — Google gives a one-time code that you paste here.", Modifier.padding(horizontal = 24.dp))
+        Note("Sign in with the Google account you want to add. X never sees your password or token — Google gives a one-time code that you paste here.", Modifier.padding(horizontal = 24.dp))
         Spacer(Modifier.height(14.dp))
         @Composable fun Step(n: Int, title: String, active: Boolean, done: Boolean, content: @Composable ColumnScope.() -> Unit = {}) {
             Row(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-                Box(Modifier.size(26.dp).clip(CircleShape).background(if (done) p.accent else if (active) p.text else p.text3.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
-                    if (done) GkIcon(Gk.check, null, 16.dp, Color.White) else Text("$n", color = if (active) p.bg else p.text2, style = Type.small.copy(fontWeight = FontWeight.Bold))
+                Box(Modifier.size(26.dp).clip(RoundedCornerShape(6.dp)).background(if (done) p.accent else if (active) p.text else p.text3.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
+                    if (done) GkIcon(Gk.check, null, 16.dp, p.onAccent) else Text("$n", color = if (active) p.bg else p.text2, style = Type.small.copy(fontWeight = FontWeight.Bold))
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) { Text(title, style = Type.row.copy(fontSize = 16.sp), color = if (active || done) p.text else p.text3); content() }
@@ -625,7 +625,7 @@ fun QuotaScreen(vm: ChatViewModel, back: () -> Unit, nav: (Route) -> Unit) {
         AxionSheet({ rawFor = null }) {
             Text(r.account.label.ifBlank { r.account.email }, style = Type.title, color = p.text, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp))
             Note("Where this comes from: agy's own /usage answer (last 3). Shown raw when it couldn't be read.", Modifier.padding(horizontal = 24.dp))
-            Column(Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (p.isDark) Color(0xFF111111) else Color(0xFFF1F1F1)).padding(12.dp)) {
+            Column(Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (p.isDark) Color(0xFF111111) else Color(0xFFF1F1F1)).padding(12.dp)) {
                 Text(r.raw.firstOrNull()?.take(1800) ?: "Not checked yet.", style = Type.mono.copy(fontSize = 11.5.sp, lineHeight = 16.sp), color = p.text2)
             }
         }
@@ -725,7 +725,7 @@ private fun FreeRow(calls: Int) {
     val p = P
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(p.card).padding(horizontal = 16.dp, vertical = 13.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(28.dp).clip(CircleShape).background(if (p.isDark) Color(0xFF2C2C2C) else Color(0xFFE6E6E6)), contentAlignment = Alignment.Center) { GkIcon(Gk.sparkles, null, 16.dp, p.text) }
+            Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(if (p.isDark) Color(0xFF2C2C2C) else Color(0xFFE6E6E6)), contentAlignment = Alignment.Center) { GkIcon(Gk.sparkles, null, 16.dp, p.text) }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Free (slow)", style = Type.row.copy(fontSize = 16.sp), color = p.text)
@@ -805,7 +805,7 @@ fun KeyBackupScreen(vm: ChatViewModel, back: () -> Unit) {
         if (uri != null) scope.launch(kotlinx.coroutines.Dispatchers.IO) {
             // v0.5.2 bug hunt: picking a huge file read it all into memory on the main thread (ANR / out of memory).
             val text = runCatching { ctx.contentResolver.openInputStream(uri)!!.use { s -> val b = s.readNBytesCompat(2 * 1024 * 1024 + 1); if (b.size > 2 * 1024 * 1024) null else b.decodeToString() } }.getOrNull()
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { if (text == null) msg = "This isn't an Axion keys file" else pendingImport = text }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { if (text == null) msg = "This isn't an X keys file" else pendingImport = text }
         }
     }
     SettingsPage("Export / import keys", back) {
@@ -849,7 +849,7 @@ fun KeyBackupScreen(vm: ChatViewModel, back: () -> Unit) {
             Modifier.padding(start = 30.dp, end = 30.dp, top = 6.dp, bottom = 24.dp))
     }
     // v0.5.2: say what this file is before it exists — it's the user's keys, and anyone with it AND the password can use them.
-    if (warn) AlertDialog(onDismissRequest = { warn = false }, containerColor = p.card, shape = RoundedCornerShape(24.dp),
+    if (warn) AlertDialog(onDismissRequest = { warn = false }, containerColor = p.card, shape = RoundedCornerShape(10.dp),
         title = { Text("Before you save this file", style = Type.title, color = p.text) },
         text = { Text("This file holds all ${keys.size} of your API keys, locked with your password.\n\n• Keep it for yourself (your Google Drive, a USB stick).\n• Don't post it or send it to anyone. Whoever has the file AND the password can use your keys.\n• Never send the password together with the file.\n• If it ever leaks, delete the keys at Google, Groq, etc. and make new ones.",
             style = Type.body, color = p.text2) },

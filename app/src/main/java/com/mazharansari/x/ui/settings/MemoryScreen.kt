@@ -23,7 +23,7 @@ import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
 
 /**
- * v0.10 (Hermes learning loop): everything Axion has saved about the user, in the open.
+ * v0.10 (Hermes learning loop): everything X has saved about the user, in the open.
  * The agent writes these entries with its memory tools and reads them at the start of every
  * chat; here the user can add, edit and delete them — nothing is remembered that is not
  * on this screen.
@@ -40,7 +40,7 @@ fun MemoryScreen(vm: ChatViewModel, back: () -> Unit) {
         ScreenHeader("Memory", back)
         LazyColumn(Modifier.weight(1f).navigationBarsPadding(), contentPadding = PaddingValues(bottom = 32.dp)) {
             item {
-                Text("Axion saves short notes about you and what it learns while working, and reads them at the start of every chat — that is how it gets better at helping you. You can edit or delete anything here; Axion remembers only what is on this screen.",
+                Text("X saves short notes about you and what it learns while working, and reads them at the start of every chat — that is how it gets better at helping you. You can edit or delete anything here; X remembers only what is on this screen.",
                     style = Type.small.copy(fontSize = 14.sp, lineHeight = 20.sp), color = p.text2,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
                 error?.let { Text(it, style = Type.small, color = p.danger, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)) }
@@ -49,7 +49,7 @@ fun MemoryScreen(vm: ChatViewModel, back: () -> Unit) {
             memorySection(store, MemoryTarget.MEMORY, "Facts, lessons & projects", data.notes) { editing = it }
             item {
                 Spacer(Modifier.height(10.dp))
-                Text("Memory is kept small on purpose (About you: ${MemoryStore.USER_CHAR_BUDGET} characters, Facts & lessons: ${MemoryStore.MEMORY_CHAR_BUDGET}). When a section is full, Axion replaces or removes an old entry before adding a new one.",
+                Text("Memory is kept small on purpose (About you: ${MemoryStore.USER_CHAR_BUDGET} characters, Facts & lessons: ${MemoryStore.MEMORY_CHAR_BUDGET}). When a section is full, X replaces or removes an old entry before adding a new one.",
                     style = Type.small.copy(fontSize = 13.sp, lineHeight = 18.sp), color = p.text3,
                     modifier = Modifier.padding(horizontal = 20.dp))
             }
@@ -59,7 +59,7 @@ fun MemoryScreen(vm: ChatViewModel, back: () -> Unit) {
     editing?.let { (target, index, initial) ->
         var text by remember(target, index) { mutableStateOf(initial) }
         var dlgError by remember { mutableStateOf<String?>(null) }
-        AlertDialog(onDismissRequest = { editing = null }, containerColor = p.card, shape = RoundedCornerShape(24.dp),
+        AlertDialog(onDismissRequest = { editing = null }, containerColor = p.card, shape = RoundedCornerShape(10.dp),
             title = { Text(if (index < 0) "Add memory" else "Edit memory", style = Type.title, color = p.text) },
             text = {
                 Column {
@@ -87,12 +87,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.memorySection(
     item { SectionLabel(title) }
     if (entries.isEmpty()) {
         item {
-            Text("Nothing saved yet — Axion adds entries here as it learns, or add one yourself.",
+            Text("Nothing saved yet — X adds entries here as it learns, or add one yourself.",
                 style = Type.small, color = P.text3, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
         }
     }
     itemsIndexed(entries, key = { i, e -> "${target.name}_$i" }) { i, e ->
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(P.surface).padding(start = 14.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(P.surface).padding(start = 14.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Text(e, style = Type.body.copy(fontSize = 15.sp, lineHeight = 20.sp), color = P.text, modifier = Modifier.weight(1f))
             Box(Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).clickable { onEdit(Triple(target, i, e)) }, contentAlignment = Alignment.Center) {

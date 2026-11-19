@@ -95,7 +95,7 @@ class Agent(
             WebSearchTool(), BrowseTool(), RunCommandTool(), ReadFileTool(), WriteFileTool(), ListFilesTool(),
             ExtractZipTool(), CreatePdfTool(), LoadSkillTool(), InstallSkillsTool(), HttpRequestTool(),
             VideoProbeTool(), VideoEditTool(),   // axion-p1.6
-            // v0.9: Axion's own browser (real WebView) + the persistent terminal and background jobs
+            // v0.9: X's own browser (real WebView) + the persistent terminal and background jobs
             BrowserOpenTool(), BrowserReadTool(), BrowserClickTool(), BrowserTypeTool(), BrowserScrollTool(),
             BrowserBackTool(), BrowserForwardTool(), BrowserReloadTool(), BrowserSearchTool(), BrowserScreenshotTool(),
             BrowserTabsTool(), BrowserDownloadsTool(),
@@ -167,7 +167,7 @@ class Agent(
         intent: Intent = Intent.ACTION,
         /** Swarm (Phase 1): the parent conversation id — worker updates link to this run's parent card. */
         swarmParentId: String? = null,
-        /** Bot Store (Phase 1): a bot's persona block (name + role + allow-list) for a chat run as that bot; null = plain Axion. */
+        /** Bot Store (Phase 1): a bot's persona block (name + role + allow-list) for a chat run as that bot; null = plain X. */
         systemExtra: String? = null,
         /** Brain (Phase 1): fast-model attempts for cheap worker steps; null = same as [attempts]. */
         fastAttempts: (() -> List<Attempt>)? = null,
@@ -203,7 +203,7 @@ class Agent(
             usage = ContextBudget.measure(folded, user, contextBudget)
         }
         onContextUsage(usage)
-        // v0.10: the memory snapshot rides in EVERY prompt (even small talk — it is how Axion knows the user);
+        // v0.10: the memory snapshot rides in EVERY prompt (even small talk — it is how X knows the user);
         // the learning guidance is added whenever this turn actually has the memory/skill tools.
         val memBlock = memory?.promptBlock().orEmpty()
         val learnBlock = if (memory != null && tools.any { it.spec.name == "memory_add" || it.spec.name == "skill_create" }) "\n\n" + LEARNING_GUIDANCE else ""
@@ -515,7 +515,7 @@ class Agent(
 }
 
 data class Profile(
-    val assistantName: String = "Axion",
+    val assistantName: String = "X",
     val userName: String = "",
     val language: String = "",
     val instructions: String = "",

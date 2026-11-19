@@ -142,6 +142,13 @@ dependencies {
     implementation("com.hierynomus:sshj:0.41.2")
     // v0.12 scheduler: WorkManager wakes the app for scheduled tasks (inexact on purpose — no exact-alarm permission).
     implementation("androidx.work:work-runtime-ktx:2.10.0")
+    // Redesign round 2, Addendum F: the Piper voice engine (sherpa-onnx, Apache-2.0).
+    // JitPack coordinate, used by the shipping SherpaTTS app; the AAR carries the
+    // arm64-v8a native libs (the app's abiFilters already keep arm64-v8a only).
+    // The engine is Apache-2.0; the Piper voice packs stay download/import (61 MB each,
+    // never bundled) and espeak-ng-data downloads once from sherpa-onnx's tts-models
+    // release (see voice/PiperVoice.kt). Voice research may swap the pack later.
+    implementation("com.github.k2-fsa:sherpa-onnx:v1.10.42")
 
     // v0.5.3 sign-in: Firebase Authentication only (Google via Credential Manager, Email/Password, GitHub provider).
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))

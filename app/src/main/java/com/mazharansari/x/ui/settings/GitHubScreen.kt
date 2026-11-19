@@ -35,7 +35,7 @@ import java.util.Locale
  *
  * Two ways in, in this order: (a) OAuth device flow — the app shows a code, the
  * user authorises on github.com in a browser, the app polls for the token (no
- * password is ever typed in Axion); (b) paste a PAT. The OAuth App client ID is
+ * password is ever typed in X); (b) paste a PAT. The OAuth App client ID is
  * the user's own (empty by default, with instructions — there is no hardcoded
  * client ID). The token is KeyVault-encrypted, never logged, shown only as its
  * last 4 characters. Every git action is listed in the audit log below.
@@ -102,10 +102,10 @@ fun GitHubScreen(vm: ChatViewModel, back: () -> Unit) {
 
     SettingsPage("GitHub", back) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("Connect GitHub so Axion can clone repos, commit, push and open pull requests from your phone. The agent runs on your own AI keys — no separate billing.",
+            Text("Connect GitHub so X can clone repos, commit, push and open pull requests from your phone. The agent runs on your own AI keys — no separate billing.",
                 style = Type.small.copy(fontSize = 14.sp, lineHeight = 20.sp), color = p.text2)
             // ── status ─────────────────────────────────────────────────────────────────
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.card).padding(16.dp)) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(16.dp)) {
                 Text(if (st.tokenBlob.isBlank()) "Not connected" else "Connected" + st.login.let { if (it.isBlank()) "" else " · @$it" },
                     style = Type.label, color = p.text)
                 if (st.tokenBlob.isNotBlank()) {
@@ -140,7 +140,7 @@ fun GitHubScreen(vm: ChatViewModel, back: () -> Unit) {
                 if (code != null) { Spacer(Modifier.width(8.dp)); Pill("Cancel") { code = null; pollStatus = null } }
             }
             code?.let { dc ->
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.card).padding(16.dp),
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Your sign-in code", style = Type.small, color = p.text2)
                     Spacer(Modifier.height(6.dp))
@@ -156,7 +156,7 @@ fun GitHubScreen(vm: ChatViewModel, back: () -> Unit) {
             }
             // ── (b) PAT fallback ─────────────────────────────────────────────────────────
             Text("Or paste a token", style = Type.label, color = p.text)
-            Text("A classic token (ghp_…) or a fine-grained token (github_pat_…) with repo scope. Create one at github.com/settings/tokens. Axion never asks for your GitHub password.",
+            Text("A classic token (ghp_…) or a fine-grained token (github_pat_…) with repo scope. Create one at github.com/settings/tokens. X never asks for your GitHub password.",
                 style = Type.small, color = p.text2)
             OutlinedTextField(pat, { pat = it.trim() }, label = { Text("Personal access token") },
                 singleLine = true, visualTransformation = PasswordVisualTransformation(), colors = colors, modifier = Modifier.fillMaxWidth())
@@ -177,7 +177,7 @@ fun GitHubScreen(vm: ChatViewModel, back: () -> Unit) {
             Pill("Save name and email", filled = true) { store.setIdentity(name, email); msg = "Saved." }
             // ── ungated repos ────────────────────────────────────────────────────────────
             Text("Ungated repos", style = Type.label, color = p.text)
-            Text("Normally Axion shows you the diff and waits for approval before a commit or push. A repo listed here skips that review step. Pushes to main/master, force-pushes and merges always ask, even here.",
+            Text("Normally X shows you the diff and waits for approval before a commit or push. A repo listed here skips that review step. Pushes to main/master, force-pushes and merges always ask, even here.",
                 style = Type.small, color = p.text2)
             if (st.ungatedRepos.isEmpty()) Text("No ungated repos.", style = Type.small, color = p.text3)
             st.ungatedRepos.forEach { r ->
@@ -195,12 +195,12 @@ fun GitHubScreen(vm: ChatViewModel, back: () -> Unit) {
             }
             // ── audit log ────────────────────────────────────────────────────────────────
             Text("Audit log", style = Type.label, color = p.text)
-            Text("Every git action Axion takes, with its result.", style = Type.small, color = p.text2)
+            Text("Every git action X takes, with its result.", style = Type.small, color = p.text2)
             val entries = remember(auditTick) { store.audit.list() }
             if (entries.isEmpty()) Text("No git actions yet.", style = Type.small, color = p.text3)
             entries.take(30).forEach { e ->
                 val whenText = SimpleDateFormat("dd MMM HH:mm", Locale.getDefault()).format(Date(e.at))
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(p.card).padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(horizontal = 14.dp, vertical = 10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(e.action, style = Type.body.copy(fontWeight = FontWeight.Medium), color = p.text, modifier = Modifier.weight(1f))
                         Text(e.result, style = Type.small, color = if (e.result == "ok") p.text2 else p.danger)

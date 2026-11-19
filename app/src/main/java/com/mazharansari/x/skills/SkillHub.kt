@@ -38,7 +38,7 @@ object SkillHub {
         val description: String,
         /** GitHub repo URL for community entries; "" for built-ins (already in the app). */
         val repoUrl: String,
-        /** Licence recorded per entry, e.g. "MIT", "Apache-2.0", "Axion built-in". */
+        /** Licence recorded per entry, e.g. "MIT", "Apache-2.0", "X built-in". */
         val licence: String,
         val kind: HubKind,
     )
@@ -81,7 +81,7 @@ object SkillHub {
                 name = s.name,
                 description = s.description,
                 repoUrl = "",
-                licence = if (isMika) "Apache-2.0" else "Axion built-in",
+                licence = if (isMika) "Apache-2.0" else "X built-in",
                 kind = if (isMika) HubKind.MIKA else HubKind.BUILT_IN,
             )
         }

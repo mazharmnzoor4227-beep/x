@@ -20,6 +20,7 @@ import com.mazharansari.x.data.Connector
 import com.mazharansari.x.ui.components.ScreenHeader
 import com.mazharansari.x.ui.components.Pill
 import com.mazharansari.x.ui.components.Gk
+import com.mazharansari.x.ui.Route
 import com.mazharansari.x.ui.theme.AxionTheme
 import com.mazharansari.x.ui.theme.P
 import kotlinx.serialization.builtins.ListSerializer
@@ -83,6 +84,10 @@ class V03ScreensTest {
         org.robolectric.Shadows.shadowOf(app).grantPermissions(android.Manifest.permission.RECORD_AUDIO)
         ActivityScenario.launch(MainActivity::class.java).use { sc ->
             compose.waitForIdle()
+            // Redesign round 2: the app opens on the Home list, not the chat
+            // screen — navigate to a chat first (debugStart hook, no new chat).
+            sc.onActivity { androidx.lifecycle.ViewModelProvider(it)[com.mazharansari.x.ui.ChatViewModel::class.java].debugStart = Route.Chat }
+            compose.mainClock.advanceTimeBy(800)
             sc.onActivity { androidx.lifecycle.ViewModelProvider(it)[com.mazharansari.x.ui.ChatViewModel::class.java].debugCall =
                 com.mazharansari.x.voice.SameVoiceCall.State(userText = "Aaj Karachi ka mausam kaisa hai?", replyText = "Aaj Karachi mein dhoop hai, takreeban 31 degree. Shaam ko thodi thandi hawa chalegi.") }
             // The old composer "Voice mode" button is gone in the redesign;
@@ -99,8 +104,12 @@ class V03ScreensTest {
 
     @Test fun connectorsLogos() {
         seed()
-        ActivityScenario.launch(MainActivity::class.java).use {
+        ActivityScenario.launch(MainActivity::class.java).use { sc ->
             compose.waitForIdle()
+            // Redesign round 2: the app opens on the Home list — navigate to
+            // a chat first (the + popover lives on the chat screen).
+            sc.onActivity { androidx.lifecycle.ViewModelProvider(it)[com.mazharansari.x.ui.ChatViewModel::class.java].debugStart = Route.Chat }
+            compose.mainClock.advanceTimeBy(800)
             // The single-chat-screen menu drawer has no "Connectors" entry (the
             // banner that linked there only shows when no key is saved, and
             // seed() saves one) — reach Connectors through the + popover instead.
@@ -137,6 +146,10 @@ class V03ScreensTest {
         ActivityScenario.launch(MainActivity::class.java).use { sc ->
             compose.waitForIdle()
             sc.onActivity { act -> setMessages(androidx.lifecycle.ViewModelProvider(act)[com.mazharansari.x.ui.ChatViewModel::class.java], conv.messages) }
+            // Redesign round 2: the app opens on the Home list — navigate to
+            // the chat screen without newChat (it would clear these messages).
+            sc.onActivity { act -> androidx.lifecycle.ViewModelProvider(act)[com.mazharansari.x.ui.ChatViewModel::class.java].debugStart = Route.Chat }
+            compose.mainClock.advanceTimeBy(800)
             compose.waitUntil(5000) { compose.onAllNodesWithText("Thought for", substring = true).fetchSemanticsNodes().isNotEmpty() }
             shot("v3_steps_collapsed")
             compose.onNodeWithContentDescription("Expand").performClick(); compose.waitForIdle(); Thread.sleep(400)
@@ -151,6 +164,10 @@ class V03ScreensTest {
         seed()
         ActivityScenario.launch(MainActivity::class.java).use { sc ->
             compose.waitForIdle()
+            // Redesign round 2: the app opens on the Home list — navigate to
+            // a chat first (the composer and its popovers live there).
+            sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[com.mazharansari.x.ui.ChatViewModel::class.java].debugStart = Route.Chat }
+            compose.mainClock.advanceTimeBy(800)
             sc.onActivity { a ->
                 val root = a.window.decorView
                 val ins = WindowInsetsCompat.Builder()

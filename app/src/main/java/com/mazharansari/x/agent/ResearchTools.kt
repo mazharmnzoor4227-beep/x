@@ -22,7 +22,7 @@ import java.util.Locale
 
 /**
  * v0.11 DEEP RESEARCH — an iterative investigation pipeline inside ONE tool call, modelled on how
- * Perplexity Deep Research / Hermes-style research agents work (all code is Axion's own):
+ * Perplexity Deep Research / Hermes-style research agents work (all code is X's own):
  *
  *   PLAN        the chat model breaks the topic into several search angles (or fixed fallback angles
  *               when no model is wired into this surface);

@@ -9,7 +9,7 @@ import kotlinx.coroutines.*
 import java.io.File
 
 /**
- * Axion's own verify step after each Build turn. Independent checks run in parallel:
+ * X's own verify step after each Build turn. Independent checks run in parallel:
  *  - site check on the phone (broken links/assets, viewport, empty page, cut-off JS) — always, instant;
  *  - `npm run build` when the project has a build script and Web is installed (before the screenshot);
  *  - Python files byte-compiled when Python is installed;

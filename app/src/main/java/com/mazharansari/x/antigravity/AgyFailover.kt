@@ -2,7 +2,7 @@ package com.mazharansari.x.antigravity
 
 /**
  * Ported verbatim from Kodex (vayro runtime/AntigravityFailover.kt, v3.2.50): pure classification of an agy failure
- * for the auto-switch. Plus one Axion addition: [resetHint] reads "resets in 2h 10m" / "retry in 45s" / an ISO time.
+ * for the auto-switch. Plus one X addition: [resetHint] reads "resets in 2h 10m" / "retry in 45s" / an ISO time.
  */
 object AgyFailover {
     fun isQuotaFailure(reason: String): Boolean {

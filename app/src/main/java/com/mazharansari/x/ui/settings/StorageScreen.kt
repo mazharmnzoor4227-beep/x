@@ -64,12 +64,12 @@ fun StorageScreen(vm: ChatViewModel, back: () -> Unit, preset: List<StorageItem>
         }
         val total = list.sumOf { it.bytes }
         // Summary card: total + one coloured bar split by item
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.card).padding(18.dp)) {
-            Text("Axion uses", style = Type.small.copy(fontSize = 15.sp), color = p.text2)
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(18.dp)) {
+            Text("X uses", style = Type.small.copy(fontSize = 15.sp), color = p.text2)
             Text(StorageScan.label(total), style = Type.title.copy(fontSize = 30.sp, lineHeight = 36.sp), color = p.text)
             free?.let { Text("${StorageScan.label(it)} free on this phone", style = Type.small, color = p.text2) }
             Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(50)).background(if (p.isDark) Color(0xFF333333) else Color(0xFFE3E3E3))) {
+            Row(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).background(if (p.isDark) Color(0xFF333333) else Color(0xFFE3E3E3))) {
                 list.filter { it.bytes > 0 }.forEach { i -> Box(Modifier.weight((i.bytes.toFloat() / total.coerceAtLeast(1)).coerceAtLeast(0.004f)).fillMaxHeight().background(kindColor[i.kind] ?: p.text2)) }
             }
         }
@@ -81,7 +81,7 @@ fun StorageScreen(vm: ChatViewModel, back: () -> Unit, preset: List<StorageItem>
             SectionLabel("Cache")
             SettingsGroup { ItemRow(c, working == c.id, showButton = false) {} }
             Spacer(Modifier.height(14.dp))
-            Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(50.dp).clip(RoundedCornerShape(50)).background(if (c.bytes > 0 && working == null) p.accent else p.card)
+            Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(50.dp).clip(RoundedCornerShape(8.dp)).background(if (c.bytes > 0 && working == null) p.accent else p.card)
                 .clickable(enabled = c.bytes > 0 && working == null) { doDelete(c) }, contentAlignment = Alignment.Center) {
                 if (working == c.id) CircularProgressIndicator(Modifier.size(20.dp), color = p.onAccent, strokeWidth = 2.dp)
                 else Text(if (c.bytes > 0) "Clear cache (${StorageScan.label(c.bytes)})" else "Cache is empty", style = Type.body.copy(fontWeight = FontWeight.SemiBold),
@@ -121,7 +121,7 @@ private fun ItemRow(i: StorageItem, busy: Boolean, showButton: Boolean = true, o
                 Spacer(Modifier.height(6.dp))
                 if (busy) CircularProgressIndicator(Modifier.size(16.dp), color = p.text, strokeWidth = 2.dp)
                 else Text(i.deleteLabel, style = Type.tiny.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium), color = Color(0xFFFF6B6B),
-                    modifier = Modifier.clip(RoundedCornerShape(50)).border(1.dp, Color(0x55FF6B6B), RoundedCornerShape(50)).clickable(onClick = onDelete).padding(horizontal = 10.dp, vertical = 4.dp))
+                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).border(1.dp, Color(0x55FF6B6B), RoundedCornerShape(6.dp)).clickable(onClick = onDelete).padding(horizontal = 10.dp, vertical = 4.dp))
             }
         }
     }

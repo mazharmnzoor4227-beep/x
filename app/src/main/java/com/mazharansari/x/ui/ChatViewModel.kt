@@ -30,7 +30,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private var workerReturnToId: String? = null
     /** Bot Store (Phase 1): the parent bot's given name when returning from a worker chat. */
     private var workerReturnToName: String? = null
-    /** Bot Store (Phase 1): the bot this chat runs as (installed/created bot); null = plain Axion. Any bot can spawn workers; the name is what makes it the parent for its run. */
+    /** Bot Store (Phase 1): the bot this chat runs as (installed/created bot); null = plain X. Any bot can spawn workers; the name is what makes it the parent for its run. */
     var activeBot by mutableStateOf<com.mazharansari.x.data.BotDefinition?>(null); private set
     var title by mutableStateOf("")
     var messages by mutableStateOf<List<Message>>(emptyList()); private set
@@ -92,10 +92,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── v0.12 long tasks: a run the app lost mid-way (killed / crashed) is surfaced, not silently gone ─────────────
     var interruptedTask by mutableStateOf<com.mazharansari.x.data.TaskRunRecord?>(null); private set
-    /** P2-2: measured context usage of the open conversation's last run (null = no run yet). Shown above the composer. */
-    var contextUsage by mutableStateOf<com.mazharansari.x.agent.ContextUsage?>(null); private set
-    /** P2-4: measured speed of the last local-model run (null = no local run yet). Shown above the composer. */
-    var localSpeed by mutableStateOf<com.mazharansari.x.local.LocalSpeed?>(null); private set
+    // Redesign round 2 (§3.4): the measured context usage / local speed are no
+    // longer shown anywhere in chat. The measurement code stays (ContextUsage
+    // still drives auto-compaction in the agent; LocalSpeed still exists) —
+    // only the chat display and this ViewModel state are gone.
     init {
         viewModelScope.launch {
             // Phase 2 (background): EVERY run still marked running died with the process
@@ -128,16 +128,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     var debugTyped = ""
     /** Speed report: true = the pre-0.5.2 way (a client and a key decrypt for every key × model, up front). */
     var debugEagerClients = false
-    /** The PDF open in Axion's full-screen viewer (drawn over the whole Home, top bar included). */
+    /** The PDF open in X's full-screen viewer (drawn over the whole Home, top bar included). */
     var viewingPdf by mutableStateOf<com.mazharansari.x.data.Artifact?>(null)
-    /** axion-p1.3: an .html the agent wrote, previewed inside Axion. */
+    /** axion-p1.3: an .html the agent wrote, previewed inside X. */
     var viewingHtml by mutableStateOf<com.mazharansari.x.data.Artifact?>(null)
 
     fun shareConversation(id: String) = viewModelScope.launch {
         val c = g.chats.load(id) ?: return@launch
         val body = buildString {
             append(c.title).append("\n\n")
-            c.messages.forEach { m -> append(if (m.role == Role.USER) "Me: " else "Axion: ").append(m.text.trim()).append("\n\n") }
+            c.messages.forEach { m -> append(if (m.role == Role.USER) "Me: " else "X: ").append(m.text.trim()).append("\n\n") }
         }.trim()
         val ctx = getApplication<Application>()
         val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_SUBJECT, c.title).putExtra(android.content.Intent.EXTRA_TEXT, body)
@@ -191,7 +191,6 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         drafts.save(conversationId, draft)
         conversationId = null; title = ""; messages = emptyList(); pending.clear(); draft = ""; section = Section.ASK
         viewingWorkerTranscript = false; workerReturnToId = null; workerReturnToName = null; activeBot = null
-        contextUsage = null   // P2-2: the indicator belongs to the conversation just left
         projectId = null
         chatApprovedPatterns.clear()   // "This chat" approvals end with the chat
         refreshRunning()
@@ -200,15 +199,105 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Bot Store (Phase 1): start a chat AS an installed/created bot — its name, persona and
      * tool allow-list drive the run (see runAgent). The user types first; installing a bot
-     * never auto-runs it.
+     * never auto-runs it. This is the create-blank primitive only — UI must call
+     * [openBotChat] instead, never this directly (redesign round 2 §3.3).
      */
     fun startBotChat(bot: com.mazharansari.x.data.BotDefinition) {
         newChat()
         activeBot = bot
     }
 
-    /** Leave a bot chat: the next run is plain Axion again. */
-    fun exitBot() { activeBot = null }
+    /**
+     * Redesign round 2 (§3.3): the ONLY entry point for opening a bot chat.
+     * Reopens the bot's newest thread when it has one, else starts its first
+     * blank thread bound to the bot (persisted with botId on first send).
+     * Leaving a bot chat is just Back — there is no exitBot any more.
+     */
+    fun openBotChat(bot: com.mazharansari.x.data.BotDefinition) {
+        val existing = g.chats.latestForBot(bot.id)
+        if (existing != null) open(existing.id) else startBotChat(bot)
+    }
+
+    /** The bot's newest thread (for Home rows: last-message preview + time), or null. */
+    fun botThreadMeta(botId: String): ConversationMeta? = g.chats.latestForBot(botId)
+
+    // ── Addendum B (2026-11-19): builds inside chat ──────────────────────────────────────────────────────────────
+    /**
+     * The APK build for the open project, as the chat screen shows it live
+     * (null = no APK build started in this chat yet). The chat screen renders
+     * [com.mazharansari.x.build.JobState] Running lines, the Done APK card
+     * (install / share) and the Failed error + Retry — all inside the chat.
+     */
+    var apkBuild by mutableStateOf<com.mazharansari.x.build.JobState?>(null); private set
+    /** The project the [apkBuild] card belongs to — the chat only renders it while that project is open. */
+    var apkBuildPid by mutableStateOf<String?>(null); private set
+    private var apkWatchJob: Job? = null
+
+    /**
+     * Attach the open chat to a fresh Android project WITHOUT wiping the
+     * conversation (unlike [openProject], which opens a project's own empty
+     * chat). From here on, messages in this chat run build turns
+     * ([runBuildTurn]) and [buildApkInChat] compiles the project. The project
+     * is linked to this conversation so reopening it re-attaches the project.
+     */
+    fun attachProjectForBuild(name: String): String {
+        val clean = name.trim().take(48).ifBlank { "My app" }
+        val proj = g.build.create(clean, "android")
+        if (conversationId == null) {
+            conversationId = java.util.UUID.randomUUID().toString()
+            createdAt = System.currentTimeMillis()
+            title = clean
+        }
+        g.build.store.setConversation(proj.id, conversationId!!)
+        projectId = proj.id
+        return proj.id
+    }
+
+    /**
+     * Build the APK for the open project, from chat. A plain chat gets a
+     * project attached first ([attachProjectForBuild]); a project chat builds
+     * as-is. The Gradle output streams into [apkBuild] live, and on success
+     * the built APK is attached to the chat as a message artifact (install /
+     * share from the chat) — the build engine itself ([BuildHub.buildApk])
+     * is reused untouched.
+     */
+    fun buildApkInChat() {
+        val pid = projectId ?: attachProjectForBuild(title.ifBlank { "My app" })
+        val proj = g.build.store.get(pid) ?: run { toast = "That project is gone."; return }
+        if (!g.build.apkReady()) {
+            toast = "Install \"Android APK builder\" in Developer tools first (about 210 MB download)."
+            return
+        }
+        if (apkBuildPid == pid && (apkBuild as? com.mazharansari.x.build.JobState.Running) != null) return   // already building
+        apkBuildPid = pid
+        apkBuild = com.mazharansari.x.build.JobState.Running("Building APK", listOf("Starting Gradle — the first build downloads libraries and can take 5–15 minutes on a phone."))
+        g.build.buildApk(proj)
+        apkWatchJob?.cancel()
+        apkWatchJob = viewModelScope.launch {
+            g.build.jobs.collect { jobs ->
+                val st = jobs["$pid:apk"] ?: return@collect
+                apkBuild = st
+                if (st is com.mazharansari.x.build.JobState.Done && st.file != null) attachApkArtifact(java.io.File(st.file), pid)
+            }
+        }
+    }
+
+    /** Puts the built APK on the chat as a message artifact (install / share from the chat). */
+    private fun attachApkArtifact(apk: java.io.File, pid: String) {
+        if (projectId != pid) return   // the user opened another chat meanwhile — never write into it
+        if (!apk.isFile || apk.length() == 0L) return
+        if (messages.any { m -> m.artifacts.any { it.path == apk.absolutePath } }) return
+        val art = com.mazharansari.x.data.Artifact(apk.name, "application/vnd.android.package-archive", apk.absolutePath, apk.length())
+        val last = messages.lastOrNull()
+        messages = if (last != null && last.role == Role.ASSISTANT) {
+            messages.dropLast(1) + last.copy(artifacts = last.artifacts + art)
+        } else {
+            messages + Message(java.util.UUID.randomUUID().toString(), Role.ASSISTANT,
+                "APK ready: ${apk.name} (${apk.length() / 1024} KB). Tap it to install, or share it from the chat.",
+                artifacts = listOf(art), createdAt = System.currentTimeMillis())
+        }
+        persist(true)
+    }
 
     // ── v0.5 Build projects ────────────────────────────────────────────────────────────────────────────────────────
     /** The Build project whose chat is open (null = no project). Build turns run inside its folder. */
@@ -424,7 +513,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         if (back != null) open(back) else newChat()
     }
 
-    /** The parent bot's given name for the read-only banner above a worker transcript ("" = plain Axion). */
+    /** The parent bot's given name for the read-only banner above a worker transcript ("" = plain X). */
     fun workerParentName(): String = workerReturnToName.orEmpty()
 
     fun addAttachment(uri: Uri) = viewModelScope.launch(Dispatchers.IO) {
@@ -499,7 +588,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         // v0.5.2 security: an API key pasted into the chat is never sent to the AI or saved — it's masked (gsk_••••abcd).
         if (com.mazharansari.x.security.SecretScanner.contains(text)) {
             text = com.mazharansari.x.security.SecretScanner.scrub(text)
-            toast = "Axion hid an API key in your message. Keys are never sent in chat — add them in Settings → Connectors."
+            toast = "X hid an API key in your message. Keys are never sent in chat — add them in Settings → Connectors."
         }
         // Phase 2 (settings audit): "Paste as File" (Settings → Advanced) used to be a dead
         // control — the setting was never read and every giant paste was silently converted.
@@ -687,11 +776,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         var requestAt = 0L; var firstAt = 0L
         sess.job = viewModelScope.launch {
             // Bot Store (Phase 1): the bot this run answers as, captured at send time — its
-            // given name is the parent bot's name for this run ("Axion" when no bot is active).
+            // given name is the parent bot's name for this run ("X" when no bot is active).
             // Phase 2: read from the session, not the live activeBot — the user may have
             // switched chats (and bots) while this run works in the background.
             val bot = sess.bot
-            val botName = bot?.name ?: s.assistantName.ifBlank { "Axion" }
+            val botName = bot?.name ?: s.assistantName.ifBlank { "X" }
             // v0.8.0 (Phase C): register this run so WorkService keeps the process alive in the
             // background and the projects list / chat drawer can show it as Working.
             g.runs.register("run-$aid", sess.kind, sess.ownerId, sess.title.ifBlank { "Working" }, coroutineContext[kotlinx.coroutines.Job]!!, started)
@@ -763,7 +852,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     } else {
                         Agent(g.workspace, g.skills, baseTools = Agent.defaultTools() + GenerateImageTool(g.imageGen), extraTools = { g.mcp.tools() }, toolSwitches = { bot?.let { com.mazharansari.x.data.switchesForBot(it) } ?: g.settings.state.value.toolSwitches }, memory = g.memory, conversations = g.chats, researchMode = researchOn,
                             approvals = g.approvals, approver = approver, longTask = longTaskOn, turbo = turboOn, schedules = g.schedules, appCtx = getApplication(),
-                            contextBudget = ctxBudget, onContextUsage = { u -> viewModelScope.launch(Dispatchers.Main.immediate) { contextUsage = u } }).run(
+                            contextBudget = ctxBudget).run(
                             history, userItem, attempts = { if (pid != null) buildAttempts() else com.mazharansari.x.data.preferProvider(attempts(runMode, quick, onFreeWait = { secs -> freeWaitNotice(buf, secs) }), bot?.suggestedProvider) }, sink = sink,
                             profile = Profile(botName, s.userName, s.replyLanguage, s.instructions),
                             intent = if (pid != null) com.mazharansari.x.agent.Intent.CHAT else intent,   // agy brings its own tools
@@ -803,7 +892,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * P2-4: LOCAL mode + an action request — the on-device model runs the tool loop itself
      * (LocalAgentRunner: JSON tool calls for file/shell tools) instead of the cloud agent.
-     * Returns the final answer text; the measured speed lands in [localSpeed] for the chat UI.
+     * Returns the final answer text.
      */
     private suspend fun runLocalToolTurn(history: List<ChatItem>, user: UserItem, sink: AgentSink): String {
         val modelId = runCatching { g.connectors.local()?.localModel }.getOrNull()
@@ -828,13 +917,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             tools = tools, ctx = ctx, approvals = g.approvals, sink = sink,
         )
         val result = runner.run(history, user)
-        viewModelScope.launch(Dispatchers.Main.immediate) { localSpeed = result.speed }
+        // Redesign round 2 (§3.4): the measured speed is no longer shown in chat.
         sink.model("${model.title} · ${"%.1f".format(result.speed.tokPerSec)} tok/s")
         return result.answer
     }
 
     /**
-     * v0.5 Build turn: Antigravity works inside the project folder (plan → files → run), Axion verifies (site check, build,
+     * v0.5 Build turn: Antigravity works inside the project folder (plan → files → run), X verifies (site check, build,
      * screenshot + console errors) and sends any errors back for a fix, up to 2 rounds. Antigravity only — never API keys.
      */
     private suspend fun runBuildTurn(pid: String, u: Message, sink: AgentSink) {
@@ -895,7 +984,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val createdAt: Long,
         /** The Build project this run works in (null for Ask). Captured at send — never re-read. */
         val pid: String?,
-        /** The bot this run answers as (null = plain Axion). Captured at send — never re-read. */
+        /** The bot this run answers as (null = plain X). Captured at send — never re-read. */
         val bot: com.mazharansari.x.data.BotDefinition?,
         val buf: StreamBuffer,
         var msgs: List<Message>,
@@ -1046,7 +1135,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             "in the language the user speaks (Urdu, Hindi, English or a mix). No markdown, lists, emojis, links or code."
         val answer = Agent(g.workspace, g.skills, baseTools = listOf(WebSearchTool()), maxRounds = 4).run(
             hist, UserItem(text), attempts = { attempts(Mode.FAST) }, sink = sink,
-            profile = Profile(s.assistantName.ifBlank { "Axion" }, s.userName, s.replyLanguage, s.instructions + voiceRules),
+            profile = Profile(s.assistantName.ifBlank { "X" }, s.userName, s.replyLanguage, s.instructions + voiceRules),
         )
         answer.ifBlank { synchronized(out) { out.toString() } }
     }

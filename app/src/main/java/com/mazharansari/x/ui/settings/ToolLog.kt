@@ -46,7 +46,7 @@ fun ToolFailedActions(vm: ChatViewModel, toolId: String, onRetry: () -> Unit) {
 
 private fun copyLog(ctx: android.content.Context, vm: ChatViewModel, toolId: String): String {
     val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
-    cm?.setPrimaryClip(android.content.ClipData.newPlainText("Axion install log", vm.g.devtools.logText(toolId, 200)))
+    cm?.setPrimaryClip(android.content.ClipData.newPlainText("X install log", vm.g.devtools.logText(toolId, 200)))
     return "Log copied"
 }
 
@@ -82,7 +82,7 @@ fun AgySetupPanel(vm: ChatViewModel, onRetry: () -> Unit) {
     val working = st is com.mazharansari.x.linux.ToolStatus.Working
     val failed = st is com.mazharansari.x.linux.ToolStatus.Failed
     androidx.compose.animation.AnimatedVisibility(visible = working || failed || justDone) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.card).padding(16.dp)) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(16.dp)) {
             if (justDone && !working && !failed) {
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     com.mazharansari.x.ui.components.GkIcon(com.mazharansari.x.ui.components.Gk.circleCheck, null, 22.dp, Color(0xFF3DDC84))

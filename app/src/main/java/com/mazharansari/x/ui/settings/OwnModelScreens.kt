@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,7 +38,7 @@ private val ORed = Color(0xFFF04438)
 @Composable
 private fun HonestBanner(text: String) {
     val p = P
-    Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(if (p.isDark) Color(0xFF2A2210) else Color(0xFFFFF4DC)).padding(14.dp)) {
+    Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (p.isDark) Color(0xFF2A2210) else Color(0xFFFFF4DC)).padding(14.dp)) {
         GkIcon(Gk.info, null, 18.dp, OAmber); Spacer(Modifier.width(10.dp))
         Text(text, style = Type.small.copy(fontSize = 13.sp), color = p.text)
     }
@@ -60,8 +59,9 @@ fun LocalModelsScreen(vm: ChatViewModel, back: () -> Unit) {
         ScreenHeader("Local model", back)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding()) {
             HonestBanner("Runs on your phone with no internet. Honest: these small models are much slower and weaker than API models (Gemini, Groq…). Good for quick offline answers and small code snippets, not big projects. The phone gets warm. Local models answer chats only — they do not run tools or agent tasks; switch back to an API model for those.")
+            Note("Languages: Hindi works well on LFM3; Urdu is limited on all three — none of these models covers Urdu properly yet.", Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
             Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                @Composable fun box(label: String, value: String, m: Modifier) = Column(m.clip(RoundedCornerShape(14.dp)).background(p.card).padding(12.dp)) {
+                @Composable fun box(label: String, value: String, m: Modifier) = Column(m.clip(RoundedCornerShape(10.dp)).background(p.card).padding(12.dp)) {
                     Text(value, style = Type.row.copy(fontSize = 16.sp), color = p.text); Text(label, style = Type.tiny, color = p.text2)
                 }
                 box("Phone RAM", if (ram.first > 0) "%.1f GB".format(ram.first) else "—", Modifier.weight(1f))
@@ -72,23 +72,24 @@ fun LocalModelsScreen(vm: ChatViewModel, back: () -> Unit) {
             LocalModel.entries.forEach { m ->
                 val st = states[m.id] ?: DlState.None
                 val verdict = if (ram.first > 0) LocalModelStore.ramVerdict(m, ram.first, ram.second) else null
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 5.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.card)
-                    .then(if (active == m.id) Modifier.border(1.5.dp, p.text, RoundedCornerShape(20.dp)) else Modifier).padding(16.dp)) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 5.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card)
+                    .then(if (active == m.id) Modifier.border(1.5.dp, p.text, RoundedCornerShape(10.dp)) else Modifier).padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(if (m.family == "Qwen") Color(0xFF3B2A6B) else Color(0xFF1F4E79)), contentAlignment = Alignment.Center) {
-                            Text(if (m.family == "Qwen") "Qw" else "Ge", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(if (m.family == "Qwen") Color(0xFF3B2A6B) else Color(0xFF6B4A1F)), contentAlignment = Alignment.Center) {
+                            Text(if (m.family == "Qwen") "Qw" else "Lf", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(m.title, style = Type.row, color = p.text)
-                            Text("${m.params} · ${mb(m.bytes / 1024)} · needs ${m.minRamGb} GB+ RAM", style = Type.tiny, color = p.text2)
+                            Text("${m.params} · ${if (m.bytes > 0) mb(m.bytes / 1024) else "~1.28 GB (to confirm)"} · needs ${m.minRamGb} GB+ RAM", style = Type.tiny, color = p.text2)
                         }
                         when {
                             active == m.id -> Badge("In use", p.accent)
                             st == DlState.Ready -> Badge("Downloaded", p.accent)
                         }
                     }
-                    Text(m.blurb, style = Type.small.copy(fontSize = 13.sp), color = p.text2, modifier = Modifier.padding(top = 8.dp))
+                    Text(m.purpose.uppercase(), style = Type.eyebrow, color = p.accent, modifier = Modifier.padding(top = 8.dp))
+                    Text(m.blurb, style = Type.small.copy(fontSize = 13.sp), color = p.text2, modifier = Modifier.padding(top = 4.dp))
                     if (verdict != null && st != DlState.Ready) Text(verdict, style = Type.small.copy(fontSize = 13.sp), color = OAmber, modifier = Modifier.padding(top = 6.dp))
                     when (st) {
                         is DlState.Downloading -> {
@@ -111,7 +112,8 @@ fun LocalModelsScreen(vm: ChatViewModel, back: () -> Unit) {
                                 SmallButton("Delete") { if (active == m.id) g.connectors.setLocal(null); store.delete(m) }
                             }
                             is DlState.Downloading, DlState.Verifying -> {}
-                            else -> SmallButton("Download ${mb(m.bytes / 1024)}", filled = true) { if (verdict != null) confirm = m else store.download(m) }
+                            else -> if (m.url.isBlank()) Text("Download link not confirmed yet — the exact file is being checked.", style = Type.tiny, color = p.text2)
+                            else SmallButton("Download ${mb(m.bytes / 1024)}", filled = true) { if (verdict != null) confirm = m else store.download(m) }
                         }
                     }
                 }
@@ -121,7 +123,7 @@ fun LocalModelsScreen(vm: ChatViewModel, back: () -> Unit) {
                 Note("Ask's model menu now has \"Local model\". Pick it to answer offline first; otherwise it's the backup after your API keys and before Free (slow).", Modifier.padding(horizontal = 20.dp))
                 ToggleRow(Gk.bolt, "Answer with the local model first", "Same as picking it in the model menu", settings.mode == "LOCAL") { on -> g.settings.update { it.copy(mode = if (on) "LOCAL" else "AUTO") } }
             }
-            Note("Models come from Hugging Face (Qwen and Google's Gemma, GGUF Q4_K_M) and are checked with their SHA-256 after download.", Modifier.padding(horizontal = 20.dp, vertical = 14.dp))
+            Note("Models come from Hugging Face (Liquid AI and Qwen, GGUF Q4_K_M) and are checked with their SHA-256 after download.", Modifier.padding(horizontal = 20.dp, vertical = 14.dp))
             Spacer(Modifier.height(30.dp))
         }
     }
@@ -202,7 +204,7 @@ fun ServerGuideScreen(back: () -> Unit) {
                 "sudo systemctl enable --now ollama\nsystemctl status ollama --no-pager")
             GuideStep(6, "HTTPS with a password (Caddy + sslip.io)", "sslip.io gives your IP a free name, Caddy gets a free certificate. Replace 1-2-3-4 with your IP (dashes) and pick your own key:",
                 "sudo apt install -y caddy\nsudo tee /etc/caddy/Caddyfile <<'EOF'\n1-2-3-4.sslip.io {\n  @nokey not header Authorization \"Bearer MY-SECRET-KEY\"\n  respond @nokey 401\n  reverse_proxy 127.0.0.1:11434\n}\nEOF\nsudo systemctl restart caddy")
-            GuideStep(7, "Connect Axion", "Connectors → My server. Address: https://1-2-3-4.sslip.io · API key: MY-SECRET-KEY · tap Test connection, pick qwen2.5-coder:7b, then Add to Ask.")
+            GuideStep(7, "Connect X", "Connectors → My server. Address: https://1-2-3-4.sslip.io · API key: MY-SECRET-KEY · tap Test connection, pick qwen2.5-coder:7b, then Add to Ask.")
             Note("Oracle may reclaim Always Free servers that sit idle for a long time; using it regularly keeps it active.", Modifier.padding(horizontal = 20.dp, vertical = 14.dp))
             Spacer(Modifier.height(30.dp))
         }
@@ -212,9 +214,9 @@ fun ServerGuideScreen(back: () -> Unit) {
 @Composable
 private fun GuideStep(n: Int, title: String, body: String?, code: String? = null) {
     val p = P; val clip = LocalClipboardManager.current
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(p.card).padding(16.dp)) {
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(26.dp).clip(CircleShape).background(p.chip), contentAlignment = Alignment.Center) { Text("$n", style = Type.small.copy(fontWeight = FontWeight.Bold), color = p.text) }
+            Box(Modifier.size(26.dp).clip(RoundedCornerShape(6.dp)).background(p.chip), contentAlignment = Alignment.Center) { Text("$n", style = Type.small.copy(fontWeight = FontWeight.Bold), color = p.text) }
             Spacer(Modifier.width(10.dp))
             Text(title, style = Type.row, color = p.text)
         }

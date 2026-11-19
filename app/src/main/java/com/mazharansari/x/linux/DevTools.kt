@@ -72,7 +72,7 @@ object AgyCli {
             ?: files.filter { it.canExecute() }.maxByOrNull { it.length() }
     }
 
-    /** Puts [binary] where Axion and the Build agent run it: /root/.local/bin/agy (+ /usr/local/bin/agy link). */
+    /** Puts [binary] where X and the Build agent run it: /root/.local/bin/agy (+ /usr/local/bin/agy link). */
     fun installInto(rootfs: File, binary: File) {
         val bin = File(rootfs, "root/.local/bin").apply { mkdirs() }
         val dest = File(bin, "agy"); val tmp = File(bin, "agy.new")
@@ -215,7 +215,7 @@ class DevTools(private val ctx: Context, val linux: LinuxRuntime) {
         val t = Toolchain.byId(j.tool) ?: return@coroutineScope
         current = launch {
             val verb = when (j.action) { "install" -> "Installing"; "update" -> "Updating"; else -> "Removing" }
-            raw[t.id] = ArrayDeque(); _live.value = _live.value - t.id; rawLine(t.id, "Axion ${com.mazharansari.x.BuildConfig.VERSION_NAME} · $verb ${t.title} · ${java.util.Date()} · Android ${android.os.Build.VERSION.RELEASE} (${android.os.Build.SUPPORTED_ABIS.firstOrNull()})")
+            raw[t.id] = ArrayDeque(); _live.value = _live.value - t.id; rawLine(t.id, "X ${com.mazharansari.x.BuildConfig.VERSION_NAME} · $verb ${t.title} · ${java.util.Date()} · Android ${android.os.Build.VERSION.RELEASE} (${android.os.Build.SUPPORTED_ABIS.firstOrNull()})")
             try {
                 _log.value = _log.value + (t.id to emptyList())
                 val freshLinux = !linux.isInstalled()
@@ -270,7 +270,7 @@ class DevTools(private val ctx: Context, val linux: LinuxRuntime) {
         if (!sum.equals(AgyCli.SHA512_ARM64, true)) { tgz.delete(); rawLine(uiId, "[agy] sha512 mismatch: $sum"); error("The Antigravity download was damaged (checksum). Tap Retry.") }
         prog(80, "Unpacking")
         val x = File(dir, "x").apply { deleteRecursively(); mkdirs() }
-        LinuxRuntime.extractTarGz(tgz, x)
+        LinuxRuntime.extractTarGz(tgz, x, onSkipped = { rawLine(uiId, "[agy] $it") })
         val bin = AgyCli.findBinary(x) ?: error("Antigravity binary not found in the download")
         rawLine(uiId, "[agy] binary ${bin.name} ${bin.length()} bytes")
         prog(90, "Installing")

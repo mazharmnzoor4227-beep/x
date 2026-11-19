@@ -47,14 +47,18 @@ sealed interface UpdateState {
 
 /** Pure parts (unit-tested on the JVM): feed parsing, version compare, hashes, the certificate rule. */
 object UpdateRules {
-    /** v0.9.3: the phone's app has checked this feed since 0.9.2 (and the PC agent publishes here). */
-    const val FEED = "https://axion.130-210-62-94.sslip.io/dl/latest.json"
-    /** The repo feed carries the same releases; P0-2 (CR-2): the updater must check BOTH feeds. */
-    const val REPO_FEED = "https://claworabeauty.store/uploads/dl/axion/latest.json"
-    /** Both feeds, in order: whichever answers with the higher versionCode wins. */
-    val FEEDS = listOf(FEED, REPO_FEED)
-    /** SHA-256 of Axion's release signing certificate. An update signed with any other key is refused. */
-    const val CERT_SHA256 = "d064d58577350df28a532b83062e55a1ddc573799db702634af17fdc70c2e8c4"
+    /**
+     * Redesign round 2, Addendum C: X has NO update feed yet. The two Axion feeds this app
+     * inherited from the donor code (axion.130-210-62-94.sslip.io and
+     * claworabeauty.store/uploads/dl/axion) are DELETED — they served Axion's updates, and
+     * that is exactly the banner the user saw ("Update available" offering Axion's update).
+     * X gets its own feed (its own GitHub repo mazharmnzoor4227-beep/x releases) later; until
+     * then the check is disabled by design: [AppUpdater.check] returns a Failed state that
+     * says so, and [AppUpdater.quietCheck] does nothing. Do NOT point this at any Axion URL.
+     */
+    val FEEDS: List<String> = emptyList()
+    /** SHA-256 of X's release signing certificate (x-release keystore). An update signed with any other key is refused. */
+    const val CERT_SHA256 = "7f458cdb4e0b7e8f11a3a6be4d893f8f8c78becfeb56949a0f549bc862328b0f"
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     fun parse(text: String): UpdateInfo {
@@ -100,6 +104,11 @@ class AppUpdater(
         set(v) { prefs.edit().putInt("dismissed", v).apply() }
 
     suspend fun check(): UpdateState = withContext(Dispatchers.IO) {
+        // No feed configured (Addendum C): never touch the network, never offer anything.
+        if (feeds.isEmpty()) {
+            val st = UpdateState.Failed("X does not check for updates yet — its own update feed is not set up.")
+            _state.value = st; return@withContext st
+        }
         _state.value = UpdateState.Checking
         val st = try {
             // P0-2: ask every feed; a dead host (or a bad feed) is skipped, not fatal — the
@@ -134,6 +143,7 @@ class AppUpdater(
     /** On app start, at most once a day, silently; a notification when something newer is out. */
     suspend fun quietCheck() {
         if (Build.FINGERPRINT == "robolectric") return
+        if (feeds.isEmpty()) return   // no feed yet (Addendum C): no check, no banner, no notification
         val last = prefs.getLong("lastCheck", 0)
         if (System.currentTimeMillis() - last < 24 * 3_600_000L) return
         val st = check()
@@ -142,7 +152,7 @@ class AppUpdater(
         } else if (st is UpdateState.Failed) _state.value = UpdateState.Idle   // a quiet check never shows an error
     }
 
-    private fun apkFile(info: UpdateInfo) = File(dir, "Axion-${info.versionName}.apk")
+    private fun apkFile(info: UpdateInfo) = File(dir, "X-${info.versionName}.apk")
 
     suspend fun download(info: UpdateInfo): UpdateState = withContext(Dispatchers.IO) {
         dir.mkdirs(); dir.listFiles()?.filter { it.name != apkFile(info).name && it.name != apkFile(info).name + ".part" && !it.name.startsWith(apkFile(info).name + ".part.seg") }?.forEach { it.delete() }
@@ -159,7 +169,7 @@ class AppUpdater(
             if (info.size > 0 && part.length() != info.size) { part.delete(); return@withContext fail("The download was incomplete (${UpdateRules.mb(part.length())} of ${UpdateRules.mb(info.size)}). Try again.", info) }
             if (UpdateRules.sha256(part) != info.sha256) { part.delete(); return@withContext fail("The downloaded file didn't match its checksum, so it was deleted. Try again.", info) }
             val certs = certReader?.invoke(part) ?: signerCerts(part)
-            if (!UpdateRules.certOk(certs)) { part.delete(); return@withContext fail("This update isn't signed with Axion's key, so it won't be installed.", info) }
+            if (!UpdateRules.certOk(certs)) { part.delete(); return@withContext fail("This update isn't signed with X's key, so it won't be installed.", info) }
             val f = apkFile(info); f.delete(); part.renameTo(f)
             UpdateState.Ready(info, f).also { _state.value = it }
         } catch (e: Exception) { fail(UpdateRules.friendly(e), info) }
@@ -208,7 +218,7 @@ class AppUpdater(
 
     fun canInstall(): Boolean = Build.VERSION.SDK_INT < 26 || ctx.packageManager.canRequestPackageInstalls()
 
-    /** Android's "Install unknown apps" page for Axion. */
+    /** Android's "Install unknown apps" page for X. */
     fun installPermissionIntent(): Intent =
         Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + ctx.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
@@ -216,7 +226,7 @@ class AppUpdater(
     fun install(file: File) {
         // v0.5.2: check the signing key again right before handing the file to Android (it sat in the cache meanwhile).
         val certs = certReader?.invoke(file) ?: signerCerts(file)
-        if (!UpdateRules.certOk(certs)) { file.delete(); throw SecurityException("This update isn't signed with Axion's key, so it won't be installed.") }
+        if (!UpdateRules.certOk(certs)) { file.delete(); throw SecurityException("This update isn't signed with X's key, so it won't be installed.") }
         val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", file)
         val i = Intent(Intent.ACTION_INSTALL_PACKAGE).setDataAndType(uri, "application/vnd.android.package-archive")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -229,7 +239,7 @@ class AppUpdater(
         if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(NotificationChannel(CH, "App updates", NotificationManager.IMPORTANCE_DEFAULT))
         val open = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)!!.putExtra(EXTRA_OPEN_ABOUT, true)
         val pi = PendingIntent.getActivity(ctx, 7, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        nm.notify(NID, NotificationCompat.Builder(ctx, CH).setSmallIcon(android.R.drawable.stat_sys_download_done).setContentTitle("Axion ${info.versionName} is available")
+        nm.notify(NID, NotificationCompat.Builder(ctx, CH).setSmallIcon(android.R.drawable.stat_sys_download_done).setContentTitle("X ${info.versionName} is available")
             .setContentText(info.notes.ifBlank { "Tap to update." }).setContentIntent(pi).setAutoCancel(true).build())
     }
 
@@ -238,6 +248,6 @@ class AppUpdater(
 
     companion object {
         const val CH = "updates"; const val NID = 4107
-        const val EXTRA_OPEN_ABOUT = "axion.open_about"
+        const val EXTRA_OPEN_ABOUT = "x.open_about"
     }
 }

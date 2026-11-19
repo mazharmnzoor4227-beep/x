@@ -31,7 +31,7 @@ class DevToolsService : Service() {
         fun build(ctx: Context, text: String, pct: Int): Notification {
             channel(ctx)
             val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(ctx, CH) else @Suppress("DEPRECATION") Notification.Builder(ctx)
-            return b.setSmallIcon(android.R.drawable.stat_sys_download).setContentTitle("Axion · Developer tools").setContentText(text)
+            return b.setSmallIcon(android.R.drawable.stat_sys_download).setContentTitle("X · Developer tools").setContentText(text)
                 .setOngoing(true).setOnlyAlertOnce(true).apply { if (pct in 0..100) setProgress(100, pct, false) else setProgress(0, 0, true) }.build()
         }
 

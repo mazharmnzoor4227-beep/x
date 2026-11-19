@@ -8,7 +8,10 @@
     </style>
     <style name="Theme.X.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/axion_bg</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/axion_splash</item>
+        <!-- Redesign round 2: no windowSplashScreenAnimatedIcon — the old
+             axion_splash drawable was deleted with the cartoon logo, and
+             without this item the system shows the launcher icon (the
+             abstract ribbon mark, not a cartoon character) on the splash. -->
         <item name="postSplashScreenTheme">@style/Theme.X</item>
     </style>
 </resources>

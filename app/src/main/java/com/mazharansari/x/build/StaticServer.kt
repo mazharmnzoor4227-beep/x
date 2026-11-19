@@ -75,7 +75,7 @@ class StaticServer(private val root: File, private val spaFallback: Boolean = tr
 }
 
 /**
- * Fast checks of a static site Axion runs after every Build turn, on the phone itself (no Linux needed): broken local
+ * Fast checks of a static site X runs after every Build turn, on the phone itself (no Linux needed): broken local
  * links/scripts/images, missing viewport, empty page, and the folder that should be served/deployed.
  */
 object SiteChecker {

@@ -53,7 +53,7 @@ class SameVoiceCall(
         if (m) { destroyRec(); micLevel = 0f } else if (_state.value.phase == Phase.LISTENING) listen()
     }
 
-    /** Orb tap: while Axion talks or thinks, cut in and listen. */
+    /** Orb tap: while X talks or thinks, cut in and listen. */
     fun interrupt() {
         when (_state.value.phase) {
             Phase.SPEAKING -> ReadAloudPlayer.stop()

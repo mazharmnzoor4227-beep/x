@@ -7,12 +7,12 @@ import java.util.Locale
 
 /**
  * Phase 2 — the WhatsApp-style chat list: one row per conversation, like a
- * friend in a messenger. A row is Axion or one bot (its logo, name, last
+ * friend in a messenger. A row is X or one bot (its logo, name, last
  * message, time, and a Working mark while its run is still going in the
  * background). Worker transcripts stay out of this list (they live in Bots).
  * Pure row-building logic, no Android dependency — the drawer maps
  * [com.mazharansari.x.data.ConversationMeta] onto [ChatListMeta].
- * Original Axion code.
+ * Original X code.
  */
 
 /** The fields a chat-list row needs (mapped from ConversationMeta by the caller). */

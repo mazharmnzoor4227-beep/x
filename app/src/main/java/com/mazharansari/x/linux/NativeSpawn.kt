@@ -73,7 +73,7 @@ internal object NativeSpawn {
     const val STILL_RUNNING = -2
     init {
         try { System.loadLibrary("pocketspawn") } catch (e: UnsatisfiedLinkError) {
-            throw IllegalStateException("Linux launcher library (libpocketspawn.so) is missing. Reinstall Axion.", e)
+            throw IllegalStateException("Linux launcher library (libpocketspawn.so) is missing. Reinstall X.", e)
         }
     }
     external fun spawn(argv: Array<String>, environment: Array<String>, cwd: String, outputFile: String, pseudoTerminal: Boolean, ptyRows: Int, ptyColumns: Int): IntArray?

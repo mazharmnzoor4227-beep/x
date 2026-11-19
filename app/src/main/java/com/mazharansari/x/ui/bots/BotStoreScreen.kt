@@ -35,22 +35,22 @@ import com.mazharansari.x.ui.theme.P
  * it does, and its source repo + licence. Tapping Install stores that bot's definition
  * bundle (persona + skills + tool allow-list) in the app's own storage — nothing runs
  * until the user starts a chat with it from the Bots section, and no foreign code is ever
- * executed: every installed bot runs on Axion's own agent loop. All seeds come from
+ * executed: every installed bot runs on X's own agent loop. All seeds come from
  * verified MIT/Apache sources (see third_party/NOTICE-bot-store.md); never Andee,
  * Locus-AGPL, Aether-GPL or Operit-LGPL code.
- * Original Axion code; no code copied from any other project.
+ * Original X code; no code copied from any other project.
  */
 @Composable
 fun BotStoreScreen(vm: ChatViewModel, back: () -> Unit) {
     val p = P
     val installed by vm.g.botStore.definitions.collectAsState()
     SettingsPage("Bot Store", back) {
-        Text("Install a bot to give it work. A bot is a definition — persona, skills and a tool allow-list — run on Axion's own agent loop. Install never starts a bot; you start it from the Bots section.",
+        Text("Install a bot to give it work. A bot is a definition — persona, skills and a tool allow-list — run on X's own agent loop. Install never starts a bot; you start it from the Bots section.",
             fontSize = 13.sp, color = p.text2, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp))
         BotCatalog.seeds.forEach { seed ->
             val isIn = installed.any { it.id == seed.id }
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
-                .clip(RoundedCornerShape(16.dp)).background(p.card).padding(14.dp)) {
+                .clip(RoundedCornerShape(10.dp)).background(p.card).padding(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     BotLogoView(seed.logo, seed.name, 44.dp)
                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
@@ -72,7 +72,7 @@ fun BotStoreScreen(vm: ChatViewModel, back: () -> Unit) {
                         Button(
                             onClick = {
                                 vm.g.botStore.install(seed)
-                                vm.toast = "Installed '${seed.name}' — find it in Bots → Your bots"
+                                vm.toast = "Installed '${seed.name}' — find it in the Bots section on Home"
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = p.accent, contentColor = p.onAccent),
                         ) { Text("Install") }
@@ -80,7 +80,7 @@ fun BotStoreScreen(vm: ChatViewModel, back: () -> Unit) {
                 }
             }
         }
-        Text("Providers: bots run on the free providers you already use — Gemini, Grok, OpenRouter — through Axion's provider system and failover. Antigravity is the Build engine.",
+        Text("Providers: bots run on the free providers you already use — Gemini, Grok, OpenRouter — through X's provider system and failover. Antigravity is the Build engine.",
             fontSize = 12.sp, color = p.text3, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp))
         Spacer(Modifier.height(8.dp))
     }

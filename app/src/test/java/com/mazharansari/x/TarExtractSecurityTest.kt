@@ -11,12 +11,18 @@ import java.nio.file.Files
 import java.util.zip.GZIPOutputStream
 
 /**
- * P0-8 (HI-6): extractTarGz used to exempt symlinks from its path-escape check
- * (`require(… || e.isSymbolicLink)`) and never validated the symlink TARGET, so a malicious
- * tar could plant a link pointing outside the destination and a later entry written through
- * it would escape the sandbox. These tests build malicious tars the same way an attacker
- * would and assert extraction refuses them — and that a legitimate in-destination symlink
- * still works.
+ * P0-8 (HI-6) history: extractTarGz used to exempt symlinks from its path-escape check
+ * and never validated the symlink TARGET, so a malicious tar could plant a link pointing
+ * outside the destination and a later entry written through it would escape the sandbox.
+ *
+ * Policy since redesign round 2 (Addendum A): an absolute symlink target is REWRITTEN to a
+ * path relative to the link's parent inside the destination — rootfs tarballs legitimately
+ * contain rootfs-absolute links (e.g. /usr/bin/foo -> /etc/alternatives/foo), and resolving
+ * them against the host used to abort the whole install with "Unsafe symlink target in
+ * archive". A target that still escapes the destination after normalisation (absolute or
+ * relative) cannot be load-bearing inside the rootfs, so the link is SKIPPED and reported
+ * via onSkipped instead of aborting — nothing is ever written outside the destination.
+ * Entry paths that escape and hard-link targets that escape are still refused outright.
  */
 class TarExtractSecurityTest {
 
@@ -48,30 +54,59 @@ class TarExtractSecurityTest {
         }
     }
 
-    @Test fun absoluteSymlinkEscapeRefused() {
+    @Test fun absoluteSymlinkRewrittenInsideDest() {
         val work = Files.createTempDirectory("p0-8-").toFile()
         try {
             val dest = File(work, "dest").apply { mkdirs() }
             val outside = File(work, "outside").apply { mkdirs() }
             val tgz = File(work, "evil.tgz")
-            // the attack from the audit: a symlink to /data/data/… (here: a sibling dir outside
-            // dest) plus a file written through it
+            // The old attack: a symlink to an absolute path outside the destination plus a
+            // file written through it. New policy: the link is rewritten to a relative target
+            // inside dest, so the file lands inside dest and nothing escapes.
             buildTar(tgz) { symlink("evil", outside.absolutePath); file("evil/pwned.txt", "pwned".toByteArray()) }
-            assertRefused(tgz, dest, "symlink to an absolute path outside the destination")
-            assertFalse("nothing may be written through the refused link", File(outside, "pwned.txt").exists())
-            assertFalse("the malicious link itself must not be planted", File(dest, "evil").exists())
+            LinuxRuntime.extractTarGz(tgz, dest)
+            assertFalse("nothing may be written outside the destination", File(outside, "pwned.txt").exists())
+            assertTrue("the link is planted, rewritten inside dest", Files.isSymbolicLink(File(dest, "evil").toPath()))
+            val target = Files.readSymbolicLink(File(dest, "evil").toPath()).toString()
+            assertFalse("rewritten target must be relative, never host-absolute", target.startsWith("/"))
+            assertFalse("rewritten target must not climb out of dest", target.startsWith(".."))
+            assertEquals("the file written through the link lands inside dest", "pwned", File(dest, "evil/pwned.txt").readText())
         } finally { work.deleteRecursively() }
     }
 
-    @Test fun relativeSymlinkEscapeRefused() {
+    @Test fun relativeSymlinkEscapeSkipped() {
         val work = Files.createTempDirectory("p0-8-").toFile()
         try {
             val dest = File(work, "dest").apply { mkdirs() }
             val outside = File(work, "outside").apply { mkdirs() }
             val tgz = File(work, "evil.tgz")
-            buildTar(tgz) { symlink("sub/link", "../../outside"); file("sub/link/pwned.txt", "pwned".toByteArray()) }
-            assertRefused(tgz, dest, "relative symlink whose resolved target escapes the destination")
+            val skipped = mutableListOf<String>()
+            buildTar(tgz) { symlink("sub/link", "../../outside"); file("sub/link/pwned.txt", "pwned".toByteArray()); file("good.txt", "good".toByteArray()) }
+            // A relative target that escapes dest cannot be load-bearing inside the rootfs:
+            // the link is skipped and reported, the rest of the archive still extracts.
+            LinuxRuntime.extractTarGz(tgz, dest, onSkipped = { skipped += it })
             assertFalse(File(outside, "pwned.txt").exists())
+            assertFalse("the escaping link must not be planted", Files.isSymbolicLink(File(dest, "sub/link").toPath()))
+            assertEquals("the skipped link is reported", 1, skipped.size)
+            assertTrue("the report names the link", skipped[0].contains("sub/link"))
+            assertEquals("the file written through the skipped link lands inside dest as a plain file", "pwned", File(dest, "sub/link/pwned.txt").readText())
+            assertEquals("the rest of the archive still extracts", "good", File(dest, "good.txt").readText())
+        } finally { work.deleteRecursively() }
+    }
+
+    @Test fun absoluteSymlinkToLaterFileResolves() {
+        val work = Files.createTempDirectory("p0-8-").toFile()
+        try {
+            val dest = File(work, "dest").apply { mkdirs() }
+            val tgz = File(work, "ubuntu.tgz")
+            // The real Ubuntu-base case: /usr/bin/foo -> /etc/alternatives/foo, where the
+            // target file comes LATER in the archive. The rewritten relative link must
+            // resolve to it once the file exists.
+            buildTar(tgz) { symlink("usr/bin/foo", "/etc/alternatives/foo"); file("etc/alternatives/foo", "alt".toByteArray()) }
+            LinuxRuntime.extractTarGz(tgz, dest)
+            assertTrue(Files.isSymbolicLink(File(dest, "usr/bin/foo").toPath()))
+            assertEquals("../../etc/alternatives/foo", Files.readSymbolicLink(File(dest, "usr/bin/foo").toPath()).toString())
+            assertEquals("alt", File(dest, "usr/bin/foo").readText())
         } finally { work.deleteRecursively() }
     }
 

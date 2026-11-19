@@ -92,7 +92,7 @@ class MainActivity : Activity() {
         val title = TextView(this).apply {
             text = getString(R.string.app_name); textSize = 30f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
         }
-        val sub = TextView(this).apply { text = "Made with Axion"; textSize = 16f; setTextColor(Color.parseColor("#9A9A9A")); gravity = Gravity.CENTER }
+        val sub = TextView(this).apply { text = "Made with X"; textSize = 16f; setTextColor(Color.parseColor("#9A9A9A")); gravity = Gravity.CENTER }
         setContentView(LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setBackgroundColor(Color.parseColor("#0B0B0B"))
             addView(title); addView(sub)
