@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.os.StatFs
 import android.system.Os
-import android.util.Log
 import com.mazharansari.x.llm.Http
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -131,11 +130,10 @@ class LinuxRuntime(private val ctx: Context) {
                 if (!sum.equals(LinuxBase.ROOTFS_SHA256, true)) { download.delete(); error("The Ubuntu download was damaged (checksum). Tap install again.") }
                 report(LinuxProgress("Unpacking ${LinuxBase.UBUNTU}", 0.65f))
                 val staging = File(home, "ubuntu.staging").apply { deleteRecursively(); mkdirs() }
-                val skippedLinks = mutableListOf<String>()
-                extractTarGz(download, staging, onCount = { n -> report(LinuxProgress("Unpacking ${LinuxBase.UBUNTU} · $n files", 0.65f + 0.3f * (n / 3500f).coerceAtMost(1f))) }, onSkipped = { skippedLinks += it })
-                // Absolute links were rewritten inside the rootfs (see extractTarGz); the ones
-                // skipped here pointed outside it and can never be load-bearing inside it.
-                if (skippedLinks.isNotEmpty()) Log.w("LinuxRuntime", "ensureBase skipped ${skippedLinks.size} symlink(s) pointing outside the rootfs: ${skippedLinks.take(5)}")
+                // Absolute links are rewritten inside the rootfs (see extractTarGz); the
+                // ones skipped pointed outside it and can never be load-bearing inside it.
+                // (No Log call here: the security test forbids logging anywhere in app code.)
+                extractTarGz(download, staging, onCount = { n -> report(LinuxProgress("Unpacking ${LinuxBase.UBUNTU} · $n files", 0.65f + 0.3f * (n / 3500f).coerceAtMost(1f))) })
                 rootfs.deleteRecursively()
                 check(staging.renameTo(rootfs)) { "Could not move the Linux files into place" }
                 File(rootfs, LinuxBase.ROOTFS_MARKER).writeText(LinuxBase.ROOTFS_URL.substringAfterLast('/'))
@@ -468,7 +466,12 @@ class LinuxRuntime(private val ctx: Context) {
                                     } else raw
                                 }
                                 if (stored != null) {
-                                    target.parentFile?.mkdirs(); target.delete()
+                                    // A parent reached through a rewritten symlink may not
+                                    // exist yet (the link points at a path inside dest that
+                                    // no entry created): mkdirs the RESOLVED parent, not the
+                                    // lexical one — target.canonicalPath was already checked
+                                    // to be inside dest above.
+                                    File(target.canonicalPath).parentFile?.mkdirs(); target.delete()
                                     // Os.symlink is a silent no-op in JVM unit tests (returnDefaultValues),
                                     // so verify the link really exists and fall back to the NIO call.
                                     val linked = runCatching { Os.symlink(stored, target.absolutePath) }.isSuccess &&
@@ -487,7 +490,12 @@ class LinuxRuntime(private val ctx: Context) {
                                 hardLinks += target to src
                             }
                             e.isFile -> {
-                                target.parentFile?.mkdirs()
+                                // Same as the symlink branch: a parent reached through a
+                                // rewritten symlink may not exist yet, so mkdirs the
+                                // RESOLVED parent — otherwise a file written through such
+                                // a link fails with FileNotFoundException even though the
+                                // path is safely inside dest (TarExtractSecurityTest).
+                                File(target.canonicalPath).parentFile?.mkdirs()
                                 FileOutputStream(target).use { tar.copyTo(it, 1 shl 16) }
                                 runCatching { Os.chmod(target.absolutePath, e.mode and "7777".toInt(8)) }.onFailure { target.setExecutable(e.mode and 0b001001001 != 0, false) }
                             }
@@ -500,7 +508,7 @@ class LinuxRuntime(private val ctx: Context) {
             hardLinks.forEach { (link, src) ->
                 // Re-check now that every entry exists: the source's real location (through any symlink) must still be inside dest.
                 require(inside(src.canonicalPath)) { "Unsafe hard link target in archive: ${src.path}" }
-                link.parentFile?.mkdirs(); link.delete()
+                File(link.canonicalPath).parentFile?.mkdirs(); link.delete()
                 // Os.link is a silent no-op in JVM unit tests (returnDefaultValues) — verify
                 // the link really exists and fall back to copying the source's bytes.
                 val linked = runCatching { Os.link(src.absolutePath, link.absolutePath) }.isSuccess && link.exists()

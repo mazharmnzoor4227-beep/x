@@ -84,6 +84,12 @@ class V03ScreensTest {
         org.robolectric.Shadows.shadowOf(app).grantPermissions(android.Manifest.permission.RECORD_AUDIO)
         ActivityScenario.launch(MainActivity::class.java).use { sc ->
             compose.waitForIdle()
+            // AppNotIdle (f545e2a): waitForIdle() spins 60 s on the Chat screen
+            // under Robolectric — same flaky race as V031ScreensTest.open()
+            // (callScreen passes one-by-one in the targeted run). Drive the
+            // clock by hand from here on; the long-press below advances it
+            // itself, and the capture uses advanceTimeBy.
+            compose.mainClock.autoAdvance = false
             // Redesign round 2: the app opens on the Home list, not the chat
             // screen — navigate to a chat first (debugStart hook, no new chat).
             sc.onActivity { androidx.lifecycle.ViewModelProvider(it)[com.mazharansari.x.ui.ChatViewModel::class.java].debugStart = Route.Chat }
@@ -145,6 +151,9 @@ class V03ScreensTest {
         // directly — the same reflection the V051 screenshot tests use.
         ActivityScenario.launch(MainActivity::class.java).use { sc ->
             compose.waitForIdle()
+            // AppNotIdle (f545e2a): same Robolectric idling race as callScreen
+            // above — drive the clock by hand from here on.
+            compose.mainClock.autoAdvance = false
             sc.onActivity { act -> setMessages(androidx.lifecycle.ViewModelProvider(act)[com.mazharansari.x.ui.ChatViewModel::class.java], conv.messages) }
             // Redesign round 2: the app opens on the Home list — navigate to
             // the chat screen without newChat (it would clear these messages).

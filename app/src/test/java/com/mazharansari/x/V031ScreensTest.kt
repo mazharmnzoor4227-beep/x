@@ -117,13 +117,26 @@ Clawora Beauty — original Korean skincare, Cash on Delivery all over Pakistan.
         val id = seed()
         val sc = ActivityScenario.launch(MainActivity::class.java)
         compose.waitForIdle()
+        // AppNotIdle (f545e2a, 10 screen tests): under Robolectric, waitForIdle()
+        // spins the full 60 s on the Chat screen — the scroll animations plus the
+        // async conversation load race the virtual clock, and the failure is
+        // flaky (callScreen passes one-by-one in the targeted run). There is no
+        // infinite loop in the app: the messages are DONE (no streaming ticker),
+        // the gated infinite animations (DotGrid/shimmer/pulse) do not render on
+        // this screen, and Home idles fine. So drive the clock by hand from here
+        // on — the pattern cap()/pill()/shotNoIdle() already use elsewhere.
+        compose.mainClock.autoAdvance = false
         insets(sc)
         var vm: ChatViewModel? = null
         // Redesign round 2: the app opens on the Home list — navigate to the
         // chat screen first, then open the conversation into it.
         sc.onActivity { vm = ViewModelProvider(it)[ChatViewModel::class.java]; vm!!.debugStart = Route.Chat; vm!!.open(id) }
+        // vm.open() loads the conversation on a real IO thread, which the virtual
+        // clock cannot advance — give it real time to land, then drive the clock
+        // so the scroll animation runs.
+        Thread.sleep(1000)
+        compose.mainClock.advanceTimeBy(800)
         compose.waitUntil(5000) { compose.onAllNodesWithText("Thought for", substring = true).fetchSemanticsNodes().isNotEmpty() }
-        compose.mainClock.autoAdvance = false
         return sc to vm!!
     }
 
@@ -186,26 +199,28 @@ Clawora Beauty — original Korean skincare, Cash on Delivery all over Pakistan.
         sc.close()
     }
 
-    /** The real gesture: drag the chat up past its end → armed (tick) → let go → a new, empty chat. */
-    @Test fun pullGestureStartsNewChat() {
+    /**
+     * New chat, round-2 contract: the pull-up-for-new-chat gesture is gone —
+     * debugPull is unread in main code and nothing in ChatScreen implements the
+     * drag — so the gesture can never start a new chat. The entry point is the
+     * top-bar "New chat" button (ChatScreen, shown when no bot is active).
+     */
+    @Test fun newChatButtonStartsNewChat() {
         val (sc, vm) = open()
-        toEnd()
-        list().performTouchInput { down(center); moveBy(androidx.compose.ui.geometry.Offset(0f, -200f)); repeat(26) { moveBy(androidx.compose.ui.geometry.Offset(0f, -60f)) } }
-        compose.mainClock.advanceTimeBy(300)
-        cap("05c_pull_gesture_armed")
-        list().performTouchInput { up() }
-        compose.mainClock.advanceTimeBy(1500)
+        compose.onNodeWithContentDescription("New chat").performClick()
+        compose.mainClock.advanceTimeBy(500)
         var n = -1; sc.onActivity { n = vm.messages.size }
-        org.junit.Assert.assertEquals("released past the threshold → new chat", 0, n)
-        cap("05d_pull_gesture_new_chat")
+        org.junit.Assert.assertEquals("tapping New chat → empty chat", 0, n)
+        cap("05c_new_chat_button")
         sc.close()
     }
 
     @Test fun viewer() {
         val (sc, vm) = open()
-        compose.mainClock.autoAdvance = true
         sc.onActivity { vm.debugViewer = "Clawora Beauty Store Report.pdf" }
-        compose.waitForIdle(); Thread.sleep(800); compose.waitForIdle()
+        // No waitForIdle here either (same AppNotIdle race as open()) — drive
+        // the clock by hand and capture, the cap() pattern.
+        compose.mainClock.advanceTimeBy(1200)
         captureScreenRoboImage(File(shots, "06_pdf_viewer.png").path)
         sc.close()
     }
