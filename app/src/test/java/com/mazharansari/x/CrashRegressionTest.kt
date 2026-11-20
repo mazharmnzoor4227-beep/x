@@ -589,6 +589,14 @@ class CrashRegressionTest {
             // Seed the open state directly (see seedOpen): vm.open()'s async
             // disk load never completes under Robolectric + ActivityScenario.
             seedOpen(vm, id, "chevron", msgs)
+            // A LazyColumn only composes visible items: message 19 starts
+            // below the fold, so waiting for it directly times out. Wait for
+            // the first (always visible) message, scroll the list to the
+            // end, then message 19 is composed.
+            waitForNode(hasText("Chevron check message 0"))
+            compose.onNode(
+                hasScrollAction() and hasAnyDescendant(hasText("Chevron check message 0")),
+            ).performScrollToIndex(19)
             waitForNode(hasText("Chevron check message 19"))
             // Scroll to the top so the scroll-to-bottom chevron appears.
             compose.onNode(

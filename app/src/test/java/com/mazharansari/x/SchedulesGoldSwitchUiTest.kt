@@ -71,13 +71,17 @@ class SchedulesGoldSwitchUiTest {
     }
 
     @Test fun schedulesScreenUsesGoldSwitchAndItsToggleStillFlips() {
-        val store = app.graph.schedules
-        store.entries.value.map { it.id }.forEach { store.remove(it) }
-        store.add(ScheduleEntry("probe-1", "Toggle probe task", "probe prompt", ScheduleType.DAILY, 9, 0))
         val (sc, vm) = launch(Route.Schedules)
         try {
-            // The probe must be in the store the screen reads — if this
-            // fails, the store lost it before the Activity started.
+            // Reset on the ACTIVITY's own ViewModel graph — the instance the
+            // screens actually read. The pre-launch app.graph is a different
+            // Application instance under Robolectric (V06NavScreensTest
+            // launch() documents this): a probe added to app.graph.schedules
+            // before launch never reaches vm.g.schedules, and the check below
+            // proved it — "probe entry missing from the schedules store".
+            val store = vm.g.schedules
+            store.entries.value.map { it.id }.forEach { store.remove(it) }
+            store.add(ScheduleEntry("probe-1", "Toggle probe task", "probe prompt", ScheduleType.DAILY, 9, 0))
             checkNotNull(vm.g.schedules.get("probe-1")) { "probe entry missing from the schedules store" }
             // The header proves the debugStart navigation landed on Schedules.
             waitForNode(hasText("Schedules"))
