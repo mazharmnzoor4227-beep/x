@@ -62,6 +62,16 @@ class LightThemeScreensTest {
         }
         var vm: ChatViewModel? = null
         sc.onActivity { vm = ViewModelProvider(it)[ChatViewModel::class.java]; it.let { vm!!.debugStart = route } }
+        // The theme MUST be set on the ACTIVITY's own graph (vm.g) — the
+        // pre-launch app.graph.settings.update above writes to a different
+        // Application instance under Robolectric (same trap as the
+        // SchedulesGoldSwitchUiTest probe: V06NavScreensTest launch()
+        // documents it), so the screens kept rendering dark even though the
+        // file said "light" — every light-theme shot on ae624fbf came out
+        // dark (background brightness 23). AppRoot collects vm.g.settings
+        // as state, so this update recomposes the screens in XLook.Light
+        // before the test's assertions and screenshot.
+        sc.onActivity { vm!!.g.settings.update { it.copy(theme = "light") } }
         compose.mainClock.advanceTimeBy(1200)
         return sc to vm!!
     }
