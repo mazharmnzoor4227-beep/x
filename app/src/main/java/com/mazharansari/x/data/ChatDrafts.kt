@@ -10,21 +10,24 @@ package com.mazharansari.x.data
  * Original X code.
  */
 class ConversationDrafts {
+    // Synchronized: ChatViewModel.open() restores a draft from its IO load
+    // coroutine while save() runs on Main (new chat / leaving a chat), so the
+    // map is now touched from two threads.
     private val drafts = HashMap<String, String>()
 
     /** Save the draft for [id]; a blank draft clears the saved one. */
-    fun save(id: String?, text: String) {
+    @Synchronized fun save(id: String?, text: String) {
         if (id == null) return
         if (text.isBlank()) drafts.remove(id) else drafts[id] = text
     }
 
     /** The saved draft for [id], or "" when there is none. */
-    fun restore(id: String?): String = if (id == null) "" else drafts[id].orEmpty()
+    @Synchronized fun restore(id: String?): String = if (id == null) "" else drafts[id].orEmpty()
 
     /** Drop the draft for [id] (after it was sent). */
-    fun clear(id: String?) {
+    @Synchronized fun clear(id: String?) {
         if (id != null) drafts.remove(id)
     }
 
-    fun count(): Int = drafts.size
+    @Synchronized fun count(): Int = drafts.size
 }

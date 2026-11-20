@@ -133,20 +133,18 @@ Clawora Beauty — original Korean skincare, Cash on Delivery all over Pakistan.
         // Navigation restructure (2026-11-20): the app opens on the chat
         // screen already — open the conversation straight into it.
         sc.onActivity { vm = ViewModelProvider(it)[ChatViewModel::class.java]; vm!!.debugStart = Route.Chat; vm!!.open(id) }
-        // vm.open() loads the conversation on a real IO thread, which the virtual
-        // clock cannot advance — and waitUntil's 5000 ms budget is virtual time
-        // that burns in milliseconds of real time, so a slow load in the loaded
-        // full-suite JVM times it out (ComposeTimeoutException on 010ad0fe,
-        // while pdfCard passed — pure race). Poll in REAL time instead: sleep,
-        // drive the clock, check the nodes, until the conversation lands or
-        // 10 s pass.
-        // The load's resume runs on Dispatchers.Main, and Robolectric's main
-        // looper is paused: neither advanceTimeBy nor fetchSemanticsNodes pumps
-        // it, so without an explicit idle() the resume never runs and the poll
-        // burns its whole 10 s with the conversation never landing (9/9 on
-        // 3001d72d, ~10.2 s each, no AppNotIdle). Pump it every iteration —
-        // the same shadowOf(mainLooper).idle() V052SpeedBugTest uses to make
-        // the identical vm.open() land.
+        // vm.open() loads the conversation on a real IO thread — and since
+        // 2026-11-20 the load coroutine itself runs on Dispatchers.IO (see
+        // ChatViewModel.open): the state assignment no longer waits on a Main
+        // continuation, which under Robolectric + the Compose rule is never
+        // pumped — the store load succeeds yet conversationId/messages stay
+        // empty after 8 s of waitUntil, and per-iteration
+        // shadowOf(mainLooper).idle() does not drain it either (V052's
+        // DBG19: load=Success(12), conv=null, msgs=0; the bare-VM
+        // twoQuickChatTaps test passes because no Activity/Compose rule owns
+        // the clock there). So this poll only waits for the recomposition to
+        // render "Thought for" — poll in REAL time: sleep, drive the clock,
+        // check the nodes, until the conversation lands or 10 s pass.
         var found = false
         for (i in 0 until 50) {
             shadowOf(Looper.getMainLooper()).idle()

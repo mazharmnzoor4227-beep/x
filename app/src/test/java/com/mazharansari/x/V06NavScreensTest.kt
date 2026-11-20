@@ -26,6 +26,7 @@ import java.io.File
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w360dp-h800dp-xxhdpi", application = AxionApp::class)
+@OptIn(ExperimentalTestApi::class)
 class V06NavScreensTest {
     @get:Rule val compose = createEmptyComposeRule()
 
@@ -117,7 +118,7 @@ class V06NavScreensTest {
             compose.onNodeWithText("Coworker").assertDoesNotExist()
             compose.onNodeWithText("Researcher").assertDoesNotExist()
             compose.onNodeWithText("Coder").assertDoesNotExist()
-            compose.onNodeWithText("Specialists · 50").assertIsDisplayed()
+            compose.onNodeWithText("Specialists · 51").assertIsDisplayed()
             // Tapping X Bot opens THAT bot's own chat.
             compose.onNodeWithText("X Bot").performClick()
             waitForNode(hasText("Ask anything"))
@@ -125,7 +126,7 @@ class V06NavScreensTest {
             // Back returns to the bot list — never to home or a new chat.
             compose.onNodeWithContentDescription("Back").performClick()
             waitForNode(hasText("UNDER X BOT"))
-            compose.onNodeWithText("Specialists · 50").assertIsDisplayed()
+            compose.onNodeWithText("Specialists · 51").assertIsDisplayed()
         } finally { sc.close() }
     }
 
@@ -138,6 +139,16 @@ class V06NavScreensTest {
             // Tapping X Bot's PROFILE (its icon) opens profile editing.
             compose.onNodeWithContentDescription("X Bot profile").performClick()
             waitForNode(hasText("Edit profile"))
+            // The profile editor is a ModalBottomSheet (AxionSheet): its
+            // content is composed — and "Edit profile" exists in the tree —
+            // the moment it opens, but the sheet slides up from below the
+            // screen edge, so the rows under the title ("Monogram" sits
+            // ~180dp below it) are still off-screen while it animates in.
+            // waitForNode only proves existence, so asserting display right
+            // after the title appears catches the sheet mid-slide. Drive the
+            // clock until the row is actually on screen, then assert display
+            // on all four icon options as before.
+            compose.waitUntil(5000) { compose.onNodeWithText("Monogram").isDisplayed() }
             compose.onNodeWithText("Monogram").assertIsDisplayed()
             compose.onNodeWithText("Static image").assertIsDisplayed()
             compose.onNodeWithText("3D").assertIsDisplayed()

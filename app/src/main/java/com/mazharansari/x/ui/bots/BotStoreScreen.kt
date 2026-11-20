@@ -54,7 +54,7 @@ import com.mazharansari.x.ui.theme.Type
  *   job, each with its roster name, task and live status. Tapping a sub-bot
  *   opens its (read-only) worker transcript; tapping its PROFILE opens the
  *   same profile editing. The user only CHATS with X Bot.
- * - "Specialists · 50" opens the full roster sheet (read-only).
+ * - "Specialists · 51" opens the full roster sheet (read-only).
  */
 @Composable
 fun BotStoreScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit) {

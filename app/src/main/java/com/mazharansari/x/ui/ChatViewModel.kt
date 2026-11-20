@@ -509,7 +509,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     /** Build can run: Linux + the agy CLI installed and at least one signed-in Antigravity account. Kept for the chat-driven build engine (runBuildTurn); there is no Build UI entry point any more. */
     internal fun agyBuildReady(): Boolean = runCatching { g.agyReady() }.getOrDefault(false)
 
-    private var opening: String? = null
+    @Volatile private var opening: String? = null
 
     fun open(id: String) {
         if (id == conversationId) return
@@ -534,7 +534,20 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             refreshRunning()
             return
         }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            // The load + state assignment run on IO, NOT on the viewModelScope
+            // Main dispatcher (2026-11-20, V031 9/9): under Robolectric with a
+            // Compose test rule the paused main looper never pumps a Main
+            // continuation posted back from Dispatchers.IO — the store load
+            // itself succeeds (runBlocking load returns the conversation) yet
+            // conversationId/messages stay empty after 8 s of waitUntil, and
+            // per-iteration shadowOf(mainLooper).idle() does not drain it
+            // either. On a real phone the Main resume works, so this was
+            // invisible there — but the assignment is equally correct here:
+            // every write below is snapshot state (safe to write from any
+            // thread; the runtime schedules the recomposition) or a StateFlow
+            // read, and the load's own withContext(IO) is just a no-op hop.
+            // The fast path above (live session) stays synchronous on Main.
             val c = g.chats.load(id) ?: return@launch
             if (opening != id) return@launch   // v0.5.2: two quick taps in the drawer — the last one wins
             opening = null

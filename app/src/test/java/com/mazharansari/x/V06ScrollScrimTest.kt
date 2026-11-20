@@ -120,19 +120,17 @@ class V06ScrollScrimTest {
         compose.waitForIdle()
     }
 
-    // The 48dp touch-target box around the chevron: the clickable ancestor of
-    // the icon node. Falls back to the icon bounds expanded by the 13dp margin
-    // on each side (the icon is centred in its box by IconTap).
-    private fun arrowBox(): Rect {
-        val icon = compose.onNodeWithContentDescription("Scroll to bottom").fetchSemanticsNode().boundsInRoot
-        runCatching {
-            val parent = compose.onNode(hasClickAction() and hasAnyDescendant(hasContentDescription("Scroll to bottom")))
-                .fetchSemanticsNode().boundsInRoot
-            if (parent.width > 0f && parent.height > 0f) return parent
-        }
-        val pad = 13f * app.resources.displayMetrics.density
-        return Rect(icon.left - pad, icon.top - pad, icon.right + pad, icon.bottom + pad)
-    }
+    // The 48dp touch-target box around the chevron: the node carrying the
+    // "Scroll to bottom" description IS that box (the description merges up
+    // from the 22dp chevron into its clickable IconTap Box), so its own
+    // bounds are the box — there is no descendant carrying the description
+    // for a clickable-ancestor search to find. The old search found nothing,
+    // and the 13dp-expansion fallback returned a 74dp rect (48+26), which the
+    // 48dp assert then wrongly failed on (129.5px at 1.75 density). No
+    // fallback: if the description node is missing the fetch throws, which is
+    // the honest failure.
+    private fun arrowBox(): Rect =
+        compose.onNodeWithContentDescription("Scroll to bottom").fetchSemanticsNode().boundsInRoot
 
     private fun pixel(bmp: Bitmap, x: Int, y: Int): Triple<Int, Int, Int> {
         val c = bmp.getPixel(x.coerceIn(0, bmp.width - 1), y.coerceIn(0, bmp.height - 1))
