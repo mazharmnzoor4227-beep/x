@@ -59,7 +59,9 @@ class V06NavScreensTest {
     /** App opens on the single chat screen; the top button opens the menu panel. */
     private fun openMenu() {
         waitForNode(hasText("Ask anything"))
-        compose.onNodeWithContentDescription("Back").performClick()
+        // Root chat: the header shows a Menu glyph, not Back (Back exists
+        // only on a bot chat's header) — it opens the menu panel.
+        compose.onNodeWithContentDescription("Menu").performClick()
         waitForNode(hasText("Bots"))
     }
 

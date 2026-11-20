@@ -53,12 +53,12 @@ object VoiceCatalog {
     const val PREVIEW_URDU = "नमस्ते! मैं आपका X हूँ। बताइए, आज मैं आपकी क्या मदद कर सकता हूँ?"
 
     val kodex = listOf(
-        AxVoice("kodex:rounded", "Rounded", VoiceFamily.KODEX, "English (United Kingdom)", "On-device phone voice", "en-gb-x-gbb-network", false),
-        AxVoice("kodex:glassy", "Glassy", VoiceFamily.KODEX, "English (Australia)", "On-device phone voice", "en-au-x-aub-network", false),
-        AxVoice("kodex:mellow", "Mellow", VoiceFamily.KODEX, "English (India)", "On-device phone voice", "en-in-x-ene-network", false),
-        AxVoice("kodex:airy", "Airy", VoiceFamily.KODEX, "English (Australia)", "On-device phone voice", "en-au-x-aud-network", false),
-        AxVoice("kodex:buttery", "Buttery", VoiceFamily.KODEX, "English (United States)", "On-device phone voice", "en-us-x-sfg-network", true),
-        AxVoice("kodex:clear", "Clear", VoiceFamily.KODEX, "English (United Kingdom)", "On-device phone voice", "en-gb-x-gbd-network", false),
+        AxVoice("kodex:rounded", "Rounded", VoiceFamily.KODEX, "English (United Kingdom)", "On-device Google voice", "en-gb-x-gbb-network", false),
+        AxVoice("kodex:glassy", "Glassy", VoiceFamily.KODEX, "English (Australia)", "On-device Google voice", "en-au-x-aub-network", false),
+        AxVoice("kodex:mellow", "Mellow", VoiceFamily.KODEX, "English (India)", "On-device Google voice", "en-in-x-ene-network", false),
+        AxVoice("kodex:airy", "Airy", VoiceFamily.KODEX, "English (Australia)", "On-device Google voice", "en-au-x-aud-network", false),
+        AxVoice("kodex:buttery", "Buttery", VoiceFamily.KODEX, "English (United States)", "On-device Google voice", "en-us-x-sfg-network", true),
+        AxVoice("kodex:clear", "Clear", VoiceFamily.KODEX, "English (United Kingdom)", "On-device Google voice", "en-gb-x-gbd-network", false),
     )
 
     val natural = listOf(

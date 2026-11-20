@@ -150,8 +150,20 @@ class XAuditFixesRound2Test {
     @Test fun everyCitedSupportFileResolvesInAssets() {
         // The 5 packs the audit named (plus every other pack, so a new dangling
         // citation can never slip in unnoticed).
-        val packs = (app.assets.list("skills") ?: emptyArray()).filter { it != "HERMES-NOTICE.txt" && !it.endsWith(".txt") }
-        assertTrue("expected 30 skill packs, found ${packs.size}", packs.size == 30)
+        // Robolectric's AssetManager.list returns every descendant file path
+        // relative to "skills" ("pdf/SKILL.md",
+        // "local-android-dev/references/native-android.md", …) — 52 entries
+        // for the 31 packs — while a phone returns the pack dirs themselves.
+        // The pack dir is the first path segment under either semantics; union
+        // the known built-in list so the loop below covers every shipped pack
+        // even if the listing ever changes shape again. No exact count: the
+        // count is listing-shape dependent, the presence check is not.
+        val listed = app.assets.list("skills") ?: emptyArray()
+        val fromListing = listed.map { it.substringBefore('/') }.distinct().filter { '.' !in it }
+        assertTrue("no skill packs listed in assets: ${listed.toList()}", fromListing.isNotEmpty())
+        assertTrue("shipped packs missing from the assets listing: ${SkillRepo.BUILT_IN - fromListing.toSet()}",
+            SkillRepo.BUILT_IN.all { it in fromListing })
+        val packs = (fromListing + SkillRepo.BUILT_IN).distinct()
         for (pack in packs) {
             for (rel in citedFiles(pack)) {
                 // A Node require path (lib/helpers) resolves to its .js file.

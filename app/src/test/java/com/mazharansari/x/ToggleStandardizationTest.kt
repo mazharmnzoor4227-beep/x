@@ -89,12 +89,24 @@ class ToggleStandardizationTest {
             val nodes = compose.onAllNodes(SemanticsMatcher("any node") { true }).fetchSemanticsNodes()
             assertTrue("a node still exposes ToggleableState — a Material Switch remains on the Schedules screen",
                 nodes.none { it.config.getOrNull(SemanticsProperties.ToggleableState) != null })
-            // The entry's on/off control is the right-edge clickable in its
-            // card (the Delete button and the second-row switches sit left of
-            // 80% of the screen width, so they cannot match).
+            // The entry's on/off control is the right-edge clickable in ITS OWN
+            // card. The Daily-briefing card above it has an identical right-edge
+            // AxionSwitch, and it comes first — so onFirst() over the whole
+            // screen taps the briefing switch, which with no briefing scheduled
+            // just creates one, and the probe never flips (the Delete button
+            // and the second-row switches sit left of 80% of the screen width,
+            // so they cannot match — but the briefing switch can). Scope the
+            // match to the probe card: the switch's DIRECT parent (its card's
+            // row/item) must contain the probe title. hasAnyAncestor would NOT
+            // scope it — the LazyColumn is a shared ancestor of both switches
+            // and contains the probe title as a descendant, so the briefing
+            // switch would match too and onFirst() would tap it again.
             val rootWidth = compose.onRoot().fetchSemanticsNode().boundsInRoot.width
-            compose.onAllNodes(hasClickAction() and SemanticsMatcher("right-edge toggle") { it.boundsInRoot.center.x > 0.8f * rootWidth })
-                .onFirst().performClick()
+            compose.onAllNodes(
+                hasClickAction() and
+                SemanticsMatcher("right-edge toggle") { it.boundsInRoot.center.x > 0.8f * rootWidth } and
+                hasParent(hasAnyDescendant(hasText("Toggle probe task")))
+            ).onFirst().performClick()
             compose.mainClock.advanceTimeBy(500)
             assertEquals("tapping the gold toggle must switch the schedule off", false, vm.g.schedules.get("probe-1")?.enabled)
             assertNotNull("the toggle must flip the setting, not delete the schedule", vm.g.schedules.get("probe-1"))

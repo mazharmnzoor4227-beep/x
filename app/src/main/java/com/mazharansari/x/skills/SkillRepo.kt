@@ -39,7 +39,20 @@ class SkillRepo(private val ctx: Context?, private val dir: File, private val fe
     init {
         dir.mkdirs()
         val persisted = runCatching { json.decodeFromString<List<Skill>>(index.readText()) }.getOrDefault(emptyList())
-        val names = runCatching { ctx?.assets?.list("skills")?.toList() }.getOrNull().orEmpty().ifEmpty { BUILT_IN }
+        // AssetManager.list differs by runtime: a phone returns the immediate
+        // children of "skills" ("pdf", "video", …), Robolectric returns every
+        // descendant file path relative to it ("pdf/SKILL.md",
+        // "local-android-dev/references/native-android.md", …) — 52 entries
+        // for 31 packs. Opening "skills/<entry>/SKILL.md" per raw entry then
+        // fails for every pack and the built-ins silently drop out. The pack
+        // dir is the first path segment under either semantics, so derive it;
+        // union the known built-in list so a pack is never lost to a listing
+        // quirk (".txt" notices and file basenames carry a '.', pack dirs
+        // never do).
+        val listed = runCatching { ctx?.assets?.list("skills")?.toList() }.getOrNull().orEmpty()
+        val names = (listed.map { it.substringBefore('/') } + BUILT_IN).distinct()
+            .filter { it.isNotBlank() && '.' !in it }
+            .ifEmpty { BUILT_IN }
         val builtIn = names.mapNotNull { n ->
             // .use: every open is closed — the old readText() without a close
             // leaked one asset stream per built-in per SkillRepo construction,
@@ -342,7 +355,7 @@ class SkillRepo(private val ctx: Context?, private val dir: File, private val fe
             "local-frontend-seo", "local-shopify-development", "local-game-dev",
             "local-playwright-skill", "banner-design", "local-app-store-design",
             "local_external_builder_brief", "reverse-engineering-android", "delivery",
-            "local-header-footer-design")
+            "local-header-footer-design", "web-clone-design")
 
         /** URL builders — the single place download URLs are constructed (tests assert against these). */
         fun apiRepoUrl(owner: String, repo: String) = "https://api.github.com/repos/$owner/$repo"

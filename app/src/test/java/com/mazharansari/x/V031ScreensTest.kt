@@ -1,5 +1,6 @@
 package com.mazharansari.x
 
+import android.os.Looper
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.core.graphics.Insets
@@ -22,6 +23,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
@@ -137,10 +139,17 @@ Clawora Beauty — original Korean skincare, Cash on Delivery all over Pakistan.
         // full-suite JVM times it out (ComposeTimeoutException on 010ad0fe,
         // while pdfCard passed — pure race). Poll in REAL time instead: sleep,
         // drive the clock, check the nodes, until the conversation lands or
-        // 10 s pass. fetchSemanticsNodes() waits for idle internally, which
-        // also idles the main looper so the load's Main-thread resume runs.
+        // 10 s pass.
+        // The load's resume runs on Dispatchers.Main, and Robolectric's main
+        // looper is paused: neither advanceTimeBy nor fetchSemanticsNodes pumps
+        // it, so without an explicit idle() the resume never runs and the poll
+        // burns its whole 10 s with the conversation never landing (9/9 on
+        // 3001d72d, ~10.2 s each, no AppNotIdle). Pump it every iteration —
+        // the same shadowOf(mainLooper).idle() V052SpeedBugTest uses to make
+        // the identical vm.open() land.
         var found = false
         for (i in 0 until 50) {
+            shadowOf(Looper.getMainLooper()).idle()
             compose.mainClock.advanceTimeBy(200)
             Thread.sleep(200)
             if (compose.onAllNodesWithText("Thought for", substring = true).fetchSemanticsNodes().isNotEmpty()) { found = true; break }

@@ -153,11 +153,15 @@ class V06ScrollScrimTest {
         val (sc, _) = show(seedShort())
         scrollUpToFirst()
         compose.onNodeWithContentDescription("Scroll to bottom").assertExists()
-        // Bare 22dp chevron inside a 48dp touch target.
+        // The node carrying the description IS the 48dp IconTap touch-target
+        // box (the description merges up from the 22dp chevron into its
+        // clickable Box), so its bounds are the 48dp target, not the 22dp
+        // glyph — the same box arrowBox() below finds via the clickable
+        // ancestor. The chevron itself stays 22dp (ChatScreen's IconTap size).
         val d = app.resources.displayMetrics.density
         val icon = compose.onNodeWithContentDescription("Scroll to bottom").fetchSemanticsNode().boundsInRoot
-        assertEquals(22f * d, icon.width, 3f)
-        assertEquals(22f * d, icon.height, 3f)
+        assertEquals(48f * d, icon.width, 3f)
+        assertEquals(48f * d, icon.height, 3f)
         val box = arrowBox()
         assertEquals(48f * d, box.width, 3f)
         assertEquals(48f * d, box.height, 3f)

@@ -1,5 +1,7 @@
 package com.mazharansari.x
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.core.graphics.Insets
@@ -18,6 +20,7 @@ import com.mazharansari.x.ui.Route
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -202,16 +205,23 @@ class V04ScreensTest {
     @Test fun backFromChatClosesKeyboard() {
         seed()
         // Redesign round 2: the drawer is gone. The same behaviour — leaving
-        // the chat screen drops keyboard focus — now happens on Back: focus
-        // the composer, tap the chat header's Back chevron, and the Home
-        // list's search field must not be focused.
+        // the chat screen drops keyboard focus — now happens on the header's
+        // Menu glyph (the root chat has no Back chevron; Back exists only on
+        // bot chats): focus the composer, tap Menu to open the menu panel
+        // (Route.Home replaces the chat, and AppRoot dismisses the keyboard
+        // on any navigation away from Chat). The menu's own search field only
+        // exists while its Search row is open, so after the tap there may be
+        // no text field at all — either way, none may hold focus.
         val sc = route(Route.Chat)
         val field = compose.onAllNodes(hasSetTextAction()).onFirst()
         field.performClick(); compose.mainClock.advanceTimeBy(300)
         field.assertIsFocused()
-        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithContentDescription("Menu").performClick()
         compose.mainClock.advanceTimeBy(800)
-        compose.onAllNodes(hasSetTextAction()).onFirst().assertIsNotFocused()
+        compose.onNodeWithText("Bots").assertIsDisplayed()
+        assertTrue("leaving the chat must drop keyboard focus",
+            compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes()
+                .none { it.config.getOrNull(SemanticsProperties.Focused) == true })
         cap("08_back_keyboard_closed"); sc.close()
     }
 
