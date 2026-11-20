@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.mazharansari.x.data.Connector
+import com.mazharansari.x.data.X_BOT_ID
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertTrue
@@ -31,15 +32,16 @@ class V06NavScreensTest {
     @get:Rule val compose = createEmptyComposeRule()
 
     private fun seed() {
-        val fd = ApplicationProvider.getApplicationContext<AxionApp>().filesDir
+        val app = ApplicationProvider.getApplicationContext<AxionApp>()
+        val fd = app.filesDir
         File(fd, "settings.json").writeText("""{"userName":"Mazhar Ansari","theme":"dark","mode":"AUTO"}""")
-        // TEST ISOLATION (botsSectionSingleXBotAndBack, d64aeba2): the bot
-        // store persists to <filesDir>/bots/bots.json — BotDefinitionStore
+        // TEST ISOLATION (botsSectionSingleXBotAndBack, d64aeba2 + fd06e47):
+        // the bot store persists to <filesDir>/bots/bots.json — BotDefinitionStore
         // .rename() calls persist(), and ensureXBot() deliberately NEVER
         // restores a user-chosen name (it refreshes only persona /
         // description). profileEditRenamesXBot therefore leaves the bot
-        // named "X Prime" on disk, and JUnit's deterministic method order
-        // runs it BEFORE botsSectionSingleXBotAndBack — so that test's
+        // named "X Prime", and JUnit's deterministic method order runs it
+        // BEFORE botsSectionSingleXBotAndBack — so that test's
         // onNodeWithText("X Bot").assertIsDisplayed() finds ZERO matching
         // nodes and fails with exactly "Assert failed: The component is
         // not displayed!" (that is the message assertIsDisplayed throws
@@ -51,9 +53,22 @@ class V06NavScreensTest {
         // the AnimatedContent transition race: waitForNode already
         // advances the test clock 200 ms past the 150 ms slide/fade, and
         // the sibling tests' immediate asserts after waitForNode pass.
-        // Reset the bot store here so every test starts from a fresh
-        // "X Bot" definition, independent of run order.
+        // fd06e47 tried deleting bots/bots.json here — and botsSection
+        // STILL failed identically (Verify Tests run 44734256639, :138,
+        // 0.387 s). The file delete alone is therefore NOT sufficient:
+        // BotDefinitionStore loads its StateFlow ONCE, at construction
+        // (BotStore.kt:64-72), and nothing ever re-reads the file — the
+        // Graph/botStore built during profileEditRenamesXBot still holds
+        // "X Prime" IN MEMORY when botsSection runs, and ensureXBot()
+        // keeps a user-chosen name by design. So reset the IN-MEMORY
+        // store too, through its public API: rename() updates the
+        // StateFlow AND persists the correct name back to disk. Cases:
+        // store not yet built (lazy) — rename is a harmless no-op and
+        // ensureXBot() seeds a fresh "X Bot" at launch; store holding
+        // "X Prime" — fixed in memory and on disk; already "X Bot" —
+        // no-op. The logo is untouched (rename never touches it).
         File(fd, "bots/bots.json").delete()
+        app.graph.botStore.rename(X_BOT_ID, "X Bot")
         fun conn(p: String, hint: String, models: List<String>) = Connector(java.util.UUID.randomUUID().toString(), p, "plain:" + android.util.Base64.encodeToString("test-key".toByteArray(), 2), hint, models, models, addedAt = 1)
         File(fd, "connectors.json").writeText(Json.encodeToString(ListSerializer(Connector.serializer()), listOf(conn("gemini", "AIza…x9Qk", listOf("gemini-3.8-flash")))))
     }
