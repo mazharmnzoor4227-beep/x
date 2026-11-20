@@ -50,7 +50,11 @@ class LightThemeScreensTest {
 
     private fun launch(route: Route): Pair<ActivityScenario<MainActivity>, ChatViewModel> {
         File(app.filesDir, "settings.json").writeText("""{"theme":"light","mode":"AUTO","buildIntroShown":true,"guestChosen":true,"introShown":true,"permsShown":true}""")
-        app.graph.settings.update { it.copy(buildIntroShown = true, guestChosen = true, introShown = true, permsShown = true, toolSwitches = emptyMap()) }
+        // The file above seeds "light", but the store was already constructed
+        // (dark) during app start — this update re-persists the in-memory
+        // state, so the theme must be set HERE or the file's light value is
+        // overwritten with dark before the Activity starts.
+        app.graph.settings.update { it.copy(theme = "light", buildIntroShown = true, guestChosen = true, introShown = true, permsShown = true, toolSwitches = emptyMap()) }
         val sc = ActivityScenario.launch(MainActivity::class.java); compose.waitForIdle()
         sc.onActivity { act ->
             val b = WindowInsetsCompat.Builder().setInsets(WindowInsetsCompat.Type.statusBars(), Insets.of(0, 63, 0, 0)).setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, 30))
@@ -96,10 +100,22 @@ class LightThemeScreensTest {
         compose.mainClock.advanceTimeBy(800)
         compose.onNodeWithText("What is the weather in Karachi tomorrow?").assertExists()
         compose.onNodeWithText("Tomorrow in Karachi looks warm and dry", substring = true).assertExists()
-        compose.onNodeWithContentDescription("Assistant reply bubble").assertExists()
+        // The sample carries TWO assistant replies, so there are two bubbles.
+        compose.onAllNodesWithContentDescription("Assistant reply bubble").assertCountEquals(2)
         compose.onNodeWithText("Ask anything").assertExists()
         cap("02_chat_light")
         sc.close()
+    }
+
+    /** Poll for a node without requiring Compose idle (V06Nav pattern). */
+    private fun waitForNode(matcher: SemanticsMatcher, timeoutMs: Long = 10_000) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            compose.mainClock.advanceTimeBy(200)
+            Thread.sleep(100)
+            if (compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()) return
+        }
+        error("node $matcher never appeared")
     }
 
     @Test fun botChatInLightTheme() {
@@ -107,10 +123,16 @@ class LightThemeScreensTest {
         sc.onActivity { setMessages(vm, sampleMessages()) }
         compose.mainClock.advanceTimeBy(800)
         // X Bot's own header + the same transcript/composer as plain chat.
-        compose.onNodeWithText("X Bot").assertExists()
-        compose.onNodeWithText("What is the weather in Karachi tomorrow?").assertExists()
-        compose.onNodeWithContentDescription("Assistant reply bubble").assertExists()
-        compose.onNodeWithText("Ask anything").assertExists()
+        // Polled, not assertExists: the BotChat route does not reach Compose
+        // idle under Robolectric (60s AppNotIdleException on the first
+        // assertion), while the same transcript on the plain Chat route
+        // idles fine. The nodes below + the PNG are the render proof; the
+        // idle hang itself is an open product question, not something this
+        // test fixes.
+        waitForNode(hasText("X Bot"))
+        waitForNode(hasText("What is the weather in Karachi tomorrow?"))
+        waitForNode(hasContentDescription("Assistant reply bubble"))
+        waitForNode(hasText("Ask anything"))
         cap("03_bot_chat_light")
         sc.close()
     }

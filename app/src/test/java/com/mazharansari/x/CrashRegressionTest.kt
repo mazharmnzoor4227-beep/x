@@ -98,6 +98,20 @@ class CrashRegressionTest {
         fail("timed out after ${timeoutMs}ms waiting for condition")
     }
 
+    /**
+     * The save writes the file asynchronously on the store's
+     * single-threaded IO queue (behind the init listing); open() loads
+     * from disk and fails closed when the file is not there yet. Wait for
+     * the flush instead of racing it — the scroll behaviour under test
+     * starts after the open.
+     */
+    private fun waitForChatFile(id: String, timeoutMs: Long = 10_000) {
+        val file = File(app.filesDir, "chats/$id.json")
+        val end = System.currentTimeMillis() + timeoutMs
+        while (!file.exists() && System.currentTimeMillis() < end) Thread.sleep(50)
+        check(file.exists()) { "saved chat file chats/$id.json never appeared" }
+    }
+
     private fun waitForIdleRun(vm: ChatViewModel, timeoutMs: Long = 8000) {
         waitUntil(timeoutMs) { !vm.running }
         idle()
@@ -241,9 +255,12 @@ class CrashRegressionTest {
         vm.debugAttempts = { _, _ -> listOf(Attempt("Fake", "m", instantModel("read it"))) }
         vm.send("x".repeat(200_000))
         // A 200k-char paste becomes a file attachment, not a giant in-memory bubble.
-        assertEquals(1, vm.messages.size)
-        assertEquals(1, vm.messages[0].attachments.size)
-        assertEquals(200_000, vm.messages[0].attachments[0].size)
+        // runAgent appends the streaming assistant placeholder synchronously,
+        // so messages.size is 2 right after send — assert on the user message.
+        assertEquals(1, vm.messages.count { it.role == Role.USER })
+        val userMsg = vm.messages.first { it.role == Role.USER }
+        assertEquals(1, userMsg.attachments.size)
+        assertEquals(200_000, userMsg.attachments[0].size)
         waitForIdleRun(vm)
         assertEquals(2, vm.messages.size)
         assertEquals("read it", vm.messages[1].text)
@@ -539,8 +556,9 @@ class CrashRegressionTest {
             Thread.sleep(300)
             // A saved scroll position from before the chat was shortened to 3 messages.
             vm.saveScroll(id, 40)
+            waitForChatFile(id)
             sc.onActivity { vm.open(id) }
-            waitUntil { vm.conversationId == id }
+            waitUntil(15_000) { vm.conversationId == id }
             // Pre-fix: scrollToItem(40) on a 3-item list — the restore is now clamped.
             waitForNode(hasText("Scroll check message 2"))
             compose.onNodeWithText("Scroll check message 0").assertExists()
@@ -564,8 +582,9 @@ class CrashRegressionTest {
             }
             app.graph.chats.save(Conversation(id, "chevron", msgs), true)
             Thread.sleep(300)
+            waitForChatFile(id)
             sc.onActivity { vm.open(id) }
-            waitUntil { vm.conversationId == id }
+            waitUntil(15_000) { vm.conversationId == id }
             waitForNode(hasText("Chevron check message 19"))
             // Scroll to the top so the scroll-to-bottom chevron appears.
             compose.onNode(

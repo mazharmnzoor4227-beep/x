@@ -98,17 +98,22 @@ class CreateBotUiTest {
             compose.onNodeWithTag("createBotDescription").performTextInput("Helps with chores")
             compose.onNodeWithTag("createBotInstructions").performTextInput("You are Helper Bot. Be tidy.")
             compose.onNodeWithTag("createBotConfirm").performClick()
-            // The new bot appears in the Bots list.
-            waitForNode(hasText("Helper Bot"))
-            compose.onNodeWithText("Helper Bot").assertIsDisplayed()
+            // Creating a bot opens ITS own chat straight away (BotStoreScreen
+            // navigates to BotChat on create) — the list assertion comes
+            // after Back, below. The header carries the new bot's name.
+            waitForNode(hasText("Ask anything"))
+            waitForDisplayed(hasText("Helper Bot"))
+            // Back returns to the bot list, where the new bot now appears.
+            compose.onNodeWithContentDescription("Back").performClick()
+            waitForNode(hasText("UNDER X BOT"))
+            waitForDisplayed(hasText("Helper Bot"))
             // X Bot is still there, first — it stays the orchestrator.
-            compose.onNodeWithText("X Bot").assertIsDisplayed()
-            // Tapping the new bot opens ITS own chat (its name in the header).
+            waitForDisplayed(hasText("X Bot"))
+            // Tapping the new bot opens ITS own chat again (its name in the header).
             compose.onNodeWithText("Helper Bot").performClick()
             waitForNode(hasText("Ask anything"))
             waitForDisplayed(hasText("Helper Bot"))
-            compose.onNodeWithText("Helper Bot").assertIsDisplayed()
-            // Back returns to the bot list.
+            // Back returns to the bot list once more.
             compose.onNodeWithContentDescription("Back").performClick()
             waitForNode(hasText("UNDER X BOT"))
             waitForDisplayed(hasText("Helper Bot"))

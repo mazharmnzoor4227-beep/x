@@ -151,9 +151,21 @@ class ConversationStore(ctx: Context) {
 
     init {
         io.launch {
-            _index.value = dir.listFiles { f -> f.extension == "json" }.orEmpty().mapNotNull { f ->
+            val disk = dir.listFiles { f -> f.extension == "json" }.orEmpty().mapNotNull { f ->
                 runCatching { json.decodeFromString<Conversation>(f.readText()) }.getOrNull()?.let(::meta)
             }.sortedByDescending { it.updatedAt }
+            // Crash hunt follow-up (2026-11-20): a save updates the
+            // in-memory index synchronously but writes the file
+            // asynchronously — if this listing lands after a save whose
+            // write failed (disk full, chats dir gone), a blind replace
+            // drops that conversation from the drawer even though the save
+            // reported success. Keep in-memory entries the disk listing
+            // does not know about; disk wins on conflicts (same id = the
+            // same conversation, just flushed).
+            val current = _index.value
+            val diskIds = disk.map { it.id }.toSet()
+            _index.value = (disk + current.filterNot { it.id in diskIds })
+                .sortedByDescending { it.updatedAt }
         }
     }
 
