@@ -203,8 +203,8 @@ class DevTools(private val ctx: Context, val linux: LinuxRuntime) {
 
     private fun enqueue(id: String, action: String) {
         if (_status.value[id] is ToolStatus.Working || _status.value[id] == ToolStatus.Queued) return
-        // A toolchain that needs another one queues that first (Browser automation → Web).
-        if (action == "install") Toolchain.byId(id)?.needs?.forEach { dep -> if (!isInstalled(dep)) enqueue(dep, "install") }
+        // A toolchain that needs another one queues that first (Browser automation → Web, APK builder → Android).
+        if (action == "install") installOrder(id).dropLast(1).forEach { dep -> if (!isInstalled(dep)) enqueue(dep, "install") }
         setStatus(id, ToolStatus.Queued)
         _busy.value = true
         DevToolsService.start(ctx)
@@ -238,7 +238,7 @@ class DevTools(private val ctx: Context, val linux: LinuxRuntime) {
             } catch (e: CancellationException) { rawLine(t.id, "[axion] stopped"); saveRaw(t.id); setStatus(t.id, ToolStatus.Failed("Stopped")); throw e
             } catch (e: Throwable) {
                 rawLine(t.id, "[axion] failed: ${e.javaClass.simpleName}: ${e.message}"); saveRaw(t.id)
-                setStatus(t.id, ToolStatus.Failed(e.message?.take(240) ?: "$verb failed"))
+                setStatus(t.id, ToolStatus.Failed(friendlyFailure(e, verb)))
             }
         }
         current?.join()
@@ -354,6 +354,33 @@ class DevTools(private val ctx: Context, val linux: LinuxRuntime) {
             val x = a.split('.').map { it.toIntOrNull() ?: 0 }; val y = b.split('.').map { it.toIntOrNull() ?: 0 }
             for (i in 0 until maxOf(x.size, y.size)) { val p = x.getOrElse(i) { 0 }; val q = y.getOrElse(i) { 0 }; if (p != q) return q > p }
             return false
+        }
+
+        /**
+         * The tools install([id]) must run first, in order, before [id] itself — dependencies first
+         * (Browser automation → Web, APK builder → Android). Pure, unit-tested: the install dispatch
+         * matrix for every toolchain, including the hidden Antigravity CLI.
+         */
+        fun installOrder(id: String): List<String> {
+            val out = ArrayList<String>()
+            fun add(t: Toolchain) {
+                if (t.id in out) return
+                t.needs.forEach { dep -> Toolchain.byId(dep)?.let { add(it) } }
+                out += t.id
+            }
+            Toolchain.byId(id)?.let { add(it) }
+            return out
+        }
+
+        /**
+         * What the UI shows for a failed install. The raw JVM message for a missing native call
+         * ("No implementation found for int[] …") means nothing to the user — that is the exact text
+         * every toolchain showed on 2026-11-20 when pocket_spawn.c still declared the old Axion
+         * package's JNI names; say what to do instead. Other failures already carry a plain message.
+         */
+        fun friendlyFailure(e: Throwable, verb: String): String = when (e) {
+            is UnsatisfiedLinkError -> "The Linux launcher could not start (missing native code). Reinstall X and try again."
+            else -> e.message?.take(240) ?: "$verb failed"
         }
     }
 }

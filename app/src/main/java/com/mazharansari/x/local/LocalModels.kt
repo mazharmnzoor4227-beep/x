@@ -36,19 +36,21 @@ object LlamaNative {
  * Addendum G, research 2026-11-19). Exactly three, all ~1–2 GB, all fitting
  * a 4 GB RAM phone; nothing is bundled in the APK, each downloads only on
  * tap and is SHA-256-checked. [purpose] is the label the Models screen
- * shows (coding / chat / Hindi / all-rounder).
+ * shows (coding / chat / Hindi / base model).
  *
  *  - LFM3-1.7B (default): chat + agent + Hindi, 1.10 GB, ~1.4 GB RAM at
  *    runtime. Needs llama.cpp v0.8.0+ — the vendored copy IS v0.8.0
  *    (third_party/llama.cpp/CMakeLists.txt: MAJOR 0 MINOR 8 PATCH 0,
  *    commit dde879bc, 2026-11-01), so no upgrade was needed.
  *  - Qwen2.5-Coder-1.5B-Instruct: CODING only. HumanEval 70.7%.
- *  - Qwen3-1.7B-Instruct-2507: ALL-ROUNDER, ~1.28 GB. Its exact GGUF
- *    filename/size/SHA-256 could NOT be confirmed (the Hugging Face API
- *    fetch was refused, 401; web search confirmed only the naming
- *    convention, not the file), so its [url] is blank on purpose and the
- *    store refuses to download it until the file is confirmed — never a
- *    guessed URL. Fill in url/bytes/sha256 here when the file is verified.
+ *  - Qwen3-1.7B (bartowski Q4_K_M): BASE model — verified 2026-11-20
+ *    (full file downloaded + SHA-256-hashed: 1,282,439,584 bytes,
+ *    sha256 72c5c3cb…0b24fb). This is the BASE Qwen3-1.7B, NOT
+ *    Instruct-2507: no Qwen3-1.7B-Instruct-2507 GGUF exists anywhere on
+ *    Hugging Face (official + bartowski instruct repos not found, HF
+ *    search empty — all GGUF repos found are base-model quants). So it
+ *    is wired ONLY as a raw-completion base model, weak for chat, and
+ *    LFM3 stays the chat default. Never present it as instruction-tuned.
  *
  * REJECTED (do not re-add): Qwen3-4B and Gemma 3 4B (do not fit 4 GB RAM);
  * Qwen3-0.6B and Gemma 3 1B (too weak); SmolLM2-1.7B (superseded);
@@ -70,9 +72,10 @@ enum class LocalModel(val id: String, val title: String, val family: String, val
         "Coding only",
         "Coding only. Short scripts, explaining code, small fixes. HumanEval 70.7%."),
     QWEN3_1_7B("qwen3-1.7b", "Qwen3 1.7B", "Qwen", "1.7B · Q4_K_M",
-        "", 0, "", 4, 4096,
-        "All-rounder",
-        "All-rounder — chat and code in one model. Download link not confirmed yet: the exact file is being checked, so this one cannot download until the next update.");
+        "https://huggingface.co/bartowski/Qwen_Qwen3-1.7B-GGUF/resolve/main/Qwen_Qwen3-1.7B-Q4_K_M.gguf",
+        1_282_439_584, "72c5c3cb38fa32d5256e2fe30d03e7a64c6c79e668ad84057e3bd66e250b24fb", 4, 4096,
+        "Base model · raw completion",
+        "Base model — NOT instruction-tuned, so weak for chat. Raw completion and code experiments only; for chat, LFM3 (the default) is the right pick.");
     companion object { fun byId(id: String?) = entries.firstOrNull { it.id == id } }
 }
 

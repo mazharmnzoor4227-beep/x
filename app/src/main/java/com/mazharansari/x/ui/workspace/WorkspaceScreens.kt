@@ -91,6 +91,11 @@ private fun AddRow(hint: String, button: String, onAdd: (String) -> Unit) {
 
 // ── Feed ────────────────────────────────────────────────────────────────────
 
+/** Feed empty state (spec §7.6). Kept as a constant so tests can pin the wording. */
+const val FEED_EMPTY_TITLE = "Nothing needs you."
+/** Computer empty state (spec §7.6): no projects yet. Kept as a constant so tests can pin the wording. */
+const val COMPUTER_NO_PROJECTS = "No projects yet — ask X to build one in chat"
+
 @Composable
 fun FeedScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit) {
     val p = P
@@ -100,7 +105,7 @@ fun FeedScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit) {
     Column(Modifier.fillMaxSize().background(p.bg)) {
         ScreenHeader("Feed", back)
         if (pending == null && interrupted == null && runs.isEmpty()) {
-            WorkspaceEmpty(Gk.history, "Nothing yet", "Completed runs and items needing you will appear here.")
+            WorkspaceEmpty(Gk.history, FEED_EMPTY_TITLE, "Completed runs and items needing you will appear here.")
         } else {
             LazyColumn(Modifier.weight(1f).navigationBarsPadding(), contentPadding = PaddingValues(bottom = 32.dp)) {
                 if (pending != null || interrupted != null) {
@@ -339,6 +344,7 @@ fun ComputerScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Uni
     val p = P
     val linuxReady = remember { runCatching { vm.g.linux.isInstalled() }.getOrDefault(false) }
     val fileCount = remember { runCatching { ProjectFiles.fileCount(vm.g.workspace.root) }.getOrDefault(0) }
+    val projects by vm.g.build.store.list.collectAsState()
     Column(Modifier.fillMaxSize().background(p.bg)) {
         ScreenHeader("Computer", back)
         Text("Workspace on this phone", style = Type.small.copy(fontSize = 14.sp), color = p.textSecondary, modifier = Modifier.padding(start = 20.dp, top = 4.dp, bottom = 12.dp))
@@ -379,6 +385,32 @@ fun ComputerScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Uni
                             Text(if (linuxReady) "PRoot shell — Linux is installed" else "PRoot shell — Linux is not installed yet", style = Type.mono.copy(fontSize = 13.sp), color = p.textSecondary)
                         }
                         GkIcon(Gk.chevronRight, null, 20.dp, p.textSecondary)
+                    }
+                }
+            }
+            // ── Projects (spec §7.6): the build projects X has made on this
+            // phone, newest first; tapping one opens its chat. Empty state
+            // says so plainly instead of hiding the section.
+            item {
+                Text("PROJECTS", style = Type.label.copy(letterSpacing = 0.08.sp), color = p.textSecondary, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp))
+            }
+            if (projects.isEmpty()) {
+                item {
+                    Text(COMPUTER_NO_PROJECTS, style = Type.small.copy(fontSize = 14.sp, lineHeight = 20.sp), color = p.textSecondary,
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 8.dp))
+                }
+            } else {
+                items(projects, key = { it.id }) { project ->
+                    WorkspaceCard(onClick = { vm.openProject(project.id); back() }) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            GkIcon(Gk.projects, null, 20.dp, p.textSecondary)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(project.name, style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = p.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${project.kind} · ${fmtTime(project.updatedAt)}", style = Type.tiny, color = p.muted)
+                            }
+                            GkIcon(Gk.chevronRight, null, 20.dp, p.textSecondary)
+                        }
                     }
                 }
             }

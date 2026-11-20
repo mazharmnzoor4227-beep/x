@@ -218,8 +218,10 @@ class SwarmPhase1Test {
     // ── Bot Store ────────────────────────────────────────────────────────────
 
     @Test fun botStoreSeedsAreRealAndLicensed() {
-        // The curated roster: 6 donor seeds + 17 new specialists (23 total).
-        assertTrue(BotCatalog.seeds.size in 20..30)
+        // Navigation restructure (2026-11-20): the roster is 50 specialists —
+        // 23 donor-pattern seeds + 27 X built-in specialists — that X Bot
+        // spawns from. X Bot itself is not in the seeds (see xBotDefinition).
+        assertEquals(50, BotCatalog.seeds.size)
         BotCatalog.seeds.forEach { def ->
             assertTrue(def.name.isNotBlank())
             assertTrue(def.description.isNotBlank())
@@ -228,6 +230,10 @@ class SwarmPhase1Test {
                 // The one proprietary engine in the store: Google's Antigravity CLI has no
                 // GitHub repo, so its source is the official product site, licence proprietary.
                 assertTrue(def.sourceUrl.startsWith("https://antigravity.google/"))
+            } else if (def.sourceName == "X built-in") {
+                // X's own definitions carry no URL — never a fabricated link.
+                assertTrue(def.sourceUrl.isEmpty())
+                assertEquals("X", def.license)
             } else {
                 assertTrue(def.sourceUrl.startsWith("https://github.com/"))
             }

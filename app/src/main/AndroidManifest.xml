@@ -66,6 +66,8 @@
         <service android:name=".build.DemoRecordService" android:exported="false" android:foregroundServiceType="mediaProjection" />
         <!-- v0.8.0 Phase C: keeps chat/Build runs alive in the background while the RunRegistry has work in flight -->
         <service android:name=".work.WorkService" android:exported="false" android:foregroundServiceType="dataSync" />
+        <!-- Background bot runs: keeps one bot's run alive (foreground, dataSync) while the user leaves its chat or the app; per-run Stop in its notification. Uses the FOREGROUND_SERVICE_DATA_SYNC permission declared above (Android 14+). -->
+        <service android:name=".work.BotRunService" android:exported="false" android:foregroundServiceType="dataSync" />
         <!-- P1-8: receives exact alarms for scheduled tasks and hands the run to the worker at once (explicit intents only) -->
         <receiver android:name=".work.ScheduleAlarmReceiver" android:exported="false" />
         <provider

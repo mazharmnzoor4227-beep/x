@@ -109,6 +109,36 @@ class BotDefinitionStore(private val dir: File) {
         persist()
     }
 
+    /** Rename a bot (profile editing). The name is capped at 40 chars, like [create]. No-op for an unknown id. */
+    fun rename(id: String, name: String) {
+        val clean = name.trim().take(40)
+        if (clean.isBlank() || _definitions.value.none { it.id == id }) return
+        _definitions.value = _definitions.value.map { if (it.id == id) it.copy(name = clean) else it }
+        persist()
+    }
+
+    /**
+     * Guarantee X Bot exists, first in the list. Returns the definition.
+     * Refreshes only the orchestrator persona/description on later launches —
+     * the user's own name and logo choices are never overwritten.
+     */
+    fun ensureXBot(): BotDefinition {
+        val fresh = xBotDefinition()
+        val existing = _definitions.value.firstOrNull { it.id == X_BOT_ID }
+        if (existing == null) {
+            _definitions.value = listOf(fresh) + _definitions.value
+            persist()
+            return fresh
+        }
+        if (existing.persona != fresh.persona || existing.description != fresh.description) {
+            _definitions.value = _definitions.value.map {
+                if (it.id == X_BOT_ID) it.copy(persona = fresh.persona, description = fresh.description) else it
+            }
+            persist()
+        }
+        return _definitions.value.first { it.id == X_BOT_ID }
+    }
+
     private fun persist() {
         runCatching { dir.mkdirs(); index.writeText(json.encodeToString(kotlinx.serialization.builtins.ListSerializer(BotDefinition.serializer()), _definitions.value)) }
     }
@@ -121,6 +151,37 @@ class BotDefinitionStore(private val dir: File) {
  */
 fun switchesForBot(def: BotDefinition): Map<String, Boolean> =
     ToolCatalog.groups.associate { it.id to (def.toolGroups.isEmpty() || it.id in def.toolGroups) }
+
+/**
+ * Navigation restructure (2026-11-20): X Bot is the user's ONE bot — the
+ * Bots section shows exactly this definition and nothing else. The 50
+ * specialists in [BotCatalog.seeds] are not bots the user chats with: they
+ * are the roster X Bot spawns from (see [com.mazharansari.x.agent.XBotSpawn]).
+ * [ensureXBot] guarantees the definition exists (seeded on first launch,
+ * kept first in the list); it refreshes only the orchestrator persona and
+ * description, never the user's own name or logo choices.
+ */
+const val X_BOT_ID = "x-bot"
+
+fun xBotDefinition(): BotDefinition = BotDefinition(
+    id = X_BOT_ID,
+    name = "X Bot",
+    description = "Your own main bot. Tell it anything — it does the job itself, or spawns specialist sub-bots under itself, collects all their results, and answers you itself. You only ever talk to X Bot.",
+    persona = "You are X Bot, the user's own main bot — the ONLY bot the user ever talks to. " +
+        "Do whatever the user tells you. When a job has several independent parts, fan it out with " +
+        "subagent_swarm: pick a specialist sub-bot from your roster for each part by name " +
+        "(Researcher, Coder, Tester, Reviewer, GitHub Coder, Video Editor, PDF Reader, and the rest — " +
+        "50 specialists, each an expert in its own work), give each one a complete brief, and let " +
+        "them work in parallel. Then collect ALL of their results yourself, verify each one before " +
+        "you use it (sources cited, files read back, test exit codes checked), and send everything " +
+        "to the user FROM YOURSELF, in one answer — the user never talks to a sub-bot, and a sub-bot " +
+        "never replies to the user directly. Anything still unverified is marked 'Needs check', never " +
+        "hidden and never claimed as done. Never send the user to another bot, and never say a job " +
+        "is done until its results are checked.",
+    skills = listOf("agent-building", "deep-research", "token-efficiency", "delivery"),
+    sourceName = "X built-in",
+    license = "X",
+)
 
 /**
  * Soft provider preference: attempts from the suggested provider go first; the rest keep

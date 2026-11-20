@@ -44,13 +44,38 @@ class WorkService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        val titles = currentTitles()
-        if (titles.isEmpty()) {
-            // Nothing in flight (stale start): do not linger as a foreground service.
+        if (intent?.action == ACTION_STOP_RUN) {
+            // Bot background work: stop ONE run by its run id — every other
+            // run in flight keeps working. Cancelling the registry job is
+            // the run itself, so its own cleanup settles it (partial reply
+            // kept, TaskRuns record finished as interrupted).
+            val runId = intent.getStringExtra(EXTRA_RUN_ID).orEmpty()
+            if (runId.isNotEmpty()) {
+                // The registry unregisters the job when its cleanup finishes,
+                // which lags this call — so decide "last run" now, before the
+                // cancel, or the notification would briefly re-post.
+                val soleRun = currentHandles().let { it.size == 1 && it[0].id == runId }
+                runCatching { (application as AxionApp).graph.runs.active.value.firstOrNull { it.id == runId }?.job?.cancel() }
+                runCatching { (application as AxionApp).graph.jobs.killForRun(runId) }
+                com.mazharansari.x.work.BotRunService.noteRunFinished(runId)
+                if (soleRun) {
+                    releaseWake()
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
+            }
+        }
+        val handles = currentHandles()
+        if (handles.isEmpty()) {
+            // Nothing in flight (stale start, or the stop above ended the
+            // last run): do not linger as a foreground service.
+            releaseWake()
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
-        val n = buildNotification(titles)
+        val n = buildNotification(handles)
         if (Build.VERSION.SDK_INT >= 29) startForeground(ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         else startForeground(ID, n)
         acquireWake()
@@ -65,8 +90,8 @@ class WorkService : Service() {
         super.onDestroy()
     }
 
-    private fun currentTitles(): List<String> =
-        runCatching { (application as AxionApp).graph.runs.active.value.map { it.title } }.getOrDefault(emptyList())
+    private fun currentHandles(): List<RunRegistry.Handle> =
+        runCatching { (application as AxionApp).graph.runs.active.value }.getOrDefault(emptyList())
 
     private fun acquireWake() {
         if (wakeLock?.isHeld == true) return
@@ -84,7 +109,8 @@ class WorkService : Service() {
         wakeLock = null
     }
 
-    private fun buildNotification(titles: List<String>): Notification {
+    private fun buildNotification(handles: List<RunRegistry.Handle>): Notification {
+        val titles = handles.map { it.title }
         if (Build.VERSION.SDK_INT >= 26) {
             getSystemService(NotificationManager::class.java).createNotificationChannel(
                 NotificationChannel(CH, "Background work", NotificationManager.IMPORTANCE_LOW)
@@ -94,27 +120,40 @@ class WorkService : Service() {
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val stopAll = PendingIntent.getService(
-            this, 1, Intent(this, WorkService::class.java).setAction(ACTION_STOP_ALL),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
         val text = if (titles.size == 1) titles[0] else "${titles.size} tasks running"
         val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CH) else @Suppress("DEPRECATION") Notification.Builder(this)
-        return b.setSmallIcon(android.R.drawable.stat_sys_upload)
+        b.setSmallIcon(android.R.drawable.stat_sys_upload)
             .setContentTitle("X is working")
             .setContentText(text)
             .setStyle(Notification.BigTextStyle().bigText(titles.joinToString("\n")))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(openApp)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop all", stopAll)
-            .build()
+        if (handles.size == 1) {
+            // One run in flight: the action stops that run only (bot runs
+            // use the same run-id keying — see BotRunService).
+            val stopOne = PendingIntent.getService(
+                this, handles[0].id.hashCode(),
+                Intent(this, WorkService::class.java).setAction(ACTION_STOP_RUN).putExtra(EXTRA_RUN_ID, handles[0].id),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            b.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopOne)
+        } else {
+            val stopAll = PendingIntent.getService(
+                this, 1, Intent(this, WorkService::class.java).setAction(ACTION_STOP_ALL),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            b.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop all", stopAll)
+        }
+        return b.build()
     }
 
     companion object {
         private const val CH = "work"
         private const val ID = 4403
         private const val ACTION_STOP_ALL = "axion.work.STOP_ALL"
+        private const val ACTION_STOP_RUN = "axion.work.STOP_RUN"
+        private const val EXTRA_RUN_ID = "run_id"
 
         /** Re-post the notification with the current run titles (called on registry edges). */
         fun refresh(ctx: Context) {
@@ -128,6 +167,11 @@ class WorkService : Service() {
 
         fun stop(ctx: Context) {
             runCatching { ctx.stopService(Intent(ctx, WorkService::class.java)) }
+        }
+
+        /** Stop one run by its run id, leaving every other run in flight alone. */
+        fun stopRun(ctx: Context, runId: String) {
+            runCatching { ctx.startService(Intent(ctx, WorkService::class.java).setAction(ACTION_STOP_RUN).putExtra(EXTRA_RUN_ID, runId)) }
         }
     }
 }

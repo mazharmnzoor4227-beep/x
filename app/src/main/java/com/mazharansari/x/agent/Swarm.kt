@@ -36,7 +36,7 @@ data class WriteBlock(val path: String, val content: String)
 object SwarmPlan {
     /** Lines starting with `SPAWN:` — `SPAWN: ROLE: sub-brief`. Capped at [SubagentLimits.MAX_SPAWN_PER_WORKER] per worker. */
     fun parseSpawnLines(plan: String, parent: WorkerTask): List<WorkerTask> {
-        return plan.lines().map { it.trim() }
+        return XBotSpawn.tagTasks(plan.lines().map { it.trim() }
             .filter { it.startsWith("SPAWN:", ignoreCase = true) }
             .map { it.substringAfter(':', "").trim() }
             .filter { it.length >= 3 }.distinct()
@@ -50,7 +50,7 @@ object SwarmPlan {
                     role = role ?: WorkerRole.RESEARCHER, brief = brief,
                     depth = parent.depth + 1, parentId = parent.id,
                 )
-            }
+            })
     }
 
     /** Lines starting with `READ:` — workspace paths the worker wants to read first. */
@@ -172,10 +172,10 @@ class SwarmWorkerExecutor(private val ctx: ToolContext) {
         }
         progress(task, steps, if (hits.isEmpty()) "Searched: ${task.angle} — no results" else "Searched: ${task.angle} → ${hits.size} results")
         if (hits.isEmpty()) {
-            val spawn = listOf(
+            val spawn = XBotSpawn.tagTasks(listOf(
                 WorkerTask(id = "${task.id}.1", topic = task.topic, angle = "${task.angle} examples", role = WorkerRole.RESEARCHER, brief = "${task.angle} examples", depth = task.depth + 1, parentId = task.id),
                 WorkerTask(id = "${task.id}.2", topic = task.topic, angle = "${task.angle} how to", role = WorkerRole.RESEARCHER, brief = "${task.angle} how to", depth = task.depth + 1, parentId = task.id),
-            )
+            ))
             return fail(task, "no results for angle \"${task.angle}\"", steps, spawn)
         }
         val facts = hits.take(task.maxFacts).map { h ->
@@ -326,12 +326,17 @@ class SubagentSwarmTool : Tool {
         if (task.isBlank()) return ToolOutput("Give a task to swarm on.", isError = true)
         var specs: List<WorkerTask> = emptyList()
         if (ctx.ask != null) {
+            // X Bot's roster: the model names a specialist per part (ROLE is the
+            // engine-level allow-list; the NAME is the roster specialist —
+            // e.g. "CODER: ..." runs as Coder, "Video Editor: ..." as Video Editor).
+            val roster = com.mazharansari.x.data.BotCatalog.seeds.joinToString(", ") { it.name }
             val planPrompt = """
                 Break this task into at most 4 independent parts that can be done in parallel by different workers.
                 Task: "$task"
                 Output ONLY one line per part, in this shape — ROLE: brief
                 Roles: RESEARCHER (find facts on the web), CODER (write or change files in the workspace), TESTER (run shell test commands), REVIEWER (read files and review them).
                 The brief must be complete on its own: what to do, on what, and what counts as done.
+                Start the brief with the specialist sub-bot who should do it, from X Bot's roster: $roster.
             """.trimIndent()
             specs = runCatching { ctx.ask(planPrompt) }.getOrNull().orEmpty()
                 .let { SubagentOrchestrator.parseWorkerSpecs(it, task) }
@@ -368,20 +373,12 @@ class SubagentSwarmTool : Tool {
             }
         }
         val notes = verification.checks.filter { it.note.isNotBlank() }.associate { it.fact.text to it.note }
+        // X Bot collects ALL sub-bot results and sends them from itself:
+        // one answer, grouped by sub-bot, with the verification mark up front.
         val body = buildString {
             appendLine(verification.line)
             appendLine()
-            appendLine("Swarm: $task (${result.facts.size} results from ${result.workersRun - result.workersFailed} of ${result.workersRun} workers)")
-            appendLine()
-            result.facts.forEachIndexed { i, f ->
-                appendLine("${i + 1}. [${f.workerId}] ${f.text}${notes[f.text]?.let { " $it" } ?: ""}")
-                if (f.sourceUrl.isNotBlank()) appendLine("   ${f.sourceUrl}")
-            }
-            if (result.failures.isNotEmpty()) {
-                appendLine()
-                appendLine("Workers that failed (their parts were not covered): " +
-                    result.failures.joinToString("; ") { "${it.workerId} (\"${it.angle}\": ${it.reason})" })
-            }
+            append(XBotSpawn.aggregate(task, result, verification.mark, notes))
         }
         // The model also gets the learning nudge (not shown on the step card): when this
         // taught a reusable procedure, save it with skill_create and say so in the reply.

@@ -90,8 +90,8 @@ class V03ScreensTest {
             // clock by hand from here on; the long-press below advances it
             // itself, and the capture uses advanceTimeBy.
             compose.mainClock.autoAdvance = false
-            // Redesign round 2: the app opens on the Home list, not the chat
-            // screen — navigate to a chat first (debugStart hook, no new chat).
+            // Navigation restructure (2026-11-20): the app opens on the chat
+            // screen already — debugStart is a no-op here (kept for clarity).
             sc.onActivity { androidx.lifecycle.ViewModelProvider(it)[com.mazharansari.x.ui.ChatViewModel::class.java].debugStart = Route.Chat }
             compose.mainClock.advanceTimeBy(800)
             sc.onActivity { androidx.lifecycle.ViewModelProvider(it)[com.mazharansari.x.ui.ChatViewModel::class.java].debugCall =
@@ -112,8 +112,8 @@ class V03ScreensTest {
         seed()
         ActivityScenario.launch(MainActivity::class.java).use { sc ->
             compose.waitForIdle()
-            // Redesign round 2: the app opens on the Home list — navigate to
-            // a chat first (the + popover lives on the chat screen).
+            // Navigation restructure (2026-11-20): the app opens on the chat
+            // screen already (the + popover lives there).
             sc.onActivity { androidx.lifecycle.ViewModelProvider(it)[com.mazharansari.x.ui.ChatViewModel::class.java].debugStart = Route.Chat }
             compose.mainClock.advanceTimeBy(800)
             // The single-chat-screen menu drawer has no "Connectors" entry (the
@@ -155,8 +155,8 @@ class V03ScreensTest {
             // above — drive the clock by hand from here on.
             compose.mainClock.autoAdvance = false
             sc.onActivity { act -> setMessages(androidx.lifecycle.ViewModelProvider(act)[com.mazharansari.x.ui.ChatViewModel::class.java], conv.messages) }
-            // Redesign round 2: the app opens on the Home list — navigate to
-            // the chat screen without newChat (it would clear these messages).
+            // Navigation restructure (2026-11-20): the app opens on the chat
+            // screen already — no navigation needed (newChat would clear these messages).
             sc.onActivity { act -> androidx.lifecycle.ViewModelProvider(act)[com.mazharansari.x.ui.ChatViewModel::class.java].debugStart = Route.Chat }
             compose.mainClock.advanceTimeBy(800)
             compose.waitUntil(5000) { compose.onAllNodesWithText("Thought for", substring = true).fetchSemanticsNodes().isNotEmpty() }
@@ -173,8 +173,8 @@ class V03ScreensTest {
         seed()
         ActivityScenario.launch(MainActivity::class.java).use { sc ->
             compose.waitForIdle()
-            // Redesign round 2: the app opens on the Home list — navigate to
-            // a chat first (the composer and its popovers live there).
+            // Navigation restructure (2026-11-20): the app opens on the chat
+            // screen already (the composer and its popovers live there).
             sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[com.mazharansari.x.ui.ChatViewModel::class.java].debugStart = Route.Chat }
             compose.mainClock.advanceTimeBy(800)
             sc.onActivity { a ->

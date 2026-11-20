@@ -23,11 +23,15 @@ import com.mazharansari.x.ui.theme.P
 @Composable
 fun AppRoot(vm: ChatViewModel) {
     val settings by vm.g.settings.state.collectAsState()
-    val stack = remember { mutableStateListOf<Route>(Route.Home) }
+    // Navigation restructure (2026-11-20): the app opens straight on the
+    // single chat screen ([Route.Chat]), ready to type — never on a list.
+    val stack = remember { mutableStateListOf<Route>(Route.Chat) }
     // Splash shows once per app start, after onboarding; skipped in tests.
     var splashDone by remember { mutableStateOf(AnimationGate.inTestRuntime) }
     val ctx = LocalContext.current
     LaunchedEffect(vm.toast) { vm.toast?.let { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show(); vm.toast = null } }
+    // X Bot is the user's one bot: guarantee its definition exists on launch.
+    LaunchedEffect(Unit) { vm.g.botStore.ensureXBot() }
     XTheme(when (settings.theme) { "light" -> XLook.Light; "system" -> XLook.System; else -> XLook.Dark }, settings.textScale) {
         val onboarding = com.mazharansari.x.ui.auth.Onboarding.enabled
         // First run: intro → permissions → the app, cross-faded. No sign-in: the app opens straight in.
@@ -65,8 +69,13 @@ fun AppRoot(vm: ChatViewModel) {
                     // v0.5.2: screens where keys, tokens or passwords are typed: no screenshots, screen recording or Recents preview.
                     if (r in com.mazharansari.x.ui.SecureRoutes.all) com.mazharansari.x.security.SecureScreen()
                     saved.SaveableStateProvider(r.toString()) { when (r) {
-                        Route.Home -> com.mazharansari.x.ui.home.HomeScreen(vm, nav)
-                        Route.Chat -> ChatScreen(vm, nav, back)
+                        Route.Home -> com.mazharansari.x.ui.home.HomeScreen(vm, nav, back)
+                        // Root chat: the header's back chevron is the menu
+                        // button — it opens the menu panel (Route.Home).
+                        // ChatScreen.kt is owned by another worker; a
+                        // dedicated menu glyph in its header is the follow-up
+                        // (see the report). Any deeper chat pops normally.
+                        Route.Chat -> ChatScreen(vm, nav, onBack = { if (stack.size <= 1) nav(Route.Home) else back() })
                         is Route.BotChat -> com.mazharansari.x.ui.home.BotChatScreen(vm, r.botId, back, nav)
                         Route.Settings -> SettingsScreen(vm, nav, back)
                         Route.Appearance -> AppearanceScreen(vm, back)
@@ -97,7 +106,8 @@ fun AppRoot(vm: ChatViewModel) {
                         Route.Turbo -> com.mazharansari.x.ui.settings.TurboScreen(vm, back)
                         Route.GitHub -> com.mazharansari.x.ui.settings.GitHubScreen(vm, back)
                         Route.Telegram -> com.mazharansari.x.ui.settings.TelegramScreen(vm, back)
-                        Route.BotStore -> com.mazharansari.x.ui.bots.BotStoreScreen(vm, back)
+                        Route.Bots -> com.mazharansari.x.ui.bots.BotStoreScreen(vm, back, nav)
+                        Route.BotStore -> com.mazharansari.x.ui.bots.BotStoreScreen(vm, back, nav)
                         Route.CliPair -> com.mazharansari.x.ui.home.CliPairScreen(vm, back, nav)
                         Route.Feed -> com.mazharansari.x.ui.workspace.FeedScreen(vm, back, nav)
                         Route.Ideas -> com.mazharansari.x.ui.workspace.IdeasScreen(vm, back, nav)

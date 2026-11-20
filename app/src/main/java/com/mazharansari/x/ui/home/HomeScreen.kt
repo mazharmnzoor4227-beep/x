@@ -35,7 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,7 +46,6 @@ import com.mazharansari.x.data.ConversationMeta
 import com.mazharansari.x.ui.ChatViewModel
 import com.mazharansari.x.ui.Route
 import com.mazharansari.x.ui.bots.BotLogoView
-import com.mazharansari.x.ui.bots.CreateBotSheet
 import com.mazharansari.x.ui.chat.AxionSheet
 import com.mazharansari.x.ui.chat.ChatListMeta
 import com.mazharansari.x.ui.chat.SheetRow
@@ -60,31 +59,29 @@ import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
 
 /**
- * Home (redesign round 2, spec §1.4): the app opens HERE, on a list — never
- * on an empty chat. Top to bottom: a compact 64dp settings block (user
- * monogram + name/status + Workspace grid + Settings gear), a 48dp search
- * that filters both lists, the BOTS section (WhatsApp-style, every installed
- * + created bot, tapping one opens THAT bot's own chat inside the Bots
- * section), then the CHATS section (full history, pinned first, newest
- * first). No composer, no ToolsRow, no suggestion chips, no drawer. Lists
- * start empty — no seeded rows ever.
+ * MENU PANEL (navigation restructure, 2026-11-20 — user order, supersedes
+ * the 2026-11-19 list-first home): the app opens on the single chat screen,
+ * and this panel opens from the chat screen's top button. Top to bottom,
+ * exactly in this order:
+ *  1. a compact 64dp header (user monogram + name/status + Close, back to chat),
+ *  2. ONE top row with exactly 4 options: Bots, Library, Connectors, Skills,
+ *  3. the full chat-history list (every chat, pinned first, newest first;
+ *     the search field appears only when the Search row below is tapped),
+ *  4. below the history, in this order: Settings, New chat, Search.
+ * No composer, no ToolsRow, no suggestion chips, no drawer, no Bots list
+ * here (Bots live in their own section, Route.Bots — exactly one bot, X Bot).
+ * Lists start empty — no seeded rows ever.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HomeScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
+fun HomeScreen(vm: ChatViewModel, navigate: (Route) -> Unit, back: () -> Unit) {
     val p = P
     val settings by vm.g.settings.state.collectAsState()
     val connectors by vm.g.connectors.list.collectAsState()
-    val bots by vm.g.botStore.definitions.collectAsState()
     val index by vm.g.chats.index.collectAsState()
     val liveBots by vm.g.bots.bots.collectAsState()
-    val activeRuns by vm.g.runs.active.collectAsState()
-    val runRecords by vm.g.taskRuns.records.collectAsState()
-    val ideaCount by vm.g.ideas.ideas.collectAsState()
-    val goalCount by vm.g.goals.goals.collectAsState()
     var q by remember { mutableStateOf("") }
-    var workspaceOpen by remember { mutableStateOf(false) }
-    var createBot by remember { mutableStateOf(false) }
+    var searchOpen by remember { mutableStateOf(false) }
     var menuFor by remember { mutableStateOf<ConversationMeta?>(null) }
     var renaming by remember { mutableStateOf<ConversationMeta?>(null) }
 
@@ -95,16 +92,15 @@ fun HomeScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
         ChatListMeta(id = it.id, title = it.title, pinned = it.pinned, updatedAt = it.updatedAt,
             preview = it.preview, section = it.section, botId = it.botId, botName = it.botName)
     }
-    val workingIds = activeRuns.mapNotNull { it.ownerId }.toSet()
+    val workingIds = liveBots.filter { it.status == BotStatus.STARTING || it.status == BotStatus.WORKING }
+        .mapNotNull { it.parentId ?: it.conversationId }.toSet()
     val chatRows = buildChatRows(metas, workingIds)
-    val filteredBots = bots.filter { q.isBlank() || it.name.contains(q, true) || it.description.contains(q, true) }
     val filteredChats = chatRows.filter { q.isBlank() || it.displayName.contains(q, true) || it.preview.contains(q, true) }
     val parents = liveBots.filter { it.kind == BotKind.PARENT }
     val workers = liveBots.filter { it.kind == BotKind.WORKER }
-    val feedCount = (if (vm.pendingApproval != null) 1 else 0) + runRecords.count { it.status == "running" }
 
     Column(Modifier.fillMaxSize().background(p.bg)) {
-        // ── Settings block (64dp): monogram + name/status + Workspace grid + Settings gear ──
+        // ── Header (64dp): monogram + name/status + Close (back to the chat) ──
         Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 12.dp, top = 12.dp).height(64.dp),
             verticalAlignment = Alignment.CenterVertically) {
             BotLogoView("", userName, 40.dp, Modifier.clickable { navigate(Route.Customize) })
@@ -112,29 +108,37 @@ fun HomeScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
                 Text(userName, style = Type.row, color = p.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("Ready · ${providerName ?: "No key yet"}", style = Type.mono, color = p.text3, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            IconTap(Gk.grid, "Workspace", 20.dp, p.text) { workspaceOpen = true }
-            Spacer(Modifier.width(4.dp))
-            IconTap(Gk.settings, "Settings", 20.dp, p.text) { navigate(Route.Settings) }
+            IconTap(Gk.close, "Close menu", 20.dp, p.text) { back() }
         }
-        // ── Search (48dp): filters Bots + Chats inline ──
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(48.dp)
-            .clip(RoundedCornerShape(8.dp)).background(p.surface).border(1.dp, p.border, RoundedCornerShape(8.dp))
-            .padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            GkIcon(Gk.search, null, 20.dp, p.text2)
-            Spacer(Modifier.width(10.dp))
-            Box(Modifier.weight(1f)) {
-                BasicTextField(q, { q = it }, singleLine = true, textStyle = Type.body.copy(color = p.text),
-                    cursorBrush = SolidColor(p.text), modifier = Modifier.fillMaxWidth(),
-                    decorationBox = { inner ->
-                        Box {
-                            if (q.isEmpty()) Text("Search chats and bots", style = Type.body, color = p.text3)
-                            inner()
-                        }
-                    })
+        // ── Top row: exactly 4 options — Bots, Library, Connectors, Skills ──
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly) {
+            MenuTopOption(Gk.agent, "Bots") { navigate(Route.Bots) }
+            MenuTopOption(Gk.library, "Library") { navigate(Route.Library) }
+            MenuTopOption(Gk.connectors, "Connectors") { navigate(Route.Connectors) }
+            MenuTopOption(Gk.skills, "Skills") { navigate(Route.Skills) }
+        }
+        // ── Search field: only while the Search row below is open ──
+        if (searchOpen) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(48.dp)
+                .clip(RoundedCornerShape(8.dp)).background(p.surface).border(1.dp, p.border, RoundedCornerShape(8.dp))
+                .padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                GkIcon(Gk.search, null, 20.dp, p.text2)
+                Spacer(Modifier.width(10.dp))
+                Box(Modifier.weight(1f)) {
+                    BasicTextField(q, { q = it }, singleLine = true, textStyle = Type.body.copy(color = p.text),
+                        cursorBrush = SolidColor(p.text), modifier = Modifier.fillMaxWidth(),
+                        decorationBox = { inner ->
+                            Box {
+                                if (q.isEmpty()) Text("Search chats", style = Type.body, color = p.text3)
+                                inner()
+                            }
+                        })
+                }
+                if (q.isNotEmpty()) IconTap(Gk.close, "Clear search", 18.dp, p.text2) { q = "" }
             }
-            if (q.isNotEmpty()) IconTap(Gk.close, "Clear search", 18.dp, p.text2) { q = "" }
         }
-        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)) {
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
             // ── RUNNING NOW: live parents/workers only while runs are live ──
             if (parents.isNotEmpty() || workers.isNotEmpty()) {
                 item(key = "h_running") { SectionHead("Running now") }
@@ -149,68 +153,18 @@ fun HomeScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
                     Hairline()
                 }
             }
-            // ── BOTS ──
-            item(key = "h_bots") {
+            // ── CHATS: the full history ──
+            item(key = "h_chats") {
                 Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text("BOTS", style = Type.eyebrow, color = p.text2, modifier = Modifier.weight(1f))
-                    Text("Bot Store", style = Type.label, color = p.text2,
-                        modifier = Modifier.clickable { navigate(Route.BotStore) }.padding(horizontal = 8.dp, vertical = 8.dp))
-                    Text("New bot", style = Type.label, color = p.accent,
-                        modifier = Modifier.clickable { createBot = true }.padding(horizontal = 8.dp, vertical = 8.dp))
-                }
-            }
-            if (filteredBots.isEmpty()) {
-                item(key = "bots_empty") {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                        Text("No bots yet — install one from the Bot Store, or create your own.",
-                            style = Type.small, color = p.text3)
-                        TextButton(onClick = { navigate(Route.BotStore) }, contentPadding = PaddingValues(0.dp)) {
-                            Text("Open Bot Store", color = p.accent, style = Type.label)
-                        }
-                    }
-                }
-            } else {
-                items(filteredBots, key = { "bot-${it.id}" }) { bot ->
-                    val thread = vm.botThreadMeta(bot.id)
-                    val working = thread != null && workingIds.contains(thread.id)
-                    Row(Modifier.fillMaxWidth().height(64.dp)
-                        .clickable { vm.openBotChat(bot); navigate(Route.BotChat(bot.id)) }
-                        .padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        BotLogoView(bot.logo, bot.name, 44.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(bot.name, style = Type.row, color = p.text, maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                if (thread != null) Text(chatTimeLabel(thread.updatedAt), style = Type.mono, color = p.text3)
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                                if (working) { Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(p.accent)); Spacer(Modifier.width(6.dp)) }
-                                Text(if (working) "Working…" else thread?.preview?.ifBlank { bot.description } ?: bot.description,
-                                    style = Type.small, color = p.text2, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                            }
-                        }
-                    }
-                    Hairline()
-                }
-            }
-            // ── CHATS ──
-            item(key = "h_chats") {
-                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 16.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
                     Text("CHATS", style = Type.eyebrow, color = p.text2, modifier = Modifier.weight(1f))
-                    Text("New chat", style = Type.label, color = p.accent,
-                        modifier = Modifier.clickable { vm.newChat(); navigate(Route.Chat) }.padding(horizontal = 8.dp, vertical = 8.dp))
                 }
             }
             if (filteredChats.isEmpty()) {
                 item(key = "chats_empty") {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                        Text("No chats yet — tap New chat, or open a bot above.", style = Type.small, color = p.text3)
-                        TextButton(onClick = { vm.newChat(); navigate(Route.Chat) }, contentPadding = PaddingValues(0.dp)) {
-                            Text("New chat", color = p.accent, style = Type.label)
-                        }
+                        Text(if (q.isBlank()) "No chats yet — tap New chat below." else "No chats match \"$q\".",
+                            style = Type.small, color = p.text3)
                     }
                 }
             } else {
@@ -241,34 +195,17 @@ fun HomeScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
                     Hairline()
                 }
             }
-        }
-    }
-    // ── Workspace sheet: the single home for the 7 workspace screens ──
-    if (workspaceOpen) {
-        AxionSheet({ workspaceOpen = false }) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)) {
-                Text("Workspace", style = Type.title, color = p.text, modifier = Modifier.padding(start = 20.dp, bottom = 8.dp))
-                SheetRow(Gk.history, "Feed", subtitle = if (feedCount > 0) "$feedCount need you" else "Nothing needs you",
-                    onClick = { workspaceOpen = false; navigate(Route.Feed) })
-                SheetRow(Gk.sparkles, "Ideas", subtitle = if (ideaCount.size > 0) "${ideaCount.size} saved" else "No ideas yet",
-                    onClick = { workspaceOpen = false; navigate(Route.Ideas) })
-                SheetRow(Gk.circleCheck, "Goals", subtitle = if (goalCount.size > 0) "${goalCount.size} active" else "No goals yet",
-                    onClick = { workspaceOpen = false; navigate(Route.Goals) })
-                SheetRow(Gk.library, "Library", subtitle = "Files, notes and downloads",
-                    onClick = { workspaceOpen = false; navigate(Route.Library) })
-                SheetRow(Gk.clock, "Activity", subtitle = "Runs, tasks and history",
-                    onClick = { workspaceOpen = false; navigate(Route.Activity) })
-                SheetRow(Gk.terminal, "Computer", subtitle = "Projects, terminal and files",
-                    onClick = { workspaceOpen = false; navigate(Route.Computer) })
-                Spacer(Modifier.height(8.dp))
+            // ── Below the history, in this order: Settings, New chat, Search ──
+            item(key = "m_settings") {
+                MenuBottomRow(Gk.settings, "Settings") { navigate(Route.Settings) }
+            }
+            item(key = "m_new") {
+                MenuBottomRow(Gk.newChat, "New chat") { vm.newChat(); navigate(Route.Chat) }
+            }
+            item(key = "m_search") {
+                MenuBottomRow(Gk.search, "Search") { searchOpen = !searchOpen; if (!searchOpen) q = "" }
             }
         }
-    }
-    // ── New bot sheet ──
-    if (createBot) {
-        CreateBotSheet(vm,
-            onCreated = { created -> vm.openBotChat(created); navigate(Route.BotChat(created.id)) },
-            onDismiss = { createBot = false })
     }
     // ── Long-press menu on a chat row ──
     menuFor?.let { c ->
@@ -292,6 +229,32 @@ fun HomeScreen(vm: ChatViewModel, navigate: (Route) -> Unit) {
             confirmButton = { TextButton({ vm.g.chats.rename(c.id, t.trim().ifBlank { c.title }); if (vm.conversationId == c.id) vm.title = t; renaming = null }) { Text("Save", color = p.text, style = Type.label) } },
             dismissButton = { TextButton({ renaming = null }) { Text("Cancel", color = p.text2, style = Type.label) } })
     }
+}
+
+/** One of the 4 top options: line icon above a 12sp label, equal width. */
+@Composable
+private fun MenuTopOption(icon: Int, label: String, onClick: () -> Unit) {
+    val p = P
+    Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick)
+        .padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        GkIcon(icon, label, 22.dp, p.text)
+        Spacer(Modifier.height(6.dp))
+        Text(label, style = Type.small.copy(fontSize = 12.sp), color = p.text, textAlign = TextAlign.Center, maxLines = 1)
+    }
+}
+
+/** One of the 3 bottom rows: 56dp, line icon + 15sp label, hairline below. */
+@Composable
+private fun MenuBottomRow(icon: Int, label: String, onClick: () -> Unit) {
+    val p = P
+    Row(Modifier.fillMaxWidth().height(56.dp).clickable(onClick = onClick).padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        GkIcon(icon, label, 20.dp, p.text)
+        Spacer(Modifier.width(14.dp))
+        Text(label, style = Type.row, color = p.text, modifier = Modifier.weight(1f))
+        GkIcon(Gk.chevronRight, null, 18.dp, p.text3)
+    }
+    Hairline()
 }
 
 @Composable

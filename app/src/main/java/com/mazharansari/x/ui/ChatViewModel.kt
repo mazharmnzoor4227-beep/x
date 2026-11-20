@@ -15,6 +15,9 @@ import com.mazharansari.x.livecall.LiveCallController
 import com.mazharansari.x.livecall.LiveCallUiState
 import com.mazharansari.x.livecall.LiveToolBridge
 import com.mazharansari.x.llm.*
+import com.mazharansari.x.work.BotRunInfo
+import com.mazharansari.x.work.BotRunService
+import com.mazharansari.x.work.BotRunState
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -178,6 +181,59 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     /** The session belonging to the open conversation, if one is in flight. */
     private fun openSession(): RunSession? = conversationId?.let { sessions[it] }
     private var createdAt = 0L
+
+    // ── Background bot runs: the running state the bot chat shows ────────────────────────────────────────────────
+    /**
+     * Every bot run in flight, keyed by run id. This is the state
+     * [com.mazharansari.x.ui.chat.BotRunningBanner] reads: it is derived
+     * from the app-scoped [com.mazharansari.x.work.RunRegistry] (via
+     * [BotRunService]'s bot-run map), so a run keeps showing as running
+     * after the user leaves its chat for another chat, backgrounds the
+     * app, or the chat screen is recreated — the state is never tied to
+     * this ViewModel's [sessions] map or to the open conversation.
+     */
+    private val _botRuns = MutableStateFlow<List<BotRunState>>(emptyList())
+    val botRuns: StateFlow<List<BotRunState>> = _botRuns
+
+    init {
+        viewModelScope.launch {
+            g.runs.active.collect { handles ->
+                _botRuns.value = handles.mapNotNull { h ->
+                    val info = BotRunService.info(h.id) ?: return@mapNotNull null
+                    BotRunState(info.runId, info.botId, info.botName, info.title, info.conversationId, info.startedAt,
+                        workerCount = g.bots.liveWorkerCount(info.conversationId))
+                }
+            }
+        }
+    }
+
+    /** The live bot run for one conversation, or null when it has none in flight. */
+    fun botRunState(conversationId: String?): BotRunState? =
+        if (conversationId == null) null else botRuns.value.firstOrNull { it.conversationId == conversationId }
+
+    /** True when a bot run is in flight for this conversation (any screen, background included). */
+    fun isBotRunning(conversationId: String?): Boolean = botRunState(conversationId) != null
+
+    /**
+     * Stop ONE bot run by its run id — from its chat's banner, or from the
+     * notification. A run in the open chat freezes through [stopSession]
+     * (partial reply kept); a run in another chat is cancelled through its
+     * registry job, and its own cleanup settles it the same way. Every
+     * other run in flight is untouched, and the run's Linux jobs go with it.
+     */
+    fun stopBotRun(runId: String) {
+        val sess = sessions.values.firstOrNull { "run-${it.aid}" == runId }
+        if (sess != null) {
+            stopSession(sess)
+            return
+        }
+        // The ViewModel was recreated (or the run outlived its session):
+        // the registry job keyed by this run id IS the run — cancel it.
+        g.runs.active.value.firstOrNull { it.id == runId }?.job?.cancel()
+        BotRunService.noteRunFinished(runId)
+        g.jobs.killForRun(runId)
+        BotRunService.refresh(getApplication())
+    }
 
     /**
      * One chat screen, no modes: a new chat is always a plain Ask chat.
@@ -663,6 +719,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         if (conversationId == sess.convId) messages = sess.msgs
         refreshRunning()
         sess.job?.cancel()
+        BotRunService.noteRunFinished("run-${sess.aid}")
+        g.jobs.killForRun("run-${sess.aid}")
+        BotRunService.refresh(getApplication())
         g.speaker.stop()
         g.bots.parentFinished("run-${sess.aid}", BotStatus.FAILED, "Stopped")
         persist(sess, immediate = true)
@@ -783,8 +842,15 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             val botName = bot?.name ?: s.assistantName.ifBlank { "X" }
             // v0.8.0 (Phase C): register this run so WorkService keeps the process alive in the
             // background and the projects list / chat drawer can show it as Working.
+            // Background bot runs: note the bot run BEFORE registering it, so
+            // the botRuns flow (which maps registry handles through the bot-run
+            // map) sees the bot identity on the register edge — and so the
+            // run survives leaving its chat: it is keyed by run id, never by
+            // the open conversation.
+            if (bot != null) BotRunService.noteRunStarted(BotRunInfo("run-$aid", bot.id, bot.name, convId, sess.title.ifBlank { bot.name }, started))
             g.runs.register("run-$aid", sess.kind, sess.ownerId, sess.title.ifBlank { "Working" }, coroutineContext[kotlinx.coroutines.Job]!!, started)
             com.mazharansari.x.work.WorkService.refresh(getApplication())   // the notification now lists this run too
+            if (bot != null) BotRunService.startForRun(getApplication(), "run-$aid")   // the bot foreground service keeps this run alive in the background
             // Swarm (Phase 1): the parent bot's card appears in the Bots section the moment the run starts.
             g.bots.registerParent("run-$aid", convId, botName, sess.title)
             var lastWorkerCount = -1   // last worker count shown in the run title
@@ -866,7 +932,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             catch (e: LlmException) { status = MsgStatus.ERROR; error = friendly(e) }
             catch (e: Throwable) { status = MsgStatus.ERROR; error = e.message ?: e.toString() }
             ticker.cancel()
-            if (buf.closed) { g.bots.parentFinished("run-$aid", BotStatus.FAILED, "Stopped"); g.taskRuns.finish(runKind, convId, "interrupted"); sessions.remove(convId); refreshRunning(); return@launch }   // Stop already froze this reply into its own conversation
+            if (buf.closed) { g.bots.parentFinished("run-$aid", BotStatus.FAILED, "Stopped"); g.taskRuns.finish(runKind, convId, "interrupted"); sessions.remove(convId); refreshRunning(); BotRunService.noteRunFinished("run-$aid"); BotRunService.refresh(getApplication()); return@launch }   // Stop already froze this reply into its own conversation
             withContext(NonCancellable) {
                 buf.dirty = true; flush(sess)
                 sess.msgs = sess.msgs.map {
@@ -881,6 +947,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     sess.msgs.firstOrNull { it.id == aid }?.text.orEmpty().take(120))
                 sessions.remove(convId)
                 refreshRunning()
+                BotRunService.noteRunFinished("run-$aid")
+                BotRunService.refresh(getApplication())
                 if (requestAt > 0) lastTiming = (requestAt - tapped) to (if (firstAt > 0) firstAt - tapped else -1L)
                 persist(sess, immediate = true)
                 g.taskRuns.finish(runKind, convId, if (status == MsgStatus.DONE) "done" else "interrupted")   // Phase 2: every run settles its record

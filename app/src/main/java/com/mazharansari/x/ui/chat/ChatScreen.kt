@@ -55,8 +55,28 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
+ * Bot-chat subtitle: "Bot · <provider>" plus the thread state — "· New
+ * thread" when the thread has no messages yet, otherwise when the thread
+ * started ("· started 2h ago"). Pure so tests can pin the wording.
+ * [firstMessageAt] is the first message's createdAt (0 = unknown: no suffix).
+ */
+fun botThreadSubtitle(provider: String, messageCount: Int, firstMessageAt: Long, nowMs: Long = System.currentTimeMillis()): String {
+    val base = "Bot · ${provider.ifBlank { "Auto" }}"
+    if (messageCount == 0) return "$base · New thread"
+    if (firstMessageAt <= 0) return base
+    val ageMin = ((nowMs - firstMessageAt).coerceAtLeast(0) / 60_000)
+    val age = when {
+        ageMin < 1 -> "just now"
+        ageMin < 60 -> "$ageMin min ago"
+        ageMin < 60 * 24 -> "${ageMin / 60}h ago"
+        else -> "${ageMin / (60 * 24)}d ago"
+    }
+    return "$base · started $age"
+}
+
+/**
  * THE one chat screen (redesign round 2, docs/X-REDESIGN2-SPEC-2026-11-19.md):
- * back chevron + wordmark/bot-monogram header, plain-text assistant messages,
+ * menu glyph (root chat) / back chevron (bot chat) + wordmark/bot-monogram header, plain-text assistant messages,
  * right-aligned user bubbles, run-steps timeline, 12dp composer with ToolsRow,
  * NO drawer, NO token display, NO cartoon logo. The real ChatViewModel drives
  * everything (vm.messages, vm.send(), vm.running, vm.draft); the chat starts
@@ -160,24 +180,28 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit, onBack: () -> Unit 
     CompositionLocalProvider(LocalHaze provides haze) {
         Box(Modifier.fillMaxSize().background(p.bg).imePadding().onGloballyPositioned { val b = it.boundsInRoot(); boxBottomPx = b.bottom; boxTopPx = b.top }) {
             Column(Modifier.fillMaxSize()) {
-                // ── Header (round 2 §1.5): back chevron | wordmark/monogram + title + status | new chat + overflow ──
+                // ── Header (round 2 §1.5): menu/back + wordmark/monogram + title + status | new chat + overflow ──
                 // No hamburger, no drawer, no centred logo stack. Title tap opens the model picker, as before.
+                // Root chat (plain X, bot == null): the leading glyph is a MENU — it opens the menu panel
+                // (Route.Home, AppRoot's onBack). Bot chat: a back chevron pops to the bot list. The glyph
+                // is icon-only; the behaviour (onBack) is unchanged.
                 Column(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp)) {
                     Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-                        IconTap(Gk.arrowLeft, "Back", 20.dp, p.text) { onBack() }
+                        if (bot != null) IconTap(Gk.arrowLeft, "Back", 20.dp, p.text) { onBack() }
+                        else IconTap(Gk.menu, "Menu", 20.dp, p.text) { onBack() }
                         Spacer(Modifier.width(4.dp))
                         if (bot != null) {
                             com.mazharansari.x.ui.bots.BotLogoView(bot.logo, bot.name, 36.dp)
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f).clickable(remember { MutableInteractionSource() }, null) { model = true }) {
-                                Text(bot.name, style = Type.row, color = p.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("Bot · ${bot.suggestedProvider?.ifBlank { null } ?: "Auto"}", style = Type.mono, color = p.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(bot.name, style = Type.row.copy(fontSize = 16.sp), color = p.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(botThreadSubtitle(bot.suggestedProvider ?: "", messages.size, messages.firstOrNull()?.createdAt ?: 0), style = Type.mono, color = p.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         } else {
                             Wordmark(fontSize = 22.sp)
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f).clickable(remember { MutableInteractionSource() }, null) { model = true }) {
-                                Text(vm.title.ifBlank { "New chat" }, style = Type.row, color = p.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(vm.title.ifBlank { "New chat" }, style = Type.row.copy(fontSize = 16.sp), color = p.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(if (vm.running) "Thinking…" else settings.mode, style = Type.mono, color = p.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
@@ -489,15 +513,12 @@ private fun ApkBuildCard(state: com.mazharansari.x.build.JobState, onShare: (com
     }
 }
 
-/** X thinking row: plain, no bubble — animated dots + muted "Reading …". */
+/** X thinking row (spec §7.4): plain, no bubble — animated dots only, no text. */
 @Composable
 private fun ThinkingRow() {
-    val p = P
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically) {
         DotGrid()
-        Spacer(Modifier.width(12.dp))
-        Text("Reading …", style = Type.body.copy(fontSize = 16.sp), color = p.text2)
     }
 }
 

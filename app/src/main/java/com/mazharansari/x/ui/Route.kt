@@ -1,20 +1,28 @@
 package com.mazharansari.x.ui
 
 /**
- * List-first ledger (2026-11-19, docs/X-REDESIGN2-SPEC-2026-11-19.md §1):
- * the stack starts at [Route.Home] — a list of settings + Bots + chats.
- * [Route.Chat] is a plain conversation, [Route.BotChat] is one bot's own
- * thread inside the Bots section. There is no drawer, no Build mode, no dock.
+ * Navigation restructure (2026-11-20, user order — supersedes the 2026-11-19
+ * "small settings at top" instruction):
+ * the stack starts at [Route.Chat] — ONE ChatGPT-like chat screen, ready to
+ * type. [Route.Home] is the MENU PANEL, opened from the chat screen's top
+ * button: top row Bots / Library / Connectors / Skills, then the full
+ * chat-history list, then Settings / New chat / Search (in that order).
+ * [Route.Bots] is the WhatsApp-style Bots section: it shows exactly ONE bot
+ * — X Bot — with the sub-bots X Bot spawned listed under it. Tapping X Bot
+ * opens THAT bot's own chat ([Route.BotChat]); Back returns to the bot list,
+ * never to home or a new chat. [Route.BotStore] is the old name for the same
+ * destination, kept so existing callers still resolve.
  * Feed, Ideas, Goals, Library, Activity, Computer and CodeDiff are stack
- * destinations reached only from the Workspace sheet or from chat links.
- * Everything else stays as a stack destination, reached from Home / Settings
- * / chat actions, never from a dock.
+ * destinations reached only from the menu panel or from chat links.
+ * Everything else stays as a stack destination, reached from the menu /
+ * Settings / chat actions, never from a dock.
  */
 sealed interface Route {
-    /** Home list: settings block + Bots section + chat history. The app opens here. */
+    /** Menu panel: 4 top options + chat history + Settings / New chat / Search. Opened from the chat screen. */
     data object Home : Route
+    /** The single chat screen, ready to type. The app opens here. */
     data object Chat : Route
-    /** One bot's own chat, inside the Bots section. Back returns to Home. */
+    /** One bot's own chat, inside the Bots section. Back returns to the Bots section. */
     data class BotChat(val botId: String) : Route
     data object Settings : Route
     data object Appearance : Route
@@ -54,12 +62,14 @@ sealed interface Route {
     data object GitHub : Route
     // P2-1 — Telegram bot control (a bot token is typed here)
     data object Telegram : Route
-    // P1 — Bot Store (installable bot definitions)
+    // Bots section (2026-11-20): exactly one bot, X Bot, plus its sub-bots.
+    data object Bots : Route
+    /** Old name for [Bots] — kept so existing callers still resolve. */
     data object BotStore : Route
     // Config, reachable from Antigravity/menu.
     data object CliPair : Route
     // 2026-11-19 (X-NEW-UI-SPEC §6): Workspace stack destinations — reached
-    // from the Workspace sheet or from chat, never from a dock or home tab.
+    // from the menu panel or from chat, never from a dock or home tab.
     data object Feed : Route
     data object Ideas : Route
     data object Goals : Route

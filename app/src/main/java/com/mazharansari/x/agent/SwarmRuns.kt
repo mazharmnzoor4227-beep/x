@@ -68,6 +68,10 @@ data class BotRun(
     val depth: Int,
     val startedAt: Long,
     val updatedAt: Long,
+    /** Worker: the roster specialist it runs as (a BotCatalog seed id, "" = plain role worker). */
+    val subBotId: String = "",
+    /** Worker: that specialist's display name. */
+    val subBotName: String = "",
 )
 
 /** A worker transcript's conversation id, from its card id. Unique per swarm run. */
@@ -118,6 +122,37 @@ class BotRegistry(private val chats: ConversationStore? = null) {
     private val notes = HashMap<String, MutableList<String>>()
 
     /**
+     * Profile edits the user made on a sub-bot (name + icon, from the Bots
+     * section). Workers are ephemeral runs, so overrides live in memory for
+     * the life of the process, keyed by worker card id — the roster seed
+     * (name/logo) is the fallback, then the role label. X Bot itself is a
+     * persisted [com.mazharansari.x.data.BotDefinition] and is edited through
+     * the BotStore, not here.
+     */
+    data class WorkerProfile(val name: String, val logo: String)
+    private val _workerProfiles = MutableStateFlow<Map<String, WorkerProfile>>(emptyMap())
+    val workerProfiles: StateFlow<Map<String, WorkerProfile>> = _workerProfiles.asStateFlow()
+
+    /** Save a sub-bot's edited name + icon ("" logo = back to the monogram default). */
+    fun setWorkerProfile(workerId: String, name: String, logo: String) {
+        _workerProfiles.value = _workerProfiles.value + (workerId to WorkerProfile(name.trim().take(40), logo))
+    }
+
+    /** The name the Bots section shows for a worker: edit → roster specialist → role label. */
+    fun displayName(run: BotRun): String {
+        _workerProfiles.value[run.id]?.name?.ifBlank { null }?.let { return it }
+        if (run.subBotName.isNotBlank()) return run.subBotName
+        com.mazharansari.x.data.BotCatalog.byId(run.subBotId)?.let { return it.name }
+        return run.role?.label ?: run.name.ifBlank { "Worker" }
+    }
+
+    /** The logo string the Bots section shows for a worker: edit → roster seed → "" (monogram). */
+    fun displayLogo(run: BotRun): String {
+        _workerProfiles.value[run.id]?.logo?.let { return it }
+        return com.mazharansari.x.data.BotCatalog.byId(run.subBotId)?.logo ?: ""
+    }
+
+    /**
      * A parent run starts: its card appears in the Bots section at once, under the bot's
      * given name ([name] — "X" by default, or an installed/created bot's name).
      */
@@ -155,6 +190,7 @@ class BotRegistry(private val chats: ConversationStore? = null) {
                     stepsUsed = u.stepsUsed, summary = u.summary,
                     conversationId = workerConversationId(u.updateId), depth = u.depth,
                     startedAt = now, updatedAt = now,
+                    subBotId = u.subBotId, subBotName = u.subBotName,
                 )
                 u.status == WorkerStatus.DONE -> existing.copy(status = BotStatus.DONE, stepsUsed = u.stepsUsed, summary = u.summary, updatedAt = now)
                 u.status == WorkerStatus.FAILED -> existing.copy(status = BotStatus.FAILED, stepsUsed = u.stepsUsed, summary = u.summary, updatedAt = now)

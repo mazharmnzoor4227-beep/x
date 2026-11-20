@@ -23,11 +23,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -278,49 +275,64 @@ fun StepLine(s: Step, compact: Boolean = false) {
 }
 
 /**
- * X Bash card: a dark code card in BOTH themes, 13dp corners, "▢ Bash" header with copy at right, then the
- * script in Google Sans Code (shell lines khaki #CACBB2, code/strings salmon #B38F82) clipped to ~6 lines with
- * a fade; tap to expand. The command ran hidden in the sandbox — this card is only the record.
+ * X Bash card (spec §7.4): a dark code card in BOTH themes (spec tokens
+ * [P.codeBg] #1E1E1E / [P.codeText] #F5F5F5, 10dp corners), "▢ Bash" header
+ * with copy at right, then the script in Google Sans Code (code lines in
+ * codeText, the "$ " prompt and the hidden-lines note muted). Collapsed it
+ * shows a LIVE last-3-lines tail ([bashCollapsedLines]) — the newest output
+ * as it arrives — never a height-clipped top with a fade; tap to expand to
+ * the full command + output (output tailed to the last 200 lines). The
+ * command ran hidden in the sandbox — this card is only the record.
  */
+internal fun bashCollapsedLines(target: String, output: String, maxLines: Int = 3): List<String> {
+    val body = com.mazharansari.x.agent.CommandStatusLogic.body(output)
+    val lines = target.lines() + if (body.isBlank()) emptyList() else body.lines()
+    return lines.takeLast(maxLines)
+}
+
 @Composable
 fun BashCard(s: Step) {
     var open by rememberSaveable(s.id) { mutableStateOf(false) }
+    val p = P
     val clip = androidx.compose.ui.platform.LocalClipboardManager.current
     val shape = RoundedCornerShape(10.dp)
-    Column(Modifier.fillMaxWidth().clip(shape).background(Color(0xFF17181C)).border(1.dp, Color(0xFF26262B), shape)) {
+    Column(Modifier.fillMaxWidth().clip(shape).background(p.codeBg).border(1.dp, p.border, shape)) {
         Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            GkIcon(Gk.terminal, null, 16.dp, Color(0xFFF2F1EE))
+            GkIcon(Gk.terminal, null, 16.dp, p.codeText)
             Spacer(Modifier.width(8.dp))
-            Text("Bash", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = Color(0xFFF2F1EE), modifier = Modifier.weight(1f))
+            Text("Bash", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.codeText, modifier = Modifier.weight(1f))
             // axion-p1.4: explicit result chip — Running… / Done · exit 0 / Failed · exit N / Timed out / Stopped
             val st = remember(s.status, s.exitCode, s.output) { com.mazharansari.x.agent.CommandStatusLogic.status(s.status, s.exitCode, s.output) }
             val kind = when (st.kind) { com.mazharansari.x.agent.CommandStatusLogic.Kind.OK -> StatusKind.Done; com.mazharansari.x.agent.CommandStatusLogic.Kind.RUNNING -> StatusKind.Running; com.mazharansari.x.agent.CommandStatusLogic.Kind.STOPPED -> StatusKind.Paused; else -> StatusKind.Failed }
             StatusPill(st.label, kind)
-            IconTap(Gk.copy, "Copy", 18.dp, Color(0xFFA9AAB2), 36.dp) { clip.setText(androidx.compose.ui.text.AnnotatedString(s.target + if (s.output.isNotBlank()) "\n\n" + com.mazharansari.x.agent.CommandStatusLogic.body(s.output) else "")) }
+            IconTap(Gk.copy, "Copy", 18.dp, p.text2, 36.dp) { clip.setText(androidx.compose.ui.text.AnnotatedString(s.target + if (s.output.isNotBlank()) "\n\n" + com.mazharansari.x.agent.CommandStatusLogic.body(s.output) else "")) }
         }
         val code = remember(s.target, s.output) {
             buildAnnotatedString {
                 s.target.lines().forEachIndexed { li, line ->
-                    if (li == 0) withStyle(SpanStyle(color = Color(0xFF6E6E6E))) { append("$ ") }   // axion-p1.4: prompt
-                    val shell = Regex("^\\s*(cd|ls|cat|echo|python3?|pip|npm|node|curl|wget|grep|find|mkdir|rm|cp|mv|unzip|zip|git|chmod|sed|awk|head|tail|wc)\\b").containsMatchIn(line)
-                    withStyle(SpanStyle(color = if (shell) Color(0xFFCACBB2) else Color(0xFFB38F82))) { append(line) }
+                    if (li == 0) withStyle(SpanStyle(color = p.text2)) { append("$ ") }   // axion-p1.4: prompt
+                    withStyle(SpanStyle(color = p.codeText)) { append(line) }
                     append('\n')
                 }
                 if (s.output.isNotBlank()) {   // axion-p1.4: output tailed to the last 200 lines; the chip shows the exit status
                     val (tailed, hidden) = com.mazharansari.x.agent.CommandStatusLogic.tail(com.mazharansari.x.agent.CommandStatusLogic.body(s.output).takeLast(12000), 200)
-                    if (hidden > 0) withStyle(SpanStyle(color = Color(0xFF6E6E6E))) { append("… $hidden earlier lines hidden\n") }
-                    withStyle(SpanStyle(color = Color(0xFF8A8A8A))) { append(tailed) }
+                    if (hidden > 0) withStyle(SpanStyle(color = p.text2)) { append("… $hidden earlier lines hidden\n") }
+                    withStyle(SpanStyle(color = p.codeText.copy(alpha = 0.8f))) { append(tailed) }
                 }
             }
         }
-        Box(Modifier.fillMaxWidth().animateContentSize(tween(180)).then(if (open) Modifier else Modifier.heightIn(max = 132.dp))
-            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-            .drawWithContent {
-                drawContent()
-                if (!open) drawRect(Brush.verticalGradient(0.7f to Color.Black, 1f to Color.Transparent), blendMode = BlendMode.DstIn)
-            }) {
+        // Collapsed: the live last-3-lines tail only (no height clip, no fade).
+        // Expanded: the full command + output. Tap the header to switch.
+        val shown: androidx.compose.ui.text.AnnotatedString = remember(open, s.target, s.output) {
+            if (open) code else {
+                val tail = bashCollapsedLines(s.target, s.output).joinToString("\n")
+                androidx.compose.ui.text.AnnotatedString(tail,
+                    spanStyles = listOf(androidx.compose.ui.text.AnnotatedString.Range(SpanStyle(color = p.codeText), 0, tail.length)))
+            }
+        }
+        Box(Modifier.fillMaxWidth().animateContentSize(tween(180))) {
             SelectionContainer {
-                Text(code, style = Type.mono.copy(fontSize = 13.sp, lineHeight = 20.sp), softWrap = false,
+                Text(shown, style = Type.mono.copy(fontSize = 13.sp, lineHeight = 20.sp), softWrap = false,
                     modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 12.dp))
             }
         }

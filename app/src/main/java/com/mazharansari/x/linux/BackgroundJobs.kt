@@ -21,6 +21,30 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 class BackgroundJobs(private val app: Application, private val linux: LinuxRuntime, private val records: JobRecordStore? = null) {
 
+    /**
+     * Which Linux job belongs to which bot/agent run, keyed by run id
+     * ("run-<assistant message id>") — never by a screen. A bot run's
+     * shell jobs are its jobs: stopping the run kills them, and a run
+     * that keeps working in the background keeps its jobs. Pure map, so
+     * it is unit-testable without Linux ([JobRunLinks]).
+     */
+    class JobRunLinks {
+        private val links = ConcurrentHashMap<Int, String>()
+        fun link(jobId: Int, runId: String) {
+            links[jobId] = runId
+        }
+        fun unlink(jobId: Int) {
+            links.remove(jobId)
+        }
+        fun runIdForJob(jobId: Int): String? = links[jobId]
+        fun jobsForRun(runId: String): List<Int> = links.entries.filter { it.value == runId }.map { it.key }.sorted()
+        fun clearRun(runId: String) {
+            links.entries.removeIf { it.value == runId }
+        }
+    }
+
+    private val runLinks = JobRunLinks()
+
     class Job(val id: Int, val command: String, val startedAt: Long, val outFile: File, val proc: NativeSpawnProcess) {
         fun alive(): Boolean = runCatching { proc.isAlive }.getOrDefault(false)
         fun exitCode(): Int? = if (alive()) null else runCatching { proc.exitValue() }.getOrNull()
@@ -74,9 +98,29 @@ class BackgroundJobs(private val app: Application, private val linux: LinuxRunti
         return start(rec.command)
     }
 
+    /** Start a Linux job owned by one bot/agent run (see [JobRunLinks]). */
+    fun startForRun(runId: String, command: String): Job {
+        val job = start(command)
+        runLinks.link(job.id, runId)
+        return job
+    }
+
+    /** The run id that owns a Linux job, or null when it belongs to no run. */
+    fun runIdForJob(jobId: Int): String? = runLinks.runIdForJob(jobId)
+
+    /** The live Linux jobs owned by one run, in job order. */
+    fun jobsForRun(runId: String): List<Job> = runLinks.jobsForRun(runId).mapNotNull { jobs[it] }
+
+    /** Kill every Linux job owned by one run (stopping that run) and forget the links. */
+    fun killForRun(runId: String) {
+        jobsForRun(runId).forEach { kill(it) }
+        runLinks.clearRun(runId)
+    }
+
     fun list(): List<Job> = jobs.values.sortedBy { it.id }
     fun kill(job: Job) {
         runCatching { job.proc.destroyForcibly() }
+        runLinks.unlink(job.id)
         records?.markInterrupted(job.id)   // P2-3: a stopped job reads as interrupted, not as still running
     }
 

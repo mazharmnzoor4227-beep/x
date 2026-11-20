@@ -92,8 +92,9 @@ sealed interface LinuxState {
 /**
  * The PRoot Ubuntu sandbox, ported from Kodex's RuntimeInstaller (process(), writeResolver(), ensureRootfsCompatibilityLinks(),
  * tar extraction with budget checks) and cut down to what X needs. Nothing is downloaded until the user asks for a tool.
+ * Open so unit tests can fake the spawn/run path (DevToolsInstallTest): the real class still does all the work on the phone.
  */
-class LinuxRuntime(private val ctx: Context) {
+open class LinuxRuntime(private val ctx: Context) {
     val home = File(ctx.filesDir, "linux")
     val rootfs = File(home, "ubuntu")
     private val download = File(home, "download/ubuntu-base.tar.gz")
@@ -107,12 +108,12 @@ class LinuxRuntime(private val ctx: Context) {
     val state: StateFlow<LinuxState> = _state.asStateFlow()
     private val installLock = kotlinx.coroutines.sync.Mutex()
 
-    fun isInstalled(): Boolean = File(rootfs, LinuxBase.ROOTFS_MARKER).isFile && File(rootfs, "usr/bin/bash").exists()
+    open fun isInstalled(): Boolean = File(rootfs, LinuxBase.ROOTFS_MARKER).isFile && File(rootfs, "usr/bin/bash").exists()
     fun freeBytes(): Long = runCatching { StatFs(ctx.filesDir.absolutePath).availableBytes }.getOrDefault(0L)
     fun diskUsageBytes(): Long = if (rootfs.exists()) runCatching { duBytes(rootfs) }.getOrDefault(0L) else 0L
 
     /** First use: download Ubuntu base (resumable), check its SHA-256, unpack, prepare. Safe to call again; returns at once when ready. */
-    suspend fun ensureBase(onProgress: (LinuxProgress) -> Unit = {}) = installLock.withLockIfFree {
+    open suspend fun ensureBase(onProgress: (LinuxProgress) -> Unit = {}) = installLock.withLockIfFree {
         if (isInstalled()) { prepare(); _state.value = LinuxState.Ready; return@withLockIfFree }
         val report: (LinuxProgress) -> Unit = { _state.value = LinuxState.Installing(it); onProgress(it) }
         try {
@@ -276,7 +277,7 @@ class LinuxRuntime(private val ctx: Context) {
     }
 
     /** Run `bash -lc command` and stream its output lines. Returns (exit code, tail of output). Exit -1 = timed out. */
-    suspend fun run(
+    open suspend fun run(
         command: String, timeoutMs: Long = 120_000, guestCwd: String = "/workspace", binds: List<Pair<String, String>> = emptyList(),
         env: Map<String, String> = emptyMap(), stdin: String? = null, fakeRoot: Boolean = true, onLine: (String) -> Unit = {},
     ): Pair<Int, String> = withContext(Dispatchers.IO) {

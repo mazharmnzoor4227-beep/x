@@ -64,7 +64,7 @@ void quietLog(ggml_log_level level, const char *text, void *) {
 
 extern "C" {
 
-JNIEXPORT void JNICALL Java_com_mazharansari_axion_local_LlamaNative_init(JNIEnv *env, jclass, jstring libDir) {
+JNIEXPORT void JNICALL Java_com_mazharansari_x_local_LlamaNative_init(JNIEnv *env, jclass, jstring libDir) {
     std::string dir = jstr(env, libDir);
     std::call_once(g_backend_once, [&] {
         llama_log_set(quietLog, nullptr);
@@ -74,11 +74,11 @@ JNIEXPORT void JNICALL Java_com_mazharansari_axion_local_LlamaNative_init(JNIEnv
     });
 }
 
-JNIEXPORT jstring JNICALL Java_com_mazharansari_axion_local_LlamaNative_lastError(JNIEnv *env, jclass) {
+JNIEXPORT jstring JNICALL Java_com_mazharansari_x_local_LlamaNative_lastError(JNIEnv *env, jclass) {
     return env->NewStringUTF(g_last_error.c_str());
 }
 
-JNIEXPORT jstring JNICALL Java_com_mazharansari_axion_local_LlamaNative_systemInfo(JNIEnv *env, jclass) {
+JNIEXPORT jstring JNICALL Java_com_mazharansari_x_local_LlamaNative_systemInfo(JNIEnv *env, jclass) {
     std::string out;
     for (size_t i = 0; i < ggml_backend_dev_count(); i++) {
         auto *d = ggml_backend_dev_get(i);
@@ -88,7 +88,7 @@ JNIEXPORT jstring JNICALL Java_com_mazharansari_axion_local_LlamaNative_systemIn
     return env->NewStringUTF(out.c_str());
 }
 
-JNIEXPORT jlong JNICALL Java_com_mazharansari_axion_local_LlamaNative_load(JNIEnv *env, jclass, jstring jpath, jint nCtx, jint nThreads) {
+JNIEXPORT jlong JNICALL Java_com_mazharansari_x_local_LlamaNative_load(JNIEnv *env, jclass, jstring jpath, jint nCtx, jint nThreads) {
     std::string path = jstr(env, jpath);
     g_last_error.clear();
     auto mp = llama_model_default_params();
@@ -107,7 +107,7 @@ JNIEXPORT jlong JNICALL Java_com_mazharansari_axion_local_LlamaNative_load(JNIEn
     return (jlong) s;
 }
 
-JNIEXPORT void JNICALL Java_com_mazharansari_axion_local_LlamaNative_free(JNIEnv *, jclass, jlong h) {
+JNIEXPORT void JNICALL Java_com_mazharansari_x_local_LlamaNative_free(JNIEnv *, jclass, jlong h) {
     auto *s = (Session *) h; if (!s) return;
     s->stop = true;
     std::lock_guard<std::mutex> g(s->lock);
@@ -115,16 +115,16 @@ JNIEXPORT void JNICALL Java_com_mazharansari_axion_local_LlamaNative_free(JNIEnv
     delete s;
 }
 
-JNIEXPORT void JNICALL Java_com_mazharansari_axion_local_LlamaNative_stop(JNIEnv *, jclass, jlong h) {
+JNIEXPORT void JNICALL Java_com_mazharansari_x_local_LlamaNative_stop(JNIEnv *, jclass, jlong h) {
     auto *s = (Session *) h; if (s) s->stop = true;
 }
 
-JNIEXPORT jint JNICALL Java_com_mazharansari_axion_local_LlamaNative_contextSize(JNIEnv *, jclass, jlong h) {
+JNIEXPORT jint JNICALL Java_com_mazharansari_x_local_LlamaNative_contextSize(JNIEnv *, jclass, jlong h) {
     auto *s = (Session *) h; return s ? s->n_ctx : 0;
 }
 
 /** The model's own chat template applied to the messages; ChatML if the model has none (or it can't be applied). */
-JNIEXPORT jstring JNICALL Java_com_mazharansari_axion_local_LlamaNative_applyTemplate(JNIEnv *env, jclass, jlong h, jobjectArray roles, jobjectArray contents) {
+JNIEXPORT jstring JNICALL Java_com_mazharansari_x_local_LlamaNative_applyTemplate(JNIEnv *env, jclass, jlong h, jobjectArray roles, jobjectArray contents) {
     auto *s = (Session *) h;
     jsize n = env->GetArrayLength(roles);
     std::vector<std::string> r(n), c(n);
@@ -155,7 +155,7 @@ JNIEXPORT jstring JNICALL Java_com_mazharansari_axion_local_LlamaNative_applyTem
  * Generates up to maxTokens after [prompt], calling callback.onToken(String) with each complete UTF-8 piece; returns the
  * number of tokens generated, or a negative code: -1 prompt too long for the context, -2 decode failed.
  */
-JNIEXPORT jint JNICALL Java_com_mazharansari_axion_local_LlamaNative_generate(JNIEnv *env, jclass, jlong h, jstring jprompt, jint maxTokens, jfloat temp, jobject cb) {
+JNIEXPORT jint JNICALL Java_com_mazharansari_x_local_LlamaNative_generate(JNIEnv *env, jclass, jlong h, jstring jprompt, jint maxTokens, jfloat temp, jobject cb) {
     auto *s = (Session *) h; if (!s) return -2;
     std::lock_guard<std::mutex> g(s->lock);
     s->stop = false;

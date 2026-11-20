@@ -7,6 +7,7 @@ import com.mazharansari.x.data.KeyBackup
 import com.mazharansari.x.linux.DevTools
 import com.mazharansari.x.linux.LinuxRuntime
 import com.mazharansari.x.linux.ScriptProtocol
+import com.mazharansari.x.linux.Toolchain
 import com.mazharansari.x.llm.Mode
 import com.mazharansari.x.quota.*
 import org.junit.Assert.*
@@ -222,5 +223,36 @@ class V04LogicTest {
 
     @Test fun durations() {
         assertEquals(179_560L, Durations.parse("2m59.56s")); assertEquals(450L, Durations.parse("450ms")); assertEquals(3_723_000L, Durations.parse("1h2m3s")); assertEquals(30_000L, Durations.parse("30"))
+    }
+
+    // ── Developer tools: install dispatch (2026-11-20 JNI outage fix) ──
+    @Test fun installDispatchMatrix() {
+        // Every toolchain dispatches to itself, dependencies first.
+        assertEquals(listOf("web"), DevTools.installOrder("web"))
+        assertEquals(listOf("python"), DevTools.installOrder("python"))
+        assertEquals(listOf("android"), DevTools.installOrder("android"))
+        assertEquals(listOf("cpp"), DevTools.installOrder("cpp"))
+        assertEquals(listOf("php"), DevTools.installOrder("php"))
+        assertEquals(listOf("web", "browser"), DevTools.installOrder("browser"))
+        assertEquals(listOf("android", "androidsdk"), DevTools.installOrder("androidsdk"))
+        assertEquals(listOf("go"), DevTools.installOrder("go"))
+        assertEquals(listOf("rust"), DevTools.installOrder("rust"))
+        assertEquals(listOf("agy"), DevTools.installOrder("agy"))   // hidden Antigravity CLI: direct install, no script
+        assertEquals(emptyList<String>(), DevTools.installOrder("nope"))
+        assertTrue("agy stays hidden from the toolchains list", Toolchain.AGY.hidden)
+        assertEquals(Toolchain.AGY, Toolchain.byId("agy"))
+        // The catalog the Developer-tools screen shows is exactly the nine visible toolchains.
+        assertEquals(listOf("web", "python", "android", "cpp", "php", "browser", "androidsdk", "go", "rust"),
+            Toolchain.entries.filter { !it.hidden }.map { it.id })
+    }
+
+    @Test fun friendlyFailureForMissingNativeCode() {
+        // The exact error every toolchain showed on 2026-11-20: the JVM could not find the native spawn
+        // (pocket_spawn.c still declared the old Axion package's JNI names). The UI must say what to do.
+        assertEquals("The Linux launcher could not start (missing native code). Reinstall X and try again.",
+            DevTools.friendlyFailure(UnsatisfiedLinkError("No implementation found for int[] com.mazharansari.x.linux.NativeSpawn.spawn(java.lang.String[], java.lang.String[], java.lang.String, java.lang.String, boolean, int, int)"), "Installing"))
+        // A plain script failure keeps its own message.
+        assertEquals("Could not install: ca-certificates",
+            DevTools.friendlyFailure(IllegalStateException("Could not install: ca-certificates"), "Installing"))
     }
 }

@@ -104,7 +104,7 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
                 Text(if (keys.isEmpty()) "Gemini, Groq, OpenRouter & more" else "Auto-switch when a limit hits", style = Type.tiny.copy(fontSize = 13.sp), color = p.text2)
             }
             Box(Modifier.height(30.dp).clip(RoundedCornerShape(8.dp)).background(p.blue).clickable { nav(Route.Connectors) }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
-                Text(if (keys.isEmpty()) "Connect" else "Manage", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = Color.White)
+                Text(if (keys.isEmpty()) "Connect" else "Manage", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.onAccent)
             }
         }
         SectionLabel("App")
@@ -199,6 +199,10 @@ fun LanguageScreen(vm: ChatViewModel, back: () -> Unit) {
     var espeakBusy by remember { mutableStateOf(false) }
     var espeakProgress by remember { mutableIntStateOf(0) }
     var espeakRefresh by remember { mutableStateOf(0) }
+    // Tap-to-download state for the VITS packs (Aegis/Fasih): which pack is
+    // downloading and its 0..100 progress. Kokoro has no download wired.
+    var packBusy by remember { mutableStateOf<String?>(null) }
+    var packProgress by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         var n = 0
@@ -226,14 +230,29 @@ fun LanguageScreen(vm: ChatViewModel, back: () -> Unit) {
             }
         }
         SectionLabel("Piper voice packs (offline)")
-        key(imported) {
+        key(imported, packBusy) {
             SettingsGroup {
                 listOf(PiperPack.AEGIS, PiperPack.FASIH).forEach { pack ->
                     val st = store.status(pack)
+                    val downloading = packBusy == pack.id
                     SettingsRow(null, pack.displayName,
-                        subtitle = if (st.downloaded) "Downloaded · ${st.bytes / 1_048_576} MB on this phone" else "Not downloaded — import the .onnx + .json files",
+                        subtitle = when {
+                            st.downloaded -> "Downloaded · ${st.bytes / 1_048_576} MB on this phone"
+                            downloading -> "Downloading · $packProgress%"
+                            else -> "Not downloaded — tap to download the .onnx + .json"
+                        },
                         chevron = false,
-                        trailing = { if (st.downloaded) GkIcon(Gk.check, "Downloaded", 22.dp, P.text) }) { }
+                        trailing = { if (st.downloaded) GkIcon(Gk.check, "Downloaded", 22.dp, P.text) }) {
+                            if (!st.downloaded && packBusy == null && pack.downloadBase != null) {
+                                packBusy = pack.id; packProgress = 0
+                                scope.launch {
+                                    val ok = store.downloadPack(Http.download, pack) { packProgress = it }
+                                    packBusy = null; imported++
+                                    vm.toast = if (ok) "${pack.displayName} downloaded — import the pronunciation data below if it is missing"
+                                    else "Download failed — check the connection and try again"
+                                }
+                            }
+                        }
                 }
                 key(espeakRefresh) {
                     val espeakOk = store.espeakReady()
@@ -257,7 +276,7 @@ fun LanguageScreen(vm: ChatViewModel, back: () -> Unit) {
                 }
             }
         }
-        Text("The Piper engine (sherpa-onnx) is built into the app. Import a pack's two files (Files → pick the .onnx and the .json — the converted copies, not the raw ones) and download the pronunciation data once; then the Piper voice reads on-device. Until a pack and the data are both ready, a Piper pick reads in the phone's built-in Urdu/Hindi voice. Kokoro Hindi is a different model family and reads in the phone voice for now.",
+        Text("The Piper engine (sherpa-onnx) is built into the app. Tap a pack to download its two files from Hugging Face, or import them yourself (Files → pick the .onnx and the .json — the converted copies, not the raw ones), then download the pronunciation data once; then the Piper voice reads on-device. The downloaded file is the raw Piper release and the engine needs the converted copy — if a downloaded pack still reads in the phone voice, import the converted copy instead. Until a pack and the data are both ready, a Piper pick reads in the phone's built-in Urdu/Hindi voice. Kokoro Hindi is a different model family and reads in the phone voice for now.",
             style = Type.small.copy(fontSize = 13.sp, lineHeight = 19.sp), color = P.text2,
             modifier = Modifier.padding(start = 30.dp, end = 24.dp, top = 10.dp))
         SettingsGroup {

@@ -128,8 +128,8 @@ Clawora Beauty — original Korean skincare, Cash on Delivery all over Pakistan.
         compose.mainClock.autoAdvance = false
         insets(sc)
         var vm: ChatViewModel? = null
-        // Redesign round 2: the app opens on the Home list — navigate to the
-        // chat screen first, then open the conversation into it.
+        // Navigation restructure (2026-11-20): the app opens on the chat
+        // screen already — open the conversation straight into it.
         sc.onActivity { vm = ViewModelProvider(it)[ChatViewModel::class.java]; vm!!.debugStart = Route.Chat; vm!!.open(id) }
         // vm.open() loads the conversation on a real IO thread, which the virtual
         // clock cannot advance — and waitUntil's 5000 ms budget is virtual time

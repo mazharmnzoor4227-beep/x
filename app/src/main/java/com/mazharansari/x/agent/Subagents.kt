@@ -103,6 +103,10 @@ data class WorkerUpdate(
     /** Task id of the worker that spawned this one (null = the parent bot spawned it). */
     val parentWorkerId: String? = null,
     val depth: Int = 0,
+    /** The roster specialist this worker runs as (a [com.mazharansari.x.data.BotCatalog] seed id, "" = plain role worker). */
+    val subBotId: String = "",
+    /** That specialist's display name ("" = the role label). */
+    val subBotName: String = "",
 )
 
 /** One bounded sub-task handed to a worker. */
@@ -120,6 +124,10 @@ data class WorkerTask(
     val allowedTools: Set<String> = SubagentLimits.toolsFor(role),
     val maxSteps: Int = SubagentLimits.MAX_STEPS_PER_WORKER,
     val maxFacts: Int = SubagentLimits.MAX_FACTS_PER_WORKER,
+    /** The roster specialist this worker runs as (a [com.mazharansari.x.data.BotCatalog] seed id, "" = plain role worker). */
+    val subBotId: String = "",
+    /** That specialist's display name ("" = the role label). */
+    val subBotName: String = "",
 )
 
 /** One fact a worker found, attributed to the worker that found it. */
@@ -140,6 +148,10 @@ data class WorkerResult(
     val spawn: List<WorkerTask> = emptyList(),
     /** Results of this worker's own sub-workers (attribution only — their facts merge flat). */
     val subResults: List<WorkerResult> = emptyList(),
+    /** The roster specialist this worker ran as ("" = plain role worker). */
+    val subBotId: String = "",
+    /** That specialist's display name. */
+    val subBotName: String = "",
 )
 
 data class WorkerFailure(val workerId: String, val angle: String, val reason: String)
@@ -171,6 +183,135 @@ class WorkerBudget(val max: Int = SubagentLimits.MAX_WORKERS_PER_RUN) {
     fun used(): Int = used.get()
 }
 
+/**
+ * X BOT'S SPAWN ROUTER (navigation restructure, 2026-11-20) — how X Bot
+ * turns a big job into sub-bots.
+ *
+ * The user only ever talks to X Bot. When a job has several parts, X Bot
+ * fans it out through `subagent_swarm`; this object picks, for each part,
+ * the ONE roster specialist ([com.mazharansari.x.data.BotCatalog]) whose
+ * work that part is, by keyword rules over the brief (most specific first).
+ * A brief that matches no keyword falls back to its engine role (a CODER
+ * line runs as Coder) — the swarm never refuses work for lack of a name.
+ * The tag rides on
+ * [WorkerTask.subBotId]/[subBotName] into the worker card and the Bots
+ * section, so the user sees which specialist did which part, under X Bot.
+ *
+ * [aggregate] is the other half of the contract: X Bot collects ALL worker
+ * results and sends them to the user FROM ITSELF, grouped by sub-bot, with
+ * the failures that were not covered and the verification mark up front.
+ * Pure — unit-tested without a model.
+ */
+object XBotSpawn {
+    /** Keyword rule → roster seed id. First match wins; order is specific-first. */
+    private val rules: List<Pair<Regex, String>> = listOf(
+        Regex("playwright|browser test|e2e test|end-to-end", RegexOption.IGNORE_CASE) to "store-playwright",
+        Regex("review.*pull request|pull request.*review", RegexOption.IGNORE_CASE) to "store-prreviewer",
+        Regex("github|clone.*repo|\\brepo\\b|commit|push to", RegexOption.IGNORE_CASE) to "store-githubber",
+        Regex("apk.*build|build.*apk|android.*build|sign.*apk|release.*apk", RegexOption.IGNORE_CASE) to "store-apkbuilder",
+        Regex("trim|ffmpeg|reel|9:16|caption.*video|video.*edit", RegexOption.IGNORE_CASE) to "store-videoeditor",
+        Regex("generate.*image|poster|product shot|make.*image|logo.*image", RegexOption.IGNORE_CASE) to "store-imagemaker",
+        Regex("shopify", RegexOption.IGNORE_CASE) to "store-shopify",
+        Regex("\\bgame\\b|arcade|snake\\.io", RegexOption.IGNORE_CASE) to "store-game",
+        Regex("banner", RegexOption.IGNORE_CASE) to "store-banner",
+        Regex("\\bseo\\b|search engine", RegexOption.IGNORE_CASE) to "store-seo",
+        Regex("audit.*website|website.*audit", RegexOption.IGNORE_CASE) to "store-webauditor",
+        Regex("reverse|decompile|inspect.*apk|apk.*inspect", RegexOption.IGNORE_CASE) to "store-reverse",
+        Regex("transcrib|audio.*text|speech.*text", RegexOption.IGNORE_CASE) to "store-transcriber",
+        Regex("gmail|send.*email|email.*draft|draft.*email", RegexOption.IGNORE_CASE) to "store-emailer",
+        Regex("price|stock.*check|availability|buy.*pakistan|pakistan.*buy", RegexOption.IGNORE_CASE) to "store-pricechecker",
+        Regex("fact.check|verify.*claim|check.*claim", RegexOption.IGNORE_CASE) to "store-factchecker",
+        Regex("news|headlines|latest.*developments", RegexOption.IGNORE_CASE) to "store-newsreader",
+        Regex("\\bpdf\\b", RegexOption.IGNORE_CASE) to "store-pdfreader",
+        Regex("deliver.*link|deliver.*apk|delivery check", RegexOption.IGNORE_CASE) to "store-delivery",
+        Regex("digest", RegexOption.IGNORE_CASE) to "store-digest",
+        Regex("summar", RegexOption.IGNORE_CASE) to "store-summarizer",
+        Regex("take.*note|write.*note", RegexOption.IGNORE_CASE) to "store-notetaker",
+        Regex("remember|memory|what did i", RegexOption.IGNORE_CASE) to "store-memorykeeper",
+        Regex("idea|\\bgoal\\b", RegexOption.IGNORE_CASE) to "store-ideacatcher",
+        Regex("shop|clawora|whitening|tmf|store.*price|listing", RegexOption.IGNORE_CASE) to "store-shopwatcher",
+        Regex("teach|guided setup|how do i|step by step", RegexOption.IGNORE_CASE) to "store-teacher",
+        Regex("message|draft.*reply|reply.*draft", RegexOption.IGNORE_CASE) to "store-messenger",
+        Regex("voice|call|dictat|read aloud", RegexOption.IGNORE_CASE) to "store-voice",
+        Regex("token", RegexOption.IGNORE_CASE) to "store-tokensaver",
+        Regex("skill", RegexOption.IGNORE_CASE) to "store-skillsmith",
+        Regex("data|\\bcsv\\b|spreadsheet|analys", RegexOption.IGNORE_CASE) to "store-dataanalyst",
+        Regex("script|python|node\\.js|\\bnode\\b", RegexOption.IGNORE_CASE) to "store-scriptwriter",
+        Regex("terminal|shell|run.*command|command line", RegexOption.IGNORE_CASE) to "store-terminal",
+        Regex("browser|click|scroll.*page|screenshot", RegexOption.IGNORE_CASE) to "store-computer",
+        Regex("document|write.*report|\\bdoc\\b", RegexOption.IGNORE_CASE) to "store-docwriter",
+        Regex("file|\\bzip\\b|upload", RegexOption.IGNORE_CASE) to "store-fileclerk",
+        Regex("research|investigat|citation", RegexOption.IGNORE_CASE) to "store-researcher",
+        Regex("test|failing", RegexOption.IGNORE_CASE) to "store-tester",
+        Regex("review.*code|code.*review", RegexOption.IGNORE_CASE) to "store-reviewer",
+        Regex("plan|break.*down|steps", RegexOption.IGNORE_CASE) to "store-planner",
+        Regex("explor|where.*code|find.*file|map.*repo", RegexOption.IGNORE_CASE) to "store-explorer",
+        Regex("antigravity|build.*app|full app", RegexOption.IGNORE_CASE) to "store-builder",
+        Regex("schedul|daily|weekly|remind", RegexOption.IGNORE_CASE) to "store-scheduler",
+        Regex("approv|quota|safety|guard", RegexOption.IGNORE_CASE) to "store-guard",
+        Regex("money|budget|recommend.*service", RegexOption.IGNORE_CASE) to "store-money",
+        Regex("code|implement|write.*function|fix.*bug", RegexOption.IGNORE_CASE) to "store-coder",
+        Regex("learn", RegexOption.IGNORE_CASE) to "store-learner",
+    )
+
+    /** The roster specialist for this brief, or null for a plain role worker. */
+    fun pickSubBot(brief: String): com.mazharansari.x.data.BotDefinition? {
+        val text = brief.trim()
+        if (text.isEmpty()) return null
+        val id = rules.firstOrNull { (re, _) -> re.containsMatchIn(text) }?.second ?: return null
+        return com.mazharansari.x.data.BotCatalog.byId(id)
+    }
+
+    /** Tag every task with its roster specialist (no match = plain role worker). */
+    fun tagTasks(tasks: List<WorkerTask>): List<WorkerTask> = tasks.map { t ->
+        // Keyword first: the brief names the specialist. Otherwise fall back
+        // to the worker's engine role (a CODER line runs as Coder even when
+        // its brief has no keyword in it) — never an untagged worker.
+        val def = pickSubBot(t.brief.ifBlank { t.angle })
+            ?: when (t.role) {
+                WorkerRole.CODER -> com.mazharansari.x.data.BotCatalog.byId("store-coder")
+                WorkerRole.TESTER -> com.mazharansari.x.data.BotCatalog.byId("store-tester")
+                WorkerRole.REVIEWER -> com.mazharansari.x.data.BotCatalog.byId("store-reviewer")
+                WorkerRole.RESEARCHER -> com.mazharansari.x.data.BotCatalog.byId("store-researcher")
+            }
+        if (def != null) t.copy(subBotId = def.id, subBotName = def.name) else t
+    }
+
+    /**
+     * X Bot's collected answer: every sub-bot's results, grouped by sub-bot
+     * (roster name + role), then the parts no worker covered. [mark] is the
+     * verification mark ("Verified" / "Needs check") from [SwarmVerify].
+     * [notes] maps a fact's text to a soft caveat (e.g. "(single source)").
+     */
+    fun aggregate(task: String, result: FanOutResult, mark: String, notes: Map<String, String> = emptyMap()): String {
+        val byWorker = result.results.groupBy { it.workerId }
+        return buildString {
+            appendLine("Swarm: $task (${result.facts.size} results from ${result.workersRun - result.workersFailed} of ${result.workersRun} workers · $mark)")
+            appendLine()
+            for ((workerId, rs) in byWorker) {
+                val first = rs.first()
+                val facts = result.facts.filter { it.workerId == workerId }
+                if (facts.isEmpty() && first.failed == null) continue
+                // Name the worker as its roster specialist when tagged, else its role.
+                val who = if (first.subBotName.isNotBlank()) "${first.subBotName} (${first.role.label})" else "${first.role.label} ($workerId)"
+                appendLine("— $who —")
+                if (first.failed != null) {
+                    appendLine("Failed: ${first.failed}")
+                }
+                facts.forEachIndexed { i, f ->
+                    appendLine("${i + 1}. ${f.text}${notes[f.text]?.let { " $it" } ?: ""}")
+                    if (f.sourceUrl.isNotBlank()) appendLine("   ${f.sourceUrl}")
+                }
+                appendLine()
+            }
+            if (result.failures.isNotEmpty()) {
+                appendLine("Parts not covered: " +
+                    result.failures.joinToString("; ") { "${it.workerId} (\"${it.angle}\": ${it.reason})" })
+            }
+        }.trimEnd()
+    }
+}
+
 object SubagentOrchestrator {
 
     /** Counts fan-outs in this process, so worker cards from two swarms never share an id. */
@@ -181,27 +322,28 @@ object SubagentOrchestrator {
         val clean = angles.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
             .take(SubagentLimits.MAX_WORKERS)
         val owned = if (clean.isEmpty()) listOf(topic.trim()) else clean
-        return owned.mapIndexed { i, angle ->
+        return XBotSpawn.tagTasks(owned.mapIndexed { i, angle ->
             WorkerTask(id = "w${i + 1}", topic = topic, angle = angle)
-        }
+        })
     }
 
     /**
      * Parse model-planned worker specs: one per line, `ROLE: brief` (role optional — a line
      * without a known role name is a researcher brief in full). Caps at
      * [SubagentLimits.MAX_WORKERS]; empty or unusable input returns empty (the caller falls
-     * back to researcher angles). Pure — unit-testable without a model.
+     * back to researcher angles). Pure — unit-testable without a model. Each task is
+     * tagged with the roster specialist ([XBotSpawn]) whose work the brief is.
      */
     fun parseWorkerSpecs(text: String, topic: String): List<WorkerTask> {
         val lines = text.lines().map { it.trim() }
             .map { it.trimStart('-', '•', '*', ' ').replace(Regex("^\\d+[.)]\\s*"), "").trim().trim('"') }
             .filter { it.length >= 3 }.distinct().take(SubagentLimits.MAX_WORKERS)
-        return lines.mapIndexed { i, line ->
+        return XBotSpawn.tagTasks(lines.mapIndexed { i, line ->
             val head = line.substringBefore(':', "").trim()
             val role = if (':' in line && head.length <= 12) WorkerRole.fromName(head) else null
             val brief = if (role != null) line.substringAfter(':').trim().ifBlank { line } else line
             WorkerTask(id = "w${i + 1}", topic = topic, angle = brief.take(120), role = role ?: WorkerRole.RESEARCHER, brief = brief)
-        }
+        })
     }
 
     /**
@@ -252,17 +394,20 @@ object SubagentOrchestrator {
         val results = started.map { task ->
             async {
                 val updateId = "r$runSeq-${task.id}"
-                onWorker(WorkerUpdate(updateId, task.id, task.role, task.brief.ifBlank { task.angle }, WorkerStatus.RUNNING, parentId = parentId, parentWorkerId = task.parentId, depth = task.depth))
-                val r = try {
+                onWorker(WorkerUpdate(updateId, task.id, task.role, task.brief.ifBlank { task.angle }, WorkerStatus.RUNNING, parentId = parentId, parentWorkerId = task.parentId, depth = task.depth, subBotId = task.subBotId, subBotName = task.subBotName))
+                val raw = try {
                     runWorker(task)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Throwable) {
                     WorkerResult(task.id, task.id, failed = e.message ?: e.javaClass.simpleName, angle = task.angle, role = task.role, depth = task.depth)
                 }
+                // Tag the result with its roster specialist, so the merge and
+                // the Bots section can name the sub-bot that did this part.
+                val r = if (raw.subBotId.isBlank() && task.subBotId.isNotBlank()) raw.copy(subBotId = task.subBotId, subBotName = task.subBotName) else raw
                 onWorker(WorkerUpdate(updateId, task.id, task.role, task.brief.ifBlank { task.angle },
                     if (r.failed != null) WorkerStatus.FAILED else WorkerStatus.DONE,
-                    r.stepsUsed, r.failed ?: "${r.facts.size} facts", parentId = parentId, parentWorkerId = task.parentId, depth = task.depth))
+                    r.stepsUsed, r.failed ?: "${r.facts.size} facts", parentId = parentId, parentWorkerId = task.parentId, depth = task.depth, subBotId = task.subBotId, subBotName = task.subBotName))
                 r
             }
         }.map { it.await() }
