@@ -33,6 +33,27 @@ class V06NavScreensTest {
     private fun seed() {
         val fd = ApplicationProvider.getApplicationContext<AxionApp>().filesDir
         File(fd, "settings.json").writeText("""{"userName":"Mazhar Ansari","theme":"dark","mode":"AUTO"}""")
+        // TEST ISOLATION (botsSectionSingleXBotAndBack, d64aeba2): the bot
+        // store persists to <filesDir>/bots/bots.json — BotDefinitionStore
+        // .rename() calls persist(), and ensureXBot() deliberately NEVER
+        // restores a user-chosen name (it refreshes only persona /
+        // description). profileEditRenamesXBot therefore leaves the bot
+        // named "X Prime" on disk, and JUnit's deterministic method order
+        // runs it BEFORE botsSectionSingleXBotAndBack — so that test's
+        // onNodeWithText("X Bot").assertIsDisplayed() finds ZERO matching
+        // nodes and fails with exactly "Assert failed: The component is
+        // not displayed!" (that is the message assertIsDisplayed throws
+        // when no node matches). Proof: on 30c66547 profileEdit FAILED
+        // before Save (ComposeTimeoutException at :151, rename never
+        // persisted) and botsSection PASSED; on d64aeba2 attempt 1 AND 2
+        // profileEdit PASSED (rename persisted) and botsSection FAILED
+        // at :117 both times, 0.371 s in — instant, no poll. This is NOT
+        // the AnimatedContent transition race: waitForNode already
+        // advances the test clock 200 ms past the 150 ms slide/fade, and
+        // the sibling tests' immediate asserts after waitForNode pass.
+        // Reset the bot store here so every test starts from a fresh
+        // "X Bot" definition, independent of run order.
+        File(fd, "bots/bots.json").delete()
         fun conn(p: String, hint: String, models: List<String>) = Connector(java.util.UUID.randomUUID().toString(), p, "plain:" + android.util.Base64.encodeToString("test-key".toByteArray(), 2), hint, models, models, addedAt = 1)
         File(fd, "connectors.json").writeText(Json.encodeToString(ListSerializer(Connector.serializer()), listOf(conn("gemini", "AIza…x9Qk", listOf("gemini-3.8-flash")))))
     }
