@@ -4,10 +4,12 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.mazharansari.x.data.Connector
 import com.mazharansari.x.data.X_BOT_ID
+import com.mazharansari.x.ui.ChatViewModel
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertTrue
@@ -151,13 +153,40 @@ class V06NavScreensTest {
                 ?.joinToString("|") { it.text } ?: "?"
             "text=\"$text\" boundsInRoot=${node.boundsInRoot}"
         }
-        error("node $matcher never displayed (matches=${nodes.size}): $detail")
+        // When matches=0 the detail above is EMPTY — the ccf25a71 failure
+        // gave no evidence at all. Dump every text on screen so the next
+        // failure shows the actual row name (e.g. a stale "X Prime" from
+        // the previous test) or that the row/screen never composed.
+        val allTexts = compose.onAllNodes(SemanticsMatcher("any node") { true })
+            .fetchSemanticsNodes()
+            .mapNotNull { node ->
+                node.config.getOrNull(SemanticsProperties.Text)
+                    ?.joinToString("|") { it.text }
+            }.filter { it.isNotBlank() }.take(40)
+        error(
+            "node $matcher never displayed (matches=${nodes.size}): $detail" +
+                " | ALL_TEXTS_ON_SCREEN=$allTexts"
+        )
     }
 
     private fun launch(): ActivityScenario<MainActivity> {
         seed()
         val sc = ActivityScenario.launch(MainActivity::class.java)
         compose.waitForIdle()
+        // Root-cause candidate for the persistent botsSection failure
+        // (d5fcfadd, ccf25a71): seed()'s rename-back runs on the graph
+        // ApplicationProvider hands out BEFORE launch, but the screens
+        // read vm.g — the ACTIVITY's graph. If Robolectric gives the
+        // activity a different Application instance than the seed-time
+        // one, the seed rename never reaches the screen's store, and the
+        // row keeps the previous test's "X Prime" name (matches=0 for
+        // "X Bot" for the whole 10 s poll, while "UNDER X BOT" passes —
+        // exactly the observed ccf25a71 symptom). Reset on the activity's
+        // own ViewModel graph — the instance the screens actually read.
+        sc.onActivity { act ->
+            val vm = ViewModelProvider(act)[ChatViewModel::class.java]
+            vm.g.botStore.rename(X_BOT_ID, "X Bot")
+        }
         compose.mainClock.autoAdvance = false
         compose.mainClock.advanceTimeBy(800)
         return sc
