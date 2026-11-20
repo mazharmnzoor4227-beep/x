@@ -197,7 +197,12 @@ class ConnectorRepo(private val ctx: Context) {
             }
             // Everything cooling down: still try the first model of each key rather than giving up.
             if (out.isEmpty()) list.forEach { c -> (c.pinnedModel ?: c.models.firstOrNull())?.let { out += c to it } }
-            return out
+            // 2026-11-20 allam demotion: ALLaM must never be the default answerer. The
+            // demotion is applied here (every caller of attempts() — chat, Telegram,
+            // scheduled runs — inherits it) and again in ChatViewModel.attempts after
+            // quickOrder, which could otherwise lift allam back ahead of the reasoning
+            // models on small talk. One policy, one helper (ModelChoice.demoteAllam).
+            return ModelChoice.demoteAllam(out) { it.second }
         }
     }
 

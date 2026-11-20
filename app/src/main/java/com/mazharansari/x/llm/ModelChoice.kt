@@ -20,6 +20,35 @@ import com.mazharansari.x.data.MyServer
  */
 object ModelChoice {
 
+    /**
+     * LFM3-1.7B — the default local model (2026-11-20, user decision: "LFM3-1.7B
+     * default kar do"). The id is LocalModel.LFM3_1_7B.id; the label is what the
+     * composer chip / header subtitle show when it is the effective default.
+     * Kept here (not imported from local.LocalModel) so this pure seam stays
+     * free of the Android local-model store.
+     */
+    const val DEFAULT_LOCAL_MODEL_ID = "lfm3-1.7b"
+    const val DEFAULT_LOCAL_MODEL_LABEL = "LFM3-1.7B"
+
+    /** True for ALLaM ids ("allam-2-7b", "sdaia/allam-2-7b"). */
+    fun isAllamModel(modelId: String): Boolean = "allam" in modelId.lowercase()
+
+    /**
+     * Allam demotion (2026-11-20): ALLaM is Arabic-first and must NEVER again be
+     * the model that answers by default. The default ranking moves every allam
+     * pair to the very end — below LFM3 and below every other ranked cloud
+     * model — but keeps it as the last-resort failover, so a phone whose only
+     * key only has allam still gets an answer instead of nothing. Stable: the
+     * relative order of everything else is unchanged. This is the DEFAULT
+     * ranking only: an explicit chooser pick reorders its model first in
+     * ChatViewModel.attempts, and the Arabic-first pin
+     * (ScriptHint.arabicFirstPin, OpenAiClient) still applies when allam runs.
+     */
+    fun <T> demoteAllam(list: List<T>, model: (T) -> String): List<T> {
+        if (list.none { isAllamModel(model(it)) }) return list
+        return list.filterNot { isAllamModel(model(it)) } + list.filter { isAllamModel(model(it)) }
+    }
+
     /** One row of the chooser. [id] is what is persisted as settings.pickedModel. */
     data class ChooserEntry(
         /** "api:<connectorId>:<model>" | "local:<model>" | "server:<model>" | "free" | "agy:<email>". */
@@ -147,7 +176,16 @@ object ModelChoice {
             "FAST" -> "Fast"; "EXPERT" -> "Expert"; "LOCAL" -> "Local model"
             "SERVER" -> "My server"; "FREE" -> "Free (slow)"; else -> "Auto"
         }
-        if (pickedId.isBlank()) return tier
+        if (pickedId.isBlank()) {
+            // LFM3 default (2026-11-20): no pick + AUTO + LFM3 set up as the
+            // phone's local model → the chip / header names the default instead
+            // of the tier. The match is the exact LocalModel id ("lfm3-1.7b"):
+            // a local row for any other model still shows the tier, and when
+            // no local row exists at all (LFM3 not downloaded / not set up)
+            // the label stays "Auto" — never a claim LFM3 answers when it can't.
+            if (mode == "AUTO") entries.firstOrNull { it.kind == Kind.LOCAL && it.id == "local:$DEFAULT_LOCAL_MODEL_ID" }?.let { return DEFAULT_LOCAL_MODEL_LABEL }
+            return tier
+        }
         return entries.firstOrNull { it.id == pickedId }?.let { shortLabel(it) } ?: tier
     }
 

@@ -270,7 +270,7 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit, onBack: () -> Unit 
                     // the 2026-11-20 video. As an overlay on the list it
                     // never moves the list or the chips row, and with no
                     // background the text behind it stays fully visible.
-                    AnimatedVisibility(messages.isNotEmpty() && list.canScrollForward && !vm.running, enter = fadeIn() + scaleIn(initialScale = 0.8f), exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                    androidx.compose.animation.AnimatedVisibility(messages.isNotEmpty() && list.canScrollForward && !vm.running, enter = fadeIn() + scaleIn(initialScale = 0.8f), exit = fadeOut() + scaleOut(targetScale = 0.8f),
                         modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 12.dp)) {
                         IconTap(Gk.chevronDown, "Scroll to bottom", 22.dp, p.text, 48.dp) { scope.launch { list.animateScrollToItem(messages.lastIndex, 1_000_000) } }
                     }

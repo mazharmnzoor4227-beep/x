@@ -31,6 +31,7 @@ object ModelRanker {
             if (mode == Mode.FAST && ("lite" in l || "mini" in l || "flash" in l || "instant" in l || "fast" in l)) s += 40
             if (mode != Mode.FAST && "lite" in l) s -= 30
             if (mode != Mode.FAST && ("pro" in l) && p.id == "gemini") s -= 50 // free tier gives Pro ~0 requests/day
+            if ("allam" in l) s -= 500 // 2026-11-20: ALLaM is Arabic-first and must never be the default answerer — ranked last on any newly added key, so a fresh Groq key never stores it near the top (ConnectorRepo.order demotes it again at runtime for keys already stored).
             if ("nano" in l || "8b" in l || "4b" in l || "1b" in l) s -= if (mode == Mode.FAST) 0 else 40
             return s
         }

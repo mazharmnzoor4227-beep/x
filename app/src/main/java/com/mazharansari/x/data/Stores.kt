@@ -42,6 +42,17 @@ data class AppSettings(
     val assistantName: String = "X",
     val instructions: String = "",
     val replyLanguage: String = "",
+    /**
+     * Speed tier: AUTO (default) / FAST / EXPERT / LOCAL / SERVER / FREE.
+     *
+     * 2026-11-20 LFM3 default (user decision): a stored AUTO no longer means
+     * "cloud FAST first". It means LFM3-1.7B answers first whenever its file is
+     * downloaded on the phone — see [prefersLfm3Default] — with the cloud
+     * ranking (allam-2-7b demoted to last) as the backup. No stored value is
+     * rewritten for this migration: existing AUTO installs pick the new
+     * default up automatically once LFM3 is downloaded. An explicit LOCAL /
+     * SERVER / FREE mode, or any stored [pickedModel], is never overridden.
+     */
     val mode: String = "AUTO",
     /**
      * Model chooser (2026-11-20): the model/account the user picked in the
@@ -87,7 +98,20 @@ data class AppSettings(
      * preference until a caller ever needs the gate.
      */
     val openBrowserOnAgentBrowsing: Boolean = false,
-)
+) {
+    /**
+     * LFM3 default (2026-11-20): true when the stored settings mean "answer
+     * with on-device LFM3-1.7B first". Only a stored AUTO with no chooser pick
+     * qualifies, and only once LFM3 is actually downloaded ([lfm3Downloaded]
+     * is the LocalModelStore file check, done by the caller) — until then the
+     * answer is the honest cloud fallback, never allam first. ACTION turns
+     * are excluded by the caller (ChatViewModel.attempts): the small model
+     * cannot drive tools, so an action turn starting on LFM3 would end as
+     * plain text with the work never done.
+     */
+    fun prefersLfm3Default(lfm3Downloaded: Boolean): Boolean =
+        pickedModel.isBlank() && mode == "AUTO" && lfm3Downloaded
+}
 
 class SettingsStore(ctx: Context) {
     private val file = File(ctx.filesDir, "settings.json")

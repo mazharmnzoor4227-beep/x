@@ -940,7 +940,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                             approvals = g.approvals, approver = approver, longTask = longTaskOn, turbo = turboOn, schedules = g.schedules, appCtx = getApplication(),
                             contextBudget = ctxBudget).run(
                             history, userItem, attempts = { if (pid != null) buildAttempts() else run {
-                                val list = attempts(runMode, quick, onFreeWait = { secs -> freeWaitNotice(buf, secs) })
+                                // LFM3 default (2026-11-20): ACTION turns are the one exception — the
+                                // small model cannot drive tools, so they stay cloud-first (allam demoted).
+                                val list = attempts(runMode, quick, onFreeWait = { secs -> freeWaitNotice(buf, secs) }, forAction = intent == com.mazharansari.x.agent.Intent.ACTION)
                                 // Model chooser (2026-11-20): an explicit pick outranks a bot's provider suggestion — the pick sticks.
                                 if (g.settings.state.value.pickedModel.isBlank()) com.mazharansari.x.data.preferProvider(list, bot?.suggestedProvider) else list
                             } }, sink = sink,
@@ -1166,7 +1168,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         if (pick is com.mazharansari.x.llm.ModelChoice.ModelPick.Agy) g.agy.setUseInChat("first")
     }
 
-    internal fun attempts(mode: Mode, quick: Boolean = false, onFreeWait: ((Int) -> Unit)? = null): List<Attempt> {
+    internal fun attempts(mode: Mode, quick: Boolean = false, onFreeWait: ((Int) -> Unit)? = null, forAction: Boolean = false): List<Attempt> {
         debugAttempts?.let { return it(mode, quick) }
         val s = g.settings.state.value
         val pick = com.mazharansari.x.llm.ModelChoice.parsePick(s.pickedModel)
@@ -1179,7 +1181,34 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             if (s.mode == "FREE") return freeAttempts(onFreeWait)
             if (s.mode == "LOCAL" || s.mode == "SERVER") return ownAttempts(s.mode)
         }
-        val pairs = g.connectors.attempts(mode).let { if (quick) quickOrder(it) { p -> p.second } else it }
+        // LFM3 default (2026-11-20, user decision) — the ONE default mechanism:
+        // no pick + stored AUTO + the LFM3 file on the phone → the on-device
+        // model answers first, before any cloud ranking. ACTION turns are the
+        // one exception ([forAction]): the small model cannot drive tools, so
+        // an action turn starting on LFM3 would end as plain text with the work
+        // never done — actions stay cloud-first (allam demoted, as everywhere).
+        val lfm3 = com.mazharansari.x.local.LocalModel.LFM3_1_7B
+        val lfm3Downloaded = runCatching { g.localModels.file(lfm3).isFile }.getOrDefault(false)
+        // A local connector the user switched OFF is an explicit opt-out of
+        // on-device answering: the default does not route around the switch.
+        val lfm3Default = !forAction && s.prefersLfm3Default(lfm3Downloaded) && g.connectors.local()?.enabled != false
+        if (lfm3Default && g.connectors.local() == null) {
+            // One-time migration: LFM3 is downloaded but was never made the
+            // phone's local model, so no chooser row or chip exists for it yet.
+            // Activating it here — only when NO local model is set, so an
+            // explicitly chosen local model is never replaced — makes the
+            // default visible on every surface (chooser, chip, Local Models
+            // screen). A failure here never breaks the send: the attempt
+            // below is still built straight from the downloaded file.
+            runCatching { g.connectors.setLocal(lfm3.id, lfm3.title) }
+        }
+        // Allam demotion, second application point: ConnectorRepo.order already
+        // demoted allam, but quickOrder (small talk: non-reasoning first) could
+        // lift it back ahead of the reasoning models — so it is demoted again
+        // after the quick sort, as the last step on the cloud list.
+        val pairs = com.mazharansari.x.llm.ModelChoice.demoteAllam(
+            g.connectors.attempts(mode).let { if (quick) quickOrder(it) { p -> p.second } else it }
+        ) { p -> p.second }
         // v0.5.2 speed: one lazily-made client per key (was: a key decrypt for every model on every key, before the first request).
         val clients = HashMap<String, LlmClient>()
         val keys = pairs.map { (c, model) ->
@@ -1192,6 +1221,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         // after the API keys and before Free (slow).
         val own = listOfNotNull(g.connectors.server()?.takeIf { it.enabled }, g.connectors.local()?.takeIf { it.enabled })
             .mapNotNull { c -> runCatching { g.connectors.clientFor(c) }.getOrNull()?.let { cl -> Attempt(c.provider.name, c.pinnedModel ?: c.localModel ?: c.models.firstOrNull().orEmpty(), cl, patientMs = if (c.providerId == "local") 150_000 else 90_000, connectorId = c.id) } }
+        // The LFM3 attempt: the active local model when it already is LFM3,
+        // else one built straight from the downloaded file (never persisted
+        // here — see the one-time activation above), so a downloaded-but-never-
+        // activated LFM3 still answers first on this very turn.
+        val lfm3Attempt: Attempt? = if (!lfm3Default) null else
+            own.firstOrNull { it.provider == "Local model" && it.model == com.mazharansari.x.llm.ModelChoice.DEFAULT_LOCAL_MODEL_ID }
+                ?: runCatching { lfm3AttemptFromFile(lfm3) }.getOrNull()
+        val ownTail = if (lfm3Attempt == null) own else own.filterNot { it == lfm3Attempt }
         // Antigravity in chat: the picked account first when one is picked; otherwise where its stored mode puts it
         // ("first" = before the keys, "fallback" = after the keys, "off" = not in chat at all).
         val agyAttempt = if (runCatching { g.agyReady() }.getOrDefault(false))
@@ -1200,20 +1237,30 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         if (pick is com.mazharansari.x.llm.ModelChoice.ModelPick.Agy) {
             // Picked account first, then the keys as the failover tail (account A spent → next account inside
             // AgyClient, then the next provider model here). A stale pick (account gone) falls back to Auto.
-            return if (agyAttempt != null) listOf(agyAttempt) + keys + own + free else keys + own + free
+            return if (agyAttempt != null) listOf(agyAttempt) + keys + ownTail + free else keys + ownTail + free
         }
         if (pick is com.mazharansari.x.llm.ModelChoice.ModelPick.Api) {
-            val reordered = (keys + own + free).let { base ->
+            val reordered = (keys + ownTail + free).let { base ->
                 val i = base.indexOfFirst { it.connectorId == pick.connectorId && it.model == pick.model }
                 if (i > 0) listOf(base[i]) + base.filterIndexed { j, _ -> j != i } else base
             }
             return reordered
         }
+        // LFM3 first — except when the user explicitly set Antigravity "first"
+        // for chat: that explicit choice keeps its place, and LFM3 goes right
+        // after it (still ahead of every cloud key, and allam stays last).
         return when (g.agy.store.value.useInChat) {
-            "first" -> listOfNotNull(agyAttempt) + keys + own + free
-            "fallback" -> keys + own + listOfNotNull(agyAttempt) + free
-            else -> keys + own + free
+            "first" -> listOfNotNull(agyAttempt) + listOfNotNull(lfm3Attempt) + keys + ownTail + free
+            "fallback" -> listOfNotNull(lfm3Attempt) + keys + ownTail + listOfNotNull(agyAttempt) + free
+            else -> listOfNotNull(lfm3Attempt) + keys + ownTail + free
         }
+    }
+
+    /** The LFM3-1.7B attempt, built straight from the downloaded file (no local connector needed). */
+    private fun lfm3AttemptFromFile(m: com.mazharansari.x.local.LocalModel): Attempt {
+        val c = Connector(id = "local-lfm3-default", providerId = "local", keyBlob = "", keyHint = m.title,
+            models = listOf(m.id), fastModels = listOf(m.id), localModel = m.id)
+        return Attempt(c.provider.name, m.id, g.connectors.clientFor(c), patientMs = 150_000, connectorId = c.id)
     }
 
     /** The built-in no-key model, as its own attempt (shared by the FREE mode and a Free pick). */

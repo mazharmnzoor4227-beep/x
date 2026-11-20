@@ -85,8 +85,28 @@ fun LocalModelsScreen(vm: ChatViewModel, back: () -> Unit) {
             }
             if (active != null) {
                 SectionLabel("Use it")
-                Note("Ask's model menu now has \"Local model\". Pick it to answer offline first; otherwise it's the backup after your API keys and before Free (slow).", Modifier.padding(horizontal = 20.dp))
+                Note(if (active == LocalModel.LFM3_1_7B.id) "LFM3-1.7B is the default: Ask answers with it first, offline — no pick needed. Your API keys are the backup, then Free (slow)." else "Ask's model menu has \"Local model\" for this model — pick it to answer offline first; otherwise it's the backup after your API keys and before Free (slow). LFM3-1.7B is the default when downloaded: it answers first, before this one.", Modifier.padding(horizontal = 20.dp))
                 ToggleRow(Gk.bolt, "Answer with the local model first", "Same as picking it in the model menu", settings.mode == "LOCAL") { on -> g.settings.update { it.copy(mode = if (on) "LOCAL" else "AUTO") } }
+            }
+            // LFM3 default (2026-11-20): the default model for Ask, not just the
+            // first local row. Honest state: when it is downloaded it answers
+            // first (offline); until then Ask uses the API keys — never allam
+            // first — and the download is offered right here.
+            SectionLabel("Default model")
+            val lfm3State = states[LocalModel.LFM3_1_7B.id] ?: DlState.None
+            val lfm3Reason = if (ram.first > 0) blockReason(LocalModel.LFM3_1_7B, ram.first, ram.second, free) else null
+            when (lfm3State) {
+                DlState.Ready -> Note("LFM3-1.7B is the default. Ask answers with it first — offline, on this phone — and your API keys are the backup if it can't answer.", Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+                is DlState.Downloading -> Note("LFM3-1.7B (the default) is downloading — ${mb(lfm3State.done / 1024)} of ${mb(lfm3State.total / 1024)}. Ask uses your API keys until it's ready.", Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+                DlState.Verifying -> Note("LFM3-1.7B (the default) is being checked… Ask uses your API keys until it's ready.", Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+                is DlState.Failed -> {
+                    Note("LFM3-1.7B is the default, but its download failed: ${lfm3State.message} Ask uses your API keys until it's downloaded.", Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { SmallButton("Try the download again", filled = true) { if (lfm3Reason != null) confirm = LocalModel.LFM3_1_7B else store.download(LocalModel.LFM3_1_7B) } }
+                }
+                DlState.None -> {
+                    Note("LFM3-1.7B is the default model, but it isn't downloaded yet. Download it to answer offline first — until then Ask uses your API keys.", Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { SmallButton("Download LFM3-1.7B · ${mb(LocalModel.LFM3_1_7B.bytes / 1024)}", filled = true) { if (lfm3Reason != null) confirm = LocalModel.LFM3_1_7B else store.download(LocalModel.LFM3_1_7B) } }
+                }
             }
             Note("Models come from Hugging Face (Liquid AI, Qwen and Meta, GGUF Q4_K_M), grouped by phone RAM and storage so you only see models that fit your phone, and are checked with their SHA-256 after download.", Modifier.padding(horizontal = 20.dp, vertical = 14.dp))
             Spacer(Modifier.height(30.dp))
@@ -120,6 +140,10 @@ private fun LocalModelCard(m: LocalModel, st: DlState, active: String?, ram: Pai
                 active == m.id -> Badge("In use", p.accent)
                 st == DlState.Ready -> Badge("Downloaded", p.accent)
             }
+            // LFM3 default (2026-11-20): the card says it, matching the enum
+            // blurb ("Chat · Agent · Hindi — default") and the Default model
+            // section above — never just "Downloaded" with no default mark.
+            if (m.id == LocalModel.LFM3_1_7B.id) { Spacer(Modifier.width(6.dp)); Badge("Default", p.accent) }
         }
         Text(m.purpose.uppercase(), style = Type.eyebrow, color = p.accent, modifier = Modifier.padding(top = 8.dp))
         Text(m.blurb, style = Type.small.copy(fontSize = 13.sp), color = p.text2, modifier = Modifier.padding(top = 4.dp))
