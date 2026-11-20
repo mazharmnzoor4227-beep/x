@@ -589,18 +589,18 @@ class CrashRegressionTest {
             // Seed the open state directly (see seedOpen): vm.open()'s async
             // disk load never completes under Robolectric + ActivityScenario.
             seedOpen(vm, id, "chevron", msgs)
-            // A LazyColumn only composes visible items: message 19 starts
-            // below the fold, so waiting for it directly times out. Wait for
-            // the first (always visible) message, scroll the list to the
-            // end, then message 19 is composed.
-            waitForNode(hasText("Chevron check message 0", substring = true))
-            compose.onNode(
-                hasScrollAction() and hasAnyDescendant(hasText("Chevron check message 0", substring = true)),
-            ).performScrollToIndex(19)
+            // The list auto-scrolls to the newest message when the transcript
+            // is seeded, so message 19 (last) is the one initially composed
+            // — message 0 starts above the fold and is never composed until
+            // the list is scrolled up (two runs proved it: waitForNode on
+            // message 0, exact AND substring, both timed out, while the
+            // 3-message staleScroll test passes because all its messages
+            // fit the viewport). So wait for 19, then scroll to the top via
+            // the list node that contains 19.
             waitForNode(hasText("Chevron check message 19", substring = true))
             // Scroll to the top so the scroll-to-bottom chevron appears.
             compose.onNode(
-                hasScrollAction() and hasAnyDescendant(hasText("Chevron check message 0", substring = true)),
+                hasScrollAction() and hasAnyDescendant(hasText("Chevron check message 19", substring = true)),
             ).performScrollToIndex(0)
             waitForDisplayed(hasContentDescription("Scroll to bottom"))
             // Tap it, then clear the chat before the tap's coroutine runs
