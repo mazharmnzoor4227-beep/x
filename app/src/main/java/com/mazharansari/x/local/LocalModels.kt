@@ -2,6 +2,7 @@ package com.mazharansari.x.local
 
 import android.app.ActivityManager
 import android.content.Context
+import com.mazharansari.x.agent.ScriptHint
 import com.mazharansari.x.linux.LinuxRuntime
 import com.mazharansari.x.llm.*
 import kotlinx.coroutines.*
@@ -195,9 +196,16 @@ class LocalLlmClient(private val model: File, private val ctx: Int = 4096, priva
     companion object {
         /** System + the most recent turns that fit in [budgetChars] (~3 chars per token). */
         fun toMessages(items: List<ChatItem>, budgetChars: Int): List<Pair<String, String>> {
+            val latestUser = items.filterIsInstance<UserItem>().lastOrNull()?.text.orEmpty()
             val sys = items.filterIsInstance<SystemItem>().firstOrNull()?.text?.let { s ->
-                // the full X system prompt is long; small models do better with the essentials
-                "You are X, a helpful assistant running offline on the user's phone. Reply in the user's own language and script (Roman Urdu stays Roman Urdu). Be concise. Use Markdown code blocks for code.\n" +
+                // the full X system prompt is long; small models do better with the essentials —
+                // but the language rule is NOT one of the droppable parts. Before this fix the
+                // rewrite below deleted the whole LANGUAGE + SCRIPT rule (it keeps only lines
+                // mentioning "User's name" / "Instructions") and the per-message SCRIPT NOW
+                // hint with it, leaving a 1-word "hi" with one weak sentence on a model whose
+                // Urdu is limited — and it answered in Arabic. The shared rule plus a
+                // per-message script anchor now ride in every local prompt.
+                "You are X, a helpful assistant running offline on the user's phone. " + ScriptHint.LANGUAGE_RULE + " " + ScriptHint.ruleFor(latestUser) + " Be concise. Use Markdown code blocks for code.\n" +
                     s.lines().filter { it.contains("User's name", true) || it.contains("Instructions", true) }.joinToString("\n").take(400)
             }
             val turns = items.mapNotNull { when (it) { is UserItem -> "user" to it.text; is AssistantItem -> it.text.takeIf { t -> t.isNotBlank() }?.let { t -> "assistant" to t }; else -> null } }

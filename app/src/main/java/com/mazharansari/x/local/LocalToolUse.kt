@@ -2,6 +2,7 @@ package com.mazharansari.x.local
 
 import com.mazharansari.x.agent.AgentSink
 import com.mazharansari.x.agent.ApprovalGate
+import com.mazharansari.x.agent.ScriptHint
 import com.mazharansari.x.agent.Tool
 import com.mazharansari.x.agent.ToolContext
 import com.mazharansari.x.agent.ToolOutput
@@ -73,6 +74,9 @@ object LocalToolUse {
     /** The tool-call system prompt: short (small models, 4k context) and strict about the format. */
     fun buildToolPrompt(tools: List<ToolSpec>): String = buildString {
         appendLine("You are X, running offline on the user's phone. You can use tools. Reply with exactly ONE JSON object and nothing else.")
+        // The final {"answer": ...} is user-visible: without this line the local tool loop
+        // carried NO language rule at all, and a 1-word greeting drifted to Arabic.
+        appendLine("LANGUAGE: ${ScriptHint.LANGUAGE_RULE}")
         appendLine("TOOLS:")
         for (t in tools) {
             appendLine("- ${t.name} ${t.parameters} — ${t.description.lineSequence().firstOrNull().orEmpty().take(120)}")
@@ -141,7 +145,7 @@ class LocalAgentRunner(
 
     suspend fun run(history: List<ChatItem>, user: UserItem): LocalAgentResult {
         val items = ArrayList<ChatItem>()
-        items += SystemItem(LocalToolUse.buildToolPrompt(byName.values.map { it.spec }))
+        items += SystemItem(LocalToolUse.buildToolPrompt(byName.values.map { it.spec }) + "\n" + ScriptHint.ruleFor(user.text))
         items += history.takeLast(6)
         items += user
         val steps = ArrayList<LocalToolStep>()

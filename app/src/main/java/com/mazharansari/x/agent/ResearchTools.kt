@@ -190,7 +190,7 @@ class DeepResearchTool : Tool {
                 - If sources disagree, do not pick a side silently: give both versions in the "Conflicting views" section.
                 - Structure: a 3-5 line executive summary first, then "## Key findings" (headings/bullets as needed), then "## Conflicting views" (write "None found" if the sources agree), then "## Gaps and uncertainties" (what could not be verified).
                 - Do NOT add a sources list of your own — it is attached separately.
-                - Write in the same language as the topic.
+                - Write in the same language AND script as the topic. ${ScriptHint.LANGUAGE_RULE}
 
                 SOURCES:
                 $evidence

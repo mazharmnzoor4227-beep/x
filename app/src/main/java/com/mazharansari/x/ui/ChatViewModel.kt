@@ -1200,7 +1200,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             override fun discardRound() { synchronized(out) { out.setLength(0) }; onDelta?.invoke(RESET) }
         }
         val voiceRules = "\n\nThis is a LIVE VOICE CALL: your words are spoken aloud. Reply in one to three short, natural spoken sentences " +
-            "in the language the user speaks (Urdu, Hindi, English or a mix). No markdown, lists, emojis, links or code."
+            "in the language the user speaks (Urdu, Hindi, English or a mix). NEVER reply in Arabic (the Arabic language). No markdown, lists, emojis, links or code."
         val answer = Agent(g.workspace, g.skills, baseTools = listOf(WebSearchTool()), maxRounds = 4).run(
             hist, UserItem(text), attempts = { attempts(Mode.FAST) }, sink = sink,
             profile = Profile(s.assistantName.ifBlank { "X" }, s.userName, s.replyLanguage, s.instructions + voiceRules),

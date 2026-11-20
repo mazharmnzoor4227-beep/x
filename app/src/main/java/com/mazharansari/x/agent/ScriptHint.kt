@@ -12,6 +12,28 @@ import com.mazharansari.x.llm.UserItem
 object ScriptHint {
     enum class Script { LATIN, ARABIC, DEVANAGARI, OTHER }
 
+    /**
+     * The ONE shared language rule, pinned in every system prompt that produces
+     * user-visible replies (main agent, local-model prompt, local tool prompt,
+     * swarm reviewer, research synthesis, voice-call instructions). One wording
+     * so the rule cannot drift between prompts again. Written in Latin letters
+     * only on purpose: the old main-agent prompt showed the model literal
+     * Arabic-script ("اردو") and Devanagari ("हिंदी") examples, which a small
+     * model can copy into its own reply.
+     */
+    const val LANGUAGE_RULE = "Always reply in the exact language AND script the user used in that message — Devanagari Hindi → Devanagari Hindi; Roman Urdu/Hinglish → Roman Urdu in English letters; English → English. NEVER reply in Arabic (the Arabic language). Never switch to Perso-Arabic/Urdu script when the user wrote Devanagari or Roman."
+
+    /** Pinned alongside [LANGUAGE_RULE] in the main agent system prompt. */
+    const val INSTRUCTION_RULE = "Do EXACTLY what the user asked — no unsolicited extras, no nonsense, no filler talk. If a request is unclear, ask ONE short clarifying question instead of guessing and rambling."
+
+    /** Per-message anchor for prompts that cannot carry the full rule (small local models): the script of THIS message, named concretely, plus the Arabic ban. */
+    fun ruleFor(text: String): String = when (of(text)) {
+        Script.DEVANAGARI -> "The user's latest message is in Devanagari Hindi: reply in Devanagari Hindi. NEVER reply in Arabic (the Arabic language)."
+        Script.ARABIC -> "The user's latest message is in Urdu script: reply in Urdu script. NEVER reply in Arabic (the Arabic language)."
+        Script.LATIN -> "The user's latest message is in English letters: reply in English letters — Roman Urdu if they wrote Urdu or Hindi words in English letters, English if they wrote English. NEVER reply in Arabic (the Arabic language)."
+        Script.OTHER -> LANGUAGE_RULE
+    }
+
     fun of(text: String): Script {
         var lat = 0; var ar = 0; var dev = 0
         for (c in text) when {
@@ -39,8 +61,11 @@ object ScriptHint {
             sb.append("\nFOLLOW-UP: the user's latest message (\"").append(latest.trim().take(40)).append("\") is a short follow-up to the conversation above. ")
             sb.append("Do what they asked last time again or continue it (e.g. \"dusra do\" / \"ek aur\" = give another one of the same kind, \"aur\" = continue), at full length — not a one-line reply.")
         }
-        if (script != Script.OTHER && (prior != script || followUp)) {
-            sb.append("\nSCRIPT NOW: the latest message is written in ").append(name(script)).append(". Write your whole reply in that script, even if earlier messages or your earlier answers used another script.")
+        // The first message of a fresh chat gets a SCRIPT NOW line too: before this
+        // fix, an empty history made prior == script, so the very first "hi" got NO
+        // script anchor at all — only the system-prompt rule — and a weak model drifted.
+        if (script != Script.OTHER && (prior != script || followUp || recent.isBlank())) {
+            sb.append("\nSCRIPT NOW: the latest message is written in ").append(name(script)).append(". Write your whole reply in that script, even if earlier messages or your earlier answers used another script. NEVER reply in Arabic (the Arabic language).")
         }
         return sb.toString()
     }

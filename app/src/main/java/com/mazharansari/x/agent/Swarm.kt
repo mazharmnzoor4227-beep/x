@@ -289,6 +289,7 @@ class SwarmWorkerExecutor(private val ctx: ToolContext) {
                 """
                 Review this code for bugs, security problems and mistakes. Be concrete: file, line, problem, fix.
                 Keep it to at most 6 findings, one per line, each under 200 characters.
+                ${ScriptHint.LANGUAGE_RULE}
                 $contents
                 """.trimIndent()
             )
