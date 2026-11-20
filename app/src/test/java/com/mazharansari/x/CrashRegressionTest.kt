@@ -593,14 +593,14 @@ class CrashRegressionTest {
             // below the fold, so waiting for it directly times out. Wait for
             // the first (always visible) message, scroll the list to the
             // end, then message 19 is composed.
-            waitForNode(hasText("Chevron check message 0"))
+            waitForNode(hasText("Chevron check message 0", substring = true))
             compose.onNode(
-                hasScrollAction() and hasAnyDescendant(hasText("Chevron check message 0")),
+                hasScrollAction() and hasAnyDescendant(hasText("Chevron check message 0", substring = true)),
             ).performScrollToIndex(19)
-            waitForNode(hasText("Chevron check message 19"))
+            waitForNode(hasText("Chevron check message 19", substring = true))
             // Scroll to the top so the scroll-to-bottom chevron appears.
             compose.onNode(
-                hasScrollAction() and hasAnyDescendant(hasText("Chevron check message 0")),
+                hasScrollAction() and hasAnyDescendant(hasText("Chevron check message 0", substring = true)),
             ).performScrollToIndex(0)
             waitForDisplayed(hasContentDescription("Scroll to bottom"))
             // Tap it, then clear the chat before the tap's coroutine runs
