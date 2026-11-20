@@ -25,7 +25,11 @@ class ProjectStore(private val root: File, private val clock: () -> Long = Syste
     private fun load(): List<Project> = runCatching { json.decodeFromString(ListSerializer(Project.serializer()), file.readText()) }.getOrDefault(emptyList())
     private fun save(l: List<Project>) {
         _list.value = l.sortedByDescending { it.updatedAt }
-        synchronized(file) { val tmp = File(root, "projects.json.tmp"); tmp.writeText(json.encodeToString(ListSerializer(Project.serializer()), _list.value)); tmp.renameTo(file) }
+        // Crash hunt (2026-11-20): called synchronously from UI paths — a failed
+        // write (disk full) used to throw straight into the caller and kill the
+        // app. The in-memory list is already updated; the file is rewritten on
+        // the next save.
+        runCatching { synchronized(file) { val tmp = File(root, "projects.json.tmp"); tmp.writeText(json.encodeToString(ListSerializer(Project.serializer()), _list.value)); tmp.renameTo(file) } }
     }
 
     fun get(id: String?): Project? = id?.let { i -> _list.value.firstOrNull { it.id == i } }

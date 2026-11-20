@@ -2,6 +2,7 @@ package com.mazharansari.x.ui.chat
 
 import android.webkit.WebView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -32,9 +33,14 @@ import java.io.File
 fun HtmlPreview(a: Artifact, onClose: () -> Unit) {
     val p = P; val ctx = LocalContext.current
     val file = remember(a.path) { File(a.path) }
-    val server = remember(a.path) { StaticServer(file.parentFile ?: file, spaFallback = false).start() }
-    DisposableEffect(server) { onDispose { server.stop() } }
-    val url = remember(server) { server.url + file.name }
+    // Crash hunt (2026-11-20): start() binds a loopback socket and throws when
+    // it cannot (loopback down, no free port) — inside remember that throw
+    // killed the app while opening a preview. A failed server now shows an
+    // honest error instead of crashing; the header (Close / Refresh / Open)
+    // keeps working.
+    val server = remember(a.path) { runCatching { StaticServer(file.parentFile ?: file, spaFallback = false).start() }.getOrNull() }
+    DisposableEffect(server) { onDispose { server?.stop() } }
+    val url = remember(server) { server?.let { it.url + file.name }.orEmpty() }
     var web by remember { mutableStateOf<WebView?>(null) }
     Column(Modifier.fillMaxSize().background(p.bg).statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -45,8 +51,18 @@ fun HtmlPreview(a: Artifact, onClose: () -> Unit) {
                 runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
             }
         }
-        Box(Modifier.fillMaxSize().padding(horizontal = 10.dp).clip(RoundedCornerShape(10.dp)).background(androidx.compose.ui.graphics.Color.White)) {
-            AndroidView(factory = { c -> PreviewWeb.harden(WebView(c)).apply { web = this; loadUrl(url) } }, modifier = Modifier.fillMaxSize())
+        // The web page itself is a white sheet (its own content) — token-driven
+        // surface, not a hardcoded white, so it follows the theme like every
+        // other card. On the grey light canvas it reads as a page, not as bg.
+        if (server == null) {
+            Box(Modifier.fillMaxSize().padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
+                Text("Couldn't open the preview on this phone. The file itself is fine — try again, or open it from the chat.",
+                    style = Type.body, color = p.text2)
+            }
+        } else {
+            Box(Modifier.fillMaxSize().padding(horizontal = 10.dp).clip(RoundedCornerShape(10.dp)).background(p.surface).border(1.dp, p.cardBorder, RoundedCornerShape(10.dp))) {
+                AndroidView(factory = { c -> PreviewWeb.harden(WebView(c)).apply { web = this; loadUrl(url) } }, modifier = Modifier.fillMaxSize())
+            }
         }
     }
 }

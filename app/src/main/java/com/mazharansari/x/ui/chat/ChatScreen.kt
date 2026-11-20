@@ -133,15 +133,23 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit, onBack: () -> Unit 
     var follow by remember { mutableStateOf(true) }
     LaunchedEffect(list.isScrollInProgress) { if (!list.isScrollInProgress) follow = !list.canScrollForward }
     var restoredFor by remember { mutableStateOf<String?>(null) }
-    DisposableEffect(vm.conversationId) {
-        onDispose { vm.saveScroll(vm.conversationId, list.firstVisibleItemIndex) }
+    // Crash hunt (2026-11-20): capture the id — the old onDispose read
+    // vm.conversationId live, which is already the NEW chat by dispose time,
+    // so chat A's scroll position was saved under chat B's id and B reopened
+    // at a stale deep position.
+    val openConversationId = vm.conversationId
+    DisposableEffect(openConversationId) {
+        onDispose { vm.saveScroll(openConversationId, list.firstVisibleItemIndex) }
     }
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             if (restoredFor != vm.conversationId) {
                 restoredFor = vm.conversationId
                 val idx = vm.scrollFor(vm.conversationId)
-                if (idx > 0 && !vm.running) { list.scrollToItem(idx); follow = false }
+                // Crash hunt (2026-11-20): clamp — a saved index from before the
+                // chat was shortened (edit/regenerate) must never address an
+                // item that no longer exists.
+                if (idx > 0 && !vm.running) { list.scrollToItem(idx.coerceIn(0, messages.lastIndex)); follow = false }
                 else { follow = true; list.animateScrollToItem(messages.lastIndex) }
             } else { follow = true; list.animateScrollToItem(messages.lastIndex) }
         }
@@ -272,7 +280,11 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit, onBack: () -> Unit 
                     // background the text behind it stays fully visible.
                     androidx.compose.animation.AnimatedVisibility(messages.isNotEmpty() && list.canScrollForward && !vm.running, enter = fadeIn() + scaleIn(initialScale = 0.8f), exit = fadeOut() + scaleOut(targetScale = 0.8f),
                         modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 12.dp)) {
-                        IconTap(Gk.chevronDown, "Scroll to bottom", 22.dp, p.text, 48.dp) { scope.launch { list.animateScrollToItem(messages.lastIndex, 1_000_000) } }
+                        // Crash hunt (2026-11-20): capture the target and guard it —
+                        // the tap's coroutine runs later, and if the chat was cleared
+                        // meanwhile (New chat / delete) lastIndex is -1, which
+                        // animateScrollToItem rejects with IllegalArgumentException.
+                        IconTap(Gk.chevronDown, "Scroll to bottom", 22.dp, p.text, 48.dp) { scope.launch { val target = messages.lastIndex; if (target >= 0) list.animateScrollToItem(target, 1_000_000) } }
                     }
                 }
                 // ── Bottom stack: read-aloud pill, banners, tools, composer ──

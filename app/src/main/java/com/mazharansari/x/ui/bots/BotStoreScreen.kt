@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import com.mazharansari.x.agent.BotRun
 import com.mazharansari.x.agent.BotStatus
 import com.mazharansari.x.data.BotCatalog
+import com.mazharansari.x.data.BotDefinition
 import com.mazharansari.x.data.X_BOT_ID
 import com.mazharansari.x.ui.ChatViewModel
 import com.mazharansari.x.ui.Route
@@ -41,20 +42,21 @@ import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
 
 /**
- * THE BOTS SECTION (navigation restructure, 2026-11-20): WhatsApp-style,
- * exactly ONE bot — X Bot, the user's own main bot. No list of many bots,
- * no store catalog any more: the 51 specialists in [BotCatalog] are the
- * roster X Bot spawns from, not bots the user chats with.
+ * THE BOTS SECTION (navigation restructure, 2026-11-20): WhatsApp-style.
  *
- * - Tapping X Bot's row opens THAT bot's own chat ([Route.BotChat]); Back
- *   from there returns here, to the bot list — never to home or a new chat.
- * - Tapping X Bot's PROFILE (its icon) opens profile editing (name + icon:
- *   monogram, static image, 3D, video).
+ * - X Bot first: the user's main bot. Tapping its row opens THAT bot's
+ *   own chat ([Route.BotChat]); Back from there returns here, to the bot
+ *   list — never to home or a new chat. Tapping its PROFILE (its icon)
+ *   opens profile editing (name + icon: monogram, static image, 3D, video).
+ * - "Create bot": a custom bot with a name, description, instructions and
+ *   a profile picture ([CreateBotSheet]) — it appears under YOUR BOTS with
+ *   its own chat, exactly like X Bot. X Bot stays the default orchestrator.
  * - BELOW X Bot, "Under X Bot": the sub-bots X Bot spawned for the current
  *   job, each with its roster name, task and live status. Tapping a sub-bot
  *   opens its (read-only) worker transcript; tapping its PROFILE opens the
- *   same profile editing. The user only CHATS with X Bot.
- * - "Specialists · 51" opens the full roster sheet (read-only).
+ *   same profile editing. The user only CHATS with X Bot and their own bots.
+ * - "Specialists · 51" opens the full roster sheet (read-only): the 51
+ *   specialists X Bot spawns from, not bots the user chats with.
  */
 @Composable
 fun BotStoreScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit) {
@@ -70,11 +72,15 @@ fun BotStoreScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Uni
     val subBots = liveBots.filter { it.kind == com.mazharansari.x.agent.BotKind.WORKER && it.parentId == xThread?.id }
     var editingX by remember { mutableStateOf(false) }
     var editingWorker by remember { mutableStateOf<BotRun?>(null) }
+    var editingCustom by remember { mutableStateOf<BotDefinition?>(null) }
+    var createOpen by remember { mutableStateOf(false) }
     var rosterOpen by remember { mutableStateOf(false) }
     if (xBot == null) return
+    // Custom bots the user created (anything in the store that is not X Bot).
+    val customBots = definitions.filter { it.id != X_BOT_ID }
 
     SettingsPage("Bots", back) {
-        Text("X Bot is your only bot. Tell it anything — it does the job itself, or spawns specialist sub-bots under itself, collects all their results, and answers you itself.",
+        Text("X Bot is your main bot. Tell it anything — it does the job itself, or spawns specialist sub-bots under itself, collects all their results, and answers you itself. You can also create your own bots below — each one has its own chat.",
             fontSize = 13.sp, color = p.text2, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp))
         // ── X Bot row ──
         Row(Modifier.fillMaxWidth().height(64.dp)
@@ -104,6 +110,48 @@ fun BotStoreScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Uni
             }
         }
         Hairline()
+        // ── Create bot: a custom bot with its own name, photo and instructions ──
+        Row(Modifier.fillMaxWidth().height(56.dp).clickable { createOpen = true }.padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            GkIcon(Gk.plus, "Create bot", 20.dp, p.accent)
+            Spacer(Modifier.width(14.dp))
+            Text("Create bot", style = Type.row, color = p.text, modifier = Modifier.weight(1f))
+            Text("Your own bot, your own chat", style = Type.small, color = p.text2)
+        }
+        Hairline()
+        // ── YOUR BOTS: custom bots the user created, each with its own chat ──
+        if (customBots.isNotEmpty()) {
+            Text("YOUR BOTS", style = Type.eyebrow, color = p.text2,
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp))
+            customBots.forEach { def ->
+                val thread = vm.botThreadMeta(def.id)
+                Row(Modifier.fillMaxWidth().height(64.dp)
+                    .clickable { vm.openBotChat(def); navigate(Route.BotChat(def.id)) }
+                    .padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // The PROFILE (icon) opens profile editing; the row opens the chat.
+                    Box(Modifier.semantics { contentDescription = "${def.name} profile" }.clickable { editingCustom = def }) {
+                        BotLogoView(def.logo, def.name, 44.dp)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(def.name, style = Type.row, color = p.text, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            if (thread != null) Text(com.mazharansari.x.ui.chat.chatTimeLabel(thread.updatedAt), style = Type.mono, color = p.text3)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                            if (thread == null) {
+                                Text("New", style = Type.mono, color = p.text3)
+                            } else {
+                                Text(thread.preview.ifBlank { def.description },
+                                    style = Type.small, color = p.text2, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+                Hairline()
+            }
+        }
         // ── Specialists row ──
         Row(Modifier.fillMaxWidth().height(56.dp).clickable { rosterOpen = true }.padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically) {
@@ -119,7 +167,7 @@ fun BotStoreScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Uni
         Text("UNDER X BOT", style = Type.eyebrow, color = p.text2,
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp))
         if (subBots.isEmpty()) {
-            Text("No sub-bots yet — give X Bot a big job and its specialists will appear here, under X Bot. You only ever chat with X Bot.",
+            Text("No sub-bots yet — give X Bot a big job and its specialists will appear here, under X Bot. You chat with X Bot and your own bots.",
                 style = Type.small, color = p.text3, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
         } else {
             subBots.forEach { w ->
@@ -161,6 +209,28 @@ fun BotStoreScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Uni
                 editingX = false
             },
             onDismiss = { editingX = false })
+    }
+    // ── Profile editing: a user-created bot (persisted) ──
+    editingCustom?.let { def ->
+        BotProfileSheet(botKey = def.id, currentName = def.name, currentLogo = def.logo,
+            onSave = { name, logo ->
+                vm.g.botStore.rename(def.id, name)
+                vm.g.botStore.setLogo(def.id, logo)
+                editingCustom = null
+            },
+            onDismiss = { editingCustom = null })
+    }
+    // ── Create a bot: saved to the store, then opened in its own chat ──
+    if (createOpen) {
+        CreateBotSheet(
+            onCreate = { name, description, persona, logo ->
+                val def = vm.g.botStore.create(name, description, persona, null)
+                if (logo.isNotBlank()) vm.g.botStore.setLogo(def.id, logo)
+                createOpen = false
+                vm.openBotChat(def)
+                navigate(Route.BotChat(def.id))
+            },
+            onDismiss = { createOpen = false })
     }
     // ── Profile editing: a sub-bot (in-memory worker profile) ──
     editingWorker?.let { w ->

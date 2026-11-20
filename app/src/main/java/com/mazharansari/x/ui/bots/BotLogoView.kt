@@ -3,6 +3,7 @@ package com.mazharansari.x.ui.bots
 import android.net.Uri
 import android.widget.VideoView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -108,8 +109,11 @@ fun BotLogoView(logo: String, name: String, size: Dp, modifier: Modifier = Modif
 private fun MonogramTile(name: String, size: Dp, modifier: Modifier = Modifier) {
     val p = P
     val dark = p.bg.red < 0.5f
+    // Light-theme fix (2026-11-20): the pastel fills sit ~1.08:1 against the
+    // grey canvas, so the tile edge comes from a 1dp border, not the fill.
     Box(
-        modifier.size(size).clip(RoundedCornerShape(8.dp)).background(monogramFill(name, dark)),
+        modifier.size(size).clip(RoundedCornerShape(8.dp)).background(monogramFill(name, dark))
+            .border(1.dp, p.cardBorder, RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center,
     ) {
         Text(

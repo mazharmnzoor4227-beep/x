@@ -1,5 +1,6 @@
 package com.mazharansari.x.build
 
+import com.mazharansari.x.agent.AgentIdentity
 import com.mazharansari.x.data.Project
 import java.io.File
 
@@ -12,6 +13,7 @@ object BuildPrompts {
     fun system(project: Project, guestRoot: String): String = """
 <axion_build>
 You are X's Build agent on the user's Android phone, inside a private Ubuntu (PRoot) sandbox.
+${AgentIdentity.creatorLine()}
 PROJECT: "${project.name}" (${project.kind}). Folder: $guestRoot — create, edit, run and build ONLY inside it. Never use scratch folders.
 
 HOW TO WORK

@@ -20,7 +20,7 @@ import javax.crypto.spec.SecretKeySpec
  */
 object KeyBackup {
     @Serializable data class Entry(val providerId: String, val key: String, val models: List<String>, val fastModels: List<String>, val pinnedModel: String? = null, val enabled: Boolean = true)
-    @Serializable data class Envelope(val format: String = "axion-keys", val v: Int = 2, val kdf: String = "PBKDF2WithHmacSHA256", val iter: Int, val salt: String, val iv: String, val data: String, val count: Int)
+    @Serializable data class Envelope(val format: String = "x-keys", val v: Int = 2, val kdf: String = "PBKDF2WithHmacSHA256", val iter: Int, val salt: String, val iv: String, val data: String, val count: Int)
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     const val ITER = 600_000
@@ -42,7 +42,10 @@ object KeyBackup {
 
     fun import(file: String, password: String): List<Entry> {
         val env = runCatching { json.decodeFromString<Envelope>(file) }.getOrElse { throw IllegalArgumentException("This isn't an X keys file") }
-        require(env.format == "axion-keys") { "This isn't an X keys file" }
+        // 2026-11-20: new exports say "x-keys"; files exported before that
+        // say "axion-keys" and still import (the format is bound into the
+        // GCM tag from each file's own header, so either value verifies).
+        require(env.format == "x-keys" || env.format == "axion-keys") { "This isn't an X keys file" }
         require(env.v in 1..2 && env.kdf == "PBKDF2WithHmacSHA256" && env.iter in ITER_RANGE) { "This keys file is from an unknown version of X." }
         val plain = runCatching {
             val c = Cipher.getInstance("AES/GCM/NoPadding").apply {

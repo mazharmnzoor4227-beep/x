@@ -39,6 +39,14 @@ data class AppSettings(
     val naturalVoice: Boolean = false,    // Gemini TTS when a Gemini key exists, else Android TTS
     val autoRead: Boolean = false,
     val userName: String = "",
+    /**
+     * The user's own profile photo (2026-11-20): a [BotLogo] string — "" =
+     * the monogram default, "file:<absolute path>" = a photo the user
+     * picked, copied into the app's own storage (profile-photos/) so it
+     * survives the gallery permission being revoked. Shown in the menu
+     * header, the Settings profile card and the Customize screen.
+     */
+    val userPhoto: String = "",
     val assistantName: String = "X",
     val instructions: String = "",
     val replyLanguage: String = "",
@@ -123,7 +131,12 @@ class SettingsStore(ctx: Context) {
     fun update(f: (AppSettings) -> AppSettings) {
         _s.value = f(_s.value)
         val snap = _s.value
-        io.launch { synchronized(file) { file.writeText(json.encodeToString(snap)) } }
+        // Crash hunt (2026-11-20): a failed write (disk full, files dir gone)
+        // used to escape this launch uncaught — a SupervisorJob child still
+        // delivers it to the default uncaught-exception handler, i.e. the app
+        // died mid-tap. The in-memory state is already updated; the disk copy
+        // is retried on the next update.
+        io.launch { synchronized(file) { runCatching { file.writeText(json.encodeToString(snap)) } } }
     }
 }
 
@@ -165,7 +178,12 @@ class ConversationStore(ctx: Context) {
             pending[c.id]?.cancel()
             pending[c.id] = io.launch {
                 if (!immediate) delay(600)
-                File(dir, "${c.id}.json.tmp").apply { writeText(json.encodeToString(Scrub.conversation(c))); renameTo(File(dir, "${c.id}.json")) }
+                // Crash hunt (2026-11-20): this runs on every send and every
+                // streaming flush — a failed write (disk full, chats dir gone)
+                // used to escape uncaught and kill the app mid-message. The
+                // in-memory index above is already updated; the file is
+                // rewritten on the next save.
+                runCatching { File(dir, "${c.id}.json.tmp").apply { writeText(json.encodeToString(Scrub.conversation(c))); renameTo(File(dir, "${c.id}.json")) } }
             }
         }
     }

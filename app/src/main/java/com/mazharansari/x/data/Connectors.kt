@@ -70,12 +70,13 @@ class ConnectorRepo(private val ctx: Context) {
             if (blob != c.keyBlob || hint != c.keyHint) c.copy(keyBlob = blob, keyHint = hint) else c
         }
         _list.value = migrated
-        if (migrated != loaded) io.launch { synchronized(file) { file.writeText(json.encodeToString(migrated)) } }
+        if (migrated != loaded) io.launch { synchronized(file) { runCatching { file.writeText(json.encodeToString(migrated)) } } }   // crash hunt (2026-11-20): a failed write must never escape this launch uncaught
     }
 
     private fun save(l: List<Connector>) {
         _list.value = l
-        io.launch { synchronized(file) { file.writeText(json.encodeToString(l)) } }
+        // Crash hunt (2026-11-20): a failed write must never escape this launch uncaught (see Stores.kt).
+        io.launch { synchronized(file) { runCatching { file.writeText(json.encodeToString(l)) } } }
     }
 
     suspend fun addKey(rawKey: String, forceProviderId: String? = null): Result<Connector> = withContext(Dispatchers.IO) {

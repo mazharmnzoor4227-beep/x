@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.widget.Toast
+import com.mazharansari.x.data.BotDefinitionStore
 import com.mazharansari.x.data.BotIconKind
 import com.mazharansari.x.data.BotLogo
 import com.mazharansari.x.ui.chat.AxionSheet
@@ -44,12 +45,12 @@ import com.mazharansari.x.ui.components.Gk
 import com.mazharansari.x.ui.components.GkIcon
 import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
-import java.io.File
 
 /**
  * Profile editing (navigation restructure, 2026-11-20): tapping ANY bot's
- * profile — X Bot itself, or any sub-bot X Bot spawned — opens this sheet.
- * The user can change the bot's NAME and its ICON. Icon options:
+ * profile — X Bot itself, a user-created bot, or any sub-bot X Bot spawned —
+ * opens [BotProfileSheet]. The user can change the bot's NAME and its ICON.
+ * Icon options:
  * - Monogram (the professional default: two initials on a muted tile),
  * - Static image (a photo the user picks — copied into the app's own
  *   storage, so it survives the gallery permission being revoked),
@@ -58,9 +59,13 @@ import java.io.File
  * - Video (a short looping clip the user picks — muted, loops, capped at
  *   8 MB so the tile stays lightweight; never auto-plays sound).
  * The sheet title is 17sp SemiBold (redesign round 2 §H partial: sheet
- * titles were 22sp). The old CreateBotSheet is gone with the single-X-Bot
- * rule — there is no "create a bot" any more; X Bot is the only bot, and
- * its sub-bots are created by X Bot itself.
+ * titles were 22sp).
+ *
+ * Creating a bot (2026-11-20): [CreateBotSheet] is the Bots section's
+ * "Create bot" entry — a custom bot with a name, a short description,
+ * instructions/persona and a profile picture, saved through
+ * [BotDefinitionStore.create] (+ setLogo for the photo) and opened in its
+ * own chat like X Bot. X Bot stays the default orchestrator.
  */
 @Composable
 fun BotProfileSheet(
@@ -83,7 +88,7 @@ fun BotProfileSheet(
                 logo = BotLogo.custom(path)
                 kind = BotIconKind.IMAGE
             } else {
-                Toast.makeText(ctx, "Could not use that image — pick a smaller one", Toast.LENGTH_SHORT).show()
+                Toast.makeText(ctx, "Could not use that image — pick a photo under 10 MB", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -154,6 +159,82 @@ fun BotProfileSheet(
     }
 }
 
+/**
+ * Create a custom bot (2026-11-20): the Bots section's "Create bot" entry.
+ * Name + short description + instructions/persona + an optional profile
+ * picture (picked from the device, copied into the app's own storage like
+ * the profile editor's). [onCreate] receives the four values — the caller
+ * saves them with [BotDefinitionStore.create] (+ setLogo for the photo) and
+ * opens the new bot's own chat. The sheet never creates anything itself:
+ * Cancel / dismiss leaves no bot behind, and a blank name cannot create.
+ */
+@Composable
+fun CreateBotSheet(
+    onCreate: (name: String, description: String, persona: String, logo: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val p = P
+    val ctx = LocalContext.current
+    var name by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var persona by remember { mutableStateOf("") }
+    var logo by remember { mutableStateOf("") }
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val ext = if (ctx.contentResolver.getType(uri) == "image/png") "png" else "jpg"
+            val path = copyPicked(ctx, "new-bot", uri, ext, MAX_IMAGE_BYTES)
+            if (path != null) {
+                logo = BotLogo.custom(path)
+            } else {
+                Toast.makeText(ctx, "Could not use that image — pick a photo under 10 MB", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    val colors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = p.text2, unfocusedBorderColor = p.border,
+        focusedTextColor = p.text, unfocusedTextColor = p.text,
+        cursorColor = p.text, focusedLabelColor = p.text2, unfocusedLabelColor = p.text3)
+    AxionSheet(onDismiss) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+            Text("New bot", style = Type.title.copy(fontSize = 17.sp), color = p.text)
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true,
+                colors = colors, modifier = Modifier.fillMaxWidth().testTag("createBotName"))
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(description, { description = it }, label = { Text("What does it do?") }, singleLine = true,
+                colors = colors, modifier = Modifier.fillMaxWidth().testTag("createBotDescription"))
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(persona, { persona = it }, label = { Text("Instructions — how it should behave") },
+                minLines = 4, maxLines = 8, colors = colors,
+                modifier = Modifier.fillMaxWidth().testTag("createBotInstructions"))
+            Spacer(Modifier.height(14.dp))
+            // Profile picture: the picked photo, or the monogram until one is picked.
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                BotLogoView(logo, name.ifBlank { "New bot" }, 48.dp)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Profile picture", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = p.text)
+                    Text("Pick a photo from your gallery, or leave the monogram.", fontSize = 12.sp, color = p.text2)
+                }
+                TextButton(onClick = { pickImage.launch("image/*") }, modifier = Modifier.testTag("createBotPhoto")) {
+                    Text(if (logo.isBlank()) "Pick" else "Change", color = p.accent)
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text("Cancel", color = p.text2) }
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = { onCreate(name.trim(), description.trim(), persona.trim(), logo) },
+                    enabled = name.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = p.accent, contentColor = p.onAccent),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.testTag("createBotConfirm"),
+                ) { Text("Create bot") }
+            }
+        }
+    }
+}
+
 private fun kindOf(logo: String): BotIconKind = when (BotLogo.parse(logo)) {
     is BotLogo.Video -> BotIconKind.VIDEO
     is BotLogo.Custom -> BotIconKind.IMAGE
@@ -197,27 +278,13 @@ private const val MAX_VIDEO_BYTES = 8L * 1024 * 1024
 
 /**
  * Copy a picked image/video into the app's own storage (bot-logos/) so the
- * icon survives the gallery permission being revoked. Streams with a byte
- * cap — over the cap the copy is deleted and null is returned.
+ * icon survives the gallery permission being revoked. Shared helper
+ * ([copyPickedMedia]) streams with a byte cap and refuses a file that is
+ * not a real image — over the cap, unreadable, or not an image, the copy
+ * is deleted and null is returned (the caller toasts and keeps the old
+ * picture). Same file for the create sheet and the profile editor.
  */
 private fun copyPicked(ctx: Context, botKey: String, uri: Uri, ext: String, maxBytes: Long): String? {
-    val dir = File(ctx.filesDir, "bot-logos").apply { mkdirs() }
-    val safeKey = botKey.replace(Regex("[^A-Za-z0-9_-]"), "_").take(40)
-    val out = File(dir, "$safeKey-${System.currentTimeMillis()}.$ext")
-    return runCatching {
-        ctx.contentResolver.openInputStream(uri)?.use { input ->
-            var total = 0L
-            out.outputStream().use { o ->
-                val buf = ByteArray(8192)
-                while (true) {
-                    val n = input.read(buf)
-                    if (n < 0) break
-                    total += n
-                    if (total > maxBytes) throw IllegalStateException("picked file over the size cap")
-                    o.write(buf, 0, n)
-                }
-            }
-        } ?: throw IllegalStateException("cannot open picked file")
-        out.absolutePath
-    }.onFailure { out.delete() }.getOrNull()
+    val isImage = ext.equals("jpg", ignoreCase = true) || ext.equals("png", ignoreCase = true)
+    return copyPickedMedia(ctx, "bot-logos", botKey, uri, ext, maxBytes, validateImage = isImage)
 }

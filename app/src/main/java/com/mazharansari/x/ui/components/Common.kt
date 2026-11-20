@@ -193,11 +193,12 @@ fun Divider(start: Dp = 52.dp) = Box(Modifier.padding(start = start).fillMaxWidt
 /**
  * Monogram tile (round 2, spec §2.5): the same 2-initial, 8dp rounded-square
  * tile as [BotLogoView] — [name] is the full name, not one letter. No circle,
- * no single initial, no accent tint.
+ * no single initial, no accent tint. [logo] is a [BotLogo] string: "" keeps
+ * the monogram, "file:" shows the user's picked photo (see AppSettings.userPhoto).
  */
 @Composable
-fun Avatar(name: String, size: Dp = 36.dp) {
-    com.mazharansari.x.ui.bots.BotLogoView("", name, size)
+fun Avatar(name: String, size: Dp = 36.dp, logo: String = "") {
+    com.mazharansari.x.ui.bots.BotLogoView(logo, name, size)
 }
 
 /** X button (round 2: 8dp corners, min height 42; primary accent, secondary soft grey). */

@@ -3,9 +3,10 @@ package com.mazharansari.x.data
 /**
  * NAVIGATION RESTRUCTURE (2026-11-20) — X Bot's specialist roster: 51 agents.
  *
- * These are NOT bots the user chats with. The Bots section shows exactly ONE
- * bot — X Bot ([xBotDefinition], id "x-bot"). These 51 are the specialists X
- * Bot spawns under itself for the different parts of a big job
+ * These are NOT bots the user chats with. The Bots section shows X Bot
+ * ([xBotDefinition], id "x-bot") plus any bots the USER creates
+ * ([BotDefinitionStore.create]) — never these seeds. These 51 are the
+ * specialists X Bot spawns under itself for the different parts of a big job
  * ([com.mazharansari.x.agent.XBotSpawn] picks them by task keywords; the
  * swarm tool fans them out and X Bot collects and verifies every result
  * before answering from itself). Each entry is a definition bundle (persona +

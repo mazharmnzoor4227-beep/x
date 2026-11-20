@@ -41,6 +41,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.mazharansari.x.BuildConfig
 import com.mazharansari.x.data.AppSettings
+import com.mazharansari.x.data.BotLogo
+import com.mazharansari.x.data.X_BOT_ID
+import com.mazharansari.x.ui.bots.BotLogoView
+import com.mazharansari.x.ui.bots.copyPickedMedia
 import com.mazharansari.x.linux.TurboAuth
 import com.mazharansari.x.linux.TurboSettings
 import com.mazharansari.x.ui.ChatViewModel
@@ -93,7 +97,7 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
         // profile card
         Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).clickable { nav(Route.Customize) }.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)).border(2.dp, if (p.isDark) Color(0xFF3A3A3A) else p.border, RoundedCornerShape(8.dp)).padding(4.dp)) { Avatar(s.userName.ifBlank { "You" }, 48.dp) }
+            Box(Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)).border(2.dp, if (p.isDark) Color(0xFF3A3A3A) else p.border, RoundedCornerShape(8.dp)).padding(4.dp)) { Avatar(s.userName.ifBlank { "You" }, 48.dp, s.userPhoto) }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 // v0.5.2: a fresh install shows "You" + "Add your name" — never the developer's name.
@@ -230,6 +234,11 @@ fun LanguageScreen(vm: ChatViewModel, back: () -> Unit) {
     var packProgress by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     val playingId by ReadAloudPlayer.playing.collectAsState()
+    // The spoken greeting uses the bot's CURRENT name: X Bot's live name
+    // from the bot store (a rename is heard at once), else the assistant
+    // name from Customize — never a hardcoded old name.
+    val botName = vm.g.botStore.definitions.collectAsState().value.firstOrNull { it.id == X_BOT_ID }?.name
+        ?: s.assistantName.ifBlank { "X" }
     // Legacy stored picks ("system", or anything the picker no longer knows) move to the standing first pick once.
     val migratedPref = VoicePicker.migrateVoicePref(s.voicePref)
     LaunchedEffect(migratedPref) {
@@ -257,7 +266,9 @@ fun LanguageScreen(vm: ChatViewModel, back: () -> Unit) {
         if (playingId == VoicePreview.messageId(v.id)) { ReadAloudPlayer.stop(); return }
         vm.g.settings.update { it.copy(voicePref = v.id) }
         if (v.isCatalog) VoicePrefs.setActive(ctx, v.id)
-        ReadAloudPlayer.preview(ctx, v.id, v.sampleText)
+        // The greeting speaks the bot's CURRENT name (X Bot's live name from
+        // the bot store — a rename is heard at once, never the old name).
+        ReadAloudPlayer.preview(ctx, v.id, VoicePreview.sampleTextFor(v.id, botName))
     }
     /** The live status line under a card: a Piper pack's real download state, else the card's engine note. */
     fun cardStatus(v: PickerVoice): String? {
@@ -556,13 +567,36 @@ fun TurboScreen(vm: ChatViewModel, back: () -> Unit) {
 @Composable
 fun CustomizeScreen(vm: ChatViewModel, back: () -> Unit) {
     val s = settingsOf(vm)
+    val ctx = LocalContext.current
     var name by remember { mutableStateOf(s.userName) }
     var asst by remember { mutableStateOf(s.assistantName) }
     var lang by remember { mutableStateOf(s.replyLanguage) }
     var instr by remember { mutableStateOf(s.instructions) }
-    DisposableEffect(Unit) { onDispose { vm.g.settings.update { it.copy(userName = name.trim(), assistantName = asst.trim().ifBlank { "X" }, replyLanguage = lang.trim(), instructions = instr.trim()) } } }
+    // Your own profile photo (2026-11-20): picked from the device, copied
+    // into the app's own storage (profile-photos/) — a missing, unreadable
+    // or non-image file is refused and the old picture is kept.
+    var photo by remember { mutableStateOf(s.userPhoto) }
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val ext = if (ctx.contentResolver.getType(uri) == "image/png") "png" else "jpg"
+            val path = copyPickedMedia(ctx, "profile-photos", "user", uri, ext, 10L * 1024 * 1024, validateImage = true)
+            if (path != null) photo = BotLogo.custom(path)
+            else vm.toast = "Could not use that photo — pick an image under 10 MB"
+        }
+    }
+    DisposableEffect(Unit) { onDispose { vm.g.settings.update { it.copy(userName = name.trim(), assistantName = asst.trim().ifBlank { "X" }, replyLanguage = lang.trim(), instructions = instr.trim(), userPhoto = photo) } } }
     SettingsPage("Customize X", back) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                BotLogoView(photo, name.ifBlank { "You" }, 56.dp)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Your photo", style = Type.row.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = P.text)
+                    Text("Pick a photo from your gallery, or leave the monogram.", style = Type.small, color = P.text2)
+                }
+                TextButton(onClick = { pickPhoto.launch("image/*") }) { Text(if (photo.isBlank()) "Pick" else "Change", color = P.accent) }
+                if (photo.isNotBlank()) TextButton(onClick = { photo = "" }) { Text("Remove", color = P.text2) }
+            }
             Field("Your name", name, { name = it }, "Your name")
             Field("What should X call itself?", asst, { asst = it }, "X")
             Field("Reply language", lang, { lang = it }, "Roman Urdu")

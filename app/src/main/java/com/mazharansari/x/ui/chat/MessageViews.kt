@@ -23,6 +23,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -61,9 +62,15 @@ fun UserBubble(m: Message, onLongPress: () -> Unit = {}) {
             Spacer(Modifier.height(6.dp))
         }
         if (text.isNotBlank()) {
+            // Light-theme fix (2026-11-20): the bubble is white on a grey canvas,
+            // so it needs a real edge — 1dp cardBorder + 2dp shadow — or it melts
+            // into the background (the old #EDEFF2 fill on #F7F8FA was 1.08:1).
+            // Same in dark: the border/shadow are near-invisible there, harmless.
+            val shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomStart = 10.dp, bottomEnd = 4.dp)
             SelectionContainer(Modifier.fillMaxWidth(0.8f)) {
                 Text(text, style = Type.body.copy(fontSize = 15.sp, lineHeight = 22.sp), color = p.text,
-                    modifier = Modifier.clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomStart = 10.dp, bottomEnd = 4.dp)).background(p.userBubble)
+                    modifier = Modifier.shadow(2.dp, shape).clip(shape).background(p.userBubble)
+                        .border(1.dp, p.cardBorder, shape)
                         .padding(horizontal = 16.dp, vertical = 12.dp))
             }
         }
@@ -191,10 +198,16 @@ fun AssistantMessage(
         // empty (thinking-only streaming), so no empty box ever shows.
         if (text.isNotBlank()) {
             Spacer(Modifier.height(12.dp))
+            // Light-theme fix (2026-11-20): same as the user bubble — white card
+            // on the grey canvas needs its 1dp border + 2dp shadow, or the reply
+            // reads as bare text on the background.
+            val bubbleShape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomStart = 4.dp, bottomEnd = 10.dp)
             Box(
                 Modifier.fillMaxWidth().padding(end = 48.dp)
-                    .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomStart = 4.dp, bottomEnd = 10.dp))
+                    .shadow(2.dp, bubbleShape)
+                    .clip(bubbleShape)
                     .background(p.card)
+                    .border(1.dp, p.cardBorder, bubbleShape)
                     .padding(horizontal = 16.dp, vertical = 12.dp)
                     .semantics { contentDescription = "Assistant reply bubble" }
             ) { Markdown(bodyText, Modifier.fillMaxWidth()) }
@@ -406,7 +419,10 @@ fun ArtifactCard(a: Artifact, onOpen: () -> Unit, onDownload: () -> Unit) {
     if (isPdf) {
         val shape = RoundedCornerShape(10.dp)
         val bmp by produceState<Bitmap?>(null, a.path) { value = withContext(Dispatchers.IO) { pdfPageBitmap(a.path, 0, 900) } }
-        Box(Modifier.fillMaxWidth().height(236.dp).clip(shape).background(Color.White).clickable(onClick = onOpen)
+        // White here is the PAPER of the PDF page, not chrome — kept. The
+        // 1dp cardBorder (2026-11-20 light fix) frames the sheet on the grey
+        // canvas so the page edge reads instead of melting into it.
+        Box(Modifier.fillMaxWidth().height(236.dp).clip(shape).background(Color.White).border(1.dp, p.cardBorder, shape).clickable(onClick = onOpen)
             .semantics { contentDescription = "PDF ${a.name}" }) {
             bmp?.let { Image(it.asImageBitmap(), null, contentScale = ContentScale.FillWidth, alignment = Alignment.TopCenter, modifier = Modifier.fillMaxSize()) }
             Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 13.dp).size(99.dp, 60.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xE6191919)),

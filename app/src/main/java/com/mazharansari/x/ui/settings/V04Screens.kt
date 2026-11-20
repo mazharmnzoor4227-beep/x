@@ -825,7 +825,7 @@ fun KeyBackupScreen(vm: ChatViewModel, back: () -> Unit) {
         SectionLabel("Import")
         Card {
             if (pendingImport == null) {
-                Note("Pick an axion-keys file, then enter its password.", Modifier.padding(bottom = 12.dp))
+                Note("Pick an x-keys file, then enter its password.", Modifier.padding(bottom = 12.dp))
                 SmallButton("Choose file") { open.launch(arrayOf("application/json", "*/*")) }
             } else {
                 Text("File selected", style = Type.row, color = p.text, modifier = Modifier.padding(bottom = 10.dp))
@@ -853,7 +853,7 @@ fun KeyBackupScreen(vm: ChatViewModel, back: () -> Unit) {
         title = { Text("Before you save this file", style = Type.title, color = p.text) },
         text = { Text("This file holds all ${keys.size} of your API keys, locked with your password.\n\n• Keep it for yourself (your Google Drive, a USB stick).\n• Don't post it or send it to anyone. Whoever has the file AND the password can use your keys.\n• Never send the password together with the file.\n• If it ever leaks, delete the keys at Google, Groq, etc. and make new ones.",
             style = Type.body, color = p.text2) },
-        confirmButton = { TextButton({ warn = false; save.launch("axion-keys-${SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())}.json") }) { Text("I understand, save", style = Type.label, color = p.text) } },
+        confirmButton = { TextButton({ warn = false; save.launch("x-keys-${SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())}.json") }) { Text("I understand, save", style = Type.label, color = p.text) } },
         dismissButton = { TextButton({ warn = false }) { Text("Cancel", style = Type.label, color = p.text2) } })
 }
 

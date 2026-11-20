@@ -244,6 +244,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun newChat() {
         // v0.8.0: no stop() — a run in the chat being left keeps working in the background.
         // Phase 2: the half-typed draft stays with the chat being left, not the new one.
+        // Crash hunt (2026-11-20): invalidate any conversation load still in flight.
+        openGeneration++
         drafts.save(conversationId, draft)
         conversationId = null; title = ""; messages = emptyList(); pending.clear(); draft = ""; section = Section.ASK
         viewingWorkerTranscript = false; workerReturnToId = null; workerReturnToName = null; activeBot = null
@@ -459,6 +461,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun openProject(id: String) {
         val p = g.build.store.get(id) ?: return
+        // Crash hunt (2026-11-20): invalidate any conversation load still in flight.
+        openGeneration++
         // v0.8.0: no stop() — the project being left keeps working (its row shows "Working").
         // Phase 2: the draft stays with the chat being left; Build chats are never bot chats.
         drafts.save(conversationId, draft)
@@ -485,7 +489,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun closeProject() { drafts.save(conversationId, draft); activeBot = null; projectId = null; conversationId = null; messages = emptyList(); title = ""; draft = ""; refreshRunning() }   // v0.8.0: leaving never stops a run
+    fun closeProject() { openGeneration++; drafts.save(conversationId, draft); activeBot = null; projectId = null; conversationId = null; messages = emptyList(); title = ""; draft = ""; refreshRunning() }   // v0.8.0: leaving never stops a run
 
     /** Creates a project and opens its chat. [firstPrompt] (from a template) is sent right away. */
     fun createProject(name: String, kind: String, firstPrompt: String? = null): String {
@@ -509,7 +513,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     /** Build can run: Linux + the agy CLI installed and at least one signed-in Antigravity account. Kept for the chat-driven build engine (runBuildTurn); there is no Build UI entry point any more. */
     internal fun agyBuildReady(): Boolean = runCatching { g.agyReady() }.getOrDefault(false)
 
-    @Volatile private var opening: String? = null
+    /**
+     * Crash hunt (2026-11-20): generation counter for async conversation loads.
+     * Every [open]/[newChat]/[openProject]/[closeProject] bumps it, and a load
+     * only applies its result while its generation is still current — so a load
+     * that finishes after the user moved on (Back, New chat, another chat) can
+     * never overwrite the conversation now on screen, and a message can never
+     * be sent into the wrong conversation. The old `opening` id check only
+     * guarded against a second open(), never against leaving the chat.
+     */
+    private var openGeneration = 0
 
     fun open(id: String) {
         if (id == conversationId) return
@@ -517,11 +530,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         // Phase 2: its half-typed draft stays with it.
         drafts.save(conversationId, draft)
         chatApprovedPatterns.clear()   // "This chat" approvals end with the chat
-        opening = id
+        val gen = ++openGeneration
         val sess = sessions[id]
         if (sess != null) {
             // This chat is still working — show its live messages, not the last saved copy.
-            opening = null
             conversationId = sess.convId; title = sess.title; messages = sess.msgs; createdAt = sess.createdAt
             section = Section.ASK   // 2026-11-19: no Build mode — a live project run keeps its projectId below, not a section
             viewingWorkerTranscript = false
@@ -548,9 +560,12 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             // thread; the runtime schedules the recomposition) or a StateFlow
             // read, and the load's own withContext(IO) is just a no-op hop.
             // The fast path above (live session) stays synchronous on Main.
-            val c = g.chats.load(id) ?: return@launch
-            if (opening != id) return@launch   // v0.5.2: two quick taps in the drawer — the last one wins
-            opening = null
+            val c = g.chats.load(id)
+            // Crash hunt (2026-11-20): a load that finished after the user moved
+            // on (Back / New chat / another chat) is dropped silently — the
+            // conversation now on screen stays put.
+            if (gen != openGeneration) return@launch   // v0.5.2: two quick taps in the drawer — the last one wins
+            if (c == null) { toast = "That chat couldn't be opened — it may have been deleted."; return@launch }
             conversationId = c.id; title = c.title; messages = c.messages; createdAt = c.createdAt
             section = Section.ASK   // 2026-11-19: saved "build" conversations open as normal chats; the project (if any) is re-attached below
             // A worker transcript (section "worker") opens read-only; a normal chat clears it.
@@ -648,7 +663,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun send(textIn: String = draft, skipPasteCheck: Boolean = false) {
         if (viewingWorkerTranscript) return   // a worker transcript is read-only
         var text = textIn.trim()
-        if ((text.isEmpty() && pending.isEmpty()) || running) return
+        if (text.isEmpty() && pending.isEmpty()) return
+        // Crash hunt (2026-11-20): a send while this chat's run is in flight used
+        // to vanish silently — the tap did nothing and the text just sat there.
+        // The draft is kept (it is only cleared below), and the user is told why.
+        if (running) { toast = "Still working on your last message — send again when the reply is done."; return }
         if (projectId != null && pendingReview != null) { toast = "Review the waiting changes first — Approve or Reject."; reviewRequested++; return }   // 2026-11-19: keyed off the open project, not a Build section
         sendTappedAt = System.currentTimeMillis()
         // v0.5.2 security: an API key pasted into the chat is never sent to the AI or saved — it's masked (gsk_••••abcd).
@@ -806,7 +825,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 Role.ASSISTANT -> m.text.takeIf { it.isNotBlank() }?.let { AssistantItem(it) }
             }
         }
-        val u = messages.last()
+        val u = messages.lastOrNull() ?: return   // crash hunt: an empty list must never throw here (send/regenerate guard it; this is the belt)
         val intent = com.mazharansari.x.agent.IntentGate.classify(u.text, u.attachments.isNotEmpty())
         // Auto: short chat goes to the fast models first (a greeting should never wait on a big reasoning model).
         val runMode = if (mode == Mode.AUTO && intent != com.mazharansari.x.agent.Intent.ACTION) Mode.FAST else mode

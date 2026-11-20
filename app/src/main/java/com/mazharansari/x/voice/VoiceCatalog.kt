@@ -48,7 +48,21 @@ data class AxVoice(
 
 object VoiceCatalog {
     const val DEFAULT_ID = "kodex:rounded"
-    const val PREVIEW_TEXT = "Hi, I'm your X voice. Ask me anything."
+    /**
+     * The spoken greeting — "I am X, ask me anything" (2026-11-20, user
+     * order). NEVER "Axion". The live greeting is [greetingFor], which
+     * speaks the bot's CURRENT name; this constant is that greeting for
+     * the default name "X".
+     */
+    const val PREVIEW_TEXT = "I am X, ask me anything."
+
+    /**
+     * The spoken greeting for the bot's CURRENT name — read the live name
+     * from the bot store at speak time ([VoicePreview.sampleTextFor]),
+     * never a hardcoded old one: after a rename the greeting speaks the
+     * new name.
+     */
+    fun greetingFor(botName: String): String = "I am ${botName.trim().ifBlank { "X" }}, ask me anything."
     /** Spoken (not shown) by Hindi/Urdu voices; written in Devanagari so the voice pronounces it naturally. */
     const val PREVIEW_URDU = "नमस्ते! मैं आपका X हूँ। बताइए, आज मैं आपकी क्या मदद कर सकता हूँ?"
 

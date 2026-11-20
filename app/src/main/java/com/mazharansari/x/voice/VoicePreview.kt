@@ -35,7 +35,27 @@ object VoicePreview {
 
     fun voiceIdOf(messageId: String?): String? = messageId?.takeIf { isPreviewId(it) }?.removePrefix(PREFIX)
 
-    fun sampleTextFor(voiceId: String): String = VoicePicker.byId(voiceId)?.sampleText ?: VoiceCatalog.PREVIEW_TEXT
+    fun sampleTextFor(voiceId: String): String = sampleTextFor(voiceId, "X")
+
+    /**
+     * The sample a preview speaks, for the bot's CURRENT name (2026-11-20):
+     * the greeting speaks the live name — "I am <name>, ask me anything" —
+     * never a hardcoded old one. The English greeting is rebuilt from
+     * [VoiceCatalog.greetingFor]; the per-voice introductions keep their
+     * own words but swap the bot name in ("aapki X voice" →
+     * "aapki <name> voice", same in Urdu script and Devanagari), so a
+     * rename is heard in every voice, not just the English ones.
+     */
+    fun sampleTextFor(voiceId: String, botName: String): String {
+        val base = VoicePicker.byId(voiceId)?.sampleText ?: VoiceCatalog.PREVIEW_TEXT
+        val name = botName.trim().ifBlank { "X" }
+        if (name == "X") return base
+        return base
+            .replace(VoiceCatalog.PREVIEW_TEXT, VoiceCatalog.greetingFor(name))
+            .replace("aapki X voice", "aapki $name voice")
+            .replace("آپ کی X آواز", "آپ کی $name آواز")
+            .replace("आपका X हूँ", "आपका $name हूँ")
+    }
 
     /**
      * The preview state machine, as the UI drives it from

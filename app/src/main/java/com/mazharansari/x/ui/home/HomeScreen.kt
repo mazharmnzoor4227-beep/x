@@ -93,9 +93,13 @@ fun HomeScreen(vm: ChatViewModel, navigate: (Route) -> Unit, back: () -> Unit) {
         ChatListMeta(id = it.id, title = it.title, pinned = it.pinned, updatedAt = it.updatedAt,
             preview = it.preview, section = it.section, botId = it.botId, botName = it.botName)
     }
+    // A bot chat row shows that bot's CURRENT logo — a picked photo, not a
+    // stale monogram (botLogos is read live from the bot store, so a photo
+    // change shows here at once).
+    val botDefs by vm.g.botStore.definitions.collectAsState()
     val workingIds = liveBots.filter { it.status == BotStatus.STARTING || it.status == BotStatus.WORKING }
         .mapNotNull { it.parentId ?: it.conversationId }.toSet()
-    val chatRows = buildChatRows(metas, workingIds)
+    val chatRows = buildChatRows(metas, workingIds, botLogos = botDefs.associate { it.id to it.logo })
     val filteredChats = chatRows.filter { q.isBlank() || it.displayName.contains(q, true) || it.preview.contains(q, true) }
     val parents = liveBots.filter { it.kind == BotKind.PARENT }
     val workers = liveBots.filter { it.kind == BotKind.WORKER }
@@ -104,7 +108,7 @@ fun HomeScreen(vm: ChatViewModel, navigate: (Route) -> Unit, back: () -> Unit) {
         // ── Header (64dp): monogram + name/status + Close (back to the chat) ──
         Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 12.dp, top = 12.dp).height(64.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            BotLogoView("", userName, 40.dp, Modifier.clickable { navigate(Route.Customize) })
+            BotLogoView(settings.userPhoto, userName, 40.dp, Modifier.clickable { navigate(Route.Customize) })
             Column(Modifier.weight(1f).padding(start = 12.dp).clickable { navigate(Route.Customize) }) {
                 Text(userName, style = Type.row, color = p.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("Ready · ${providerName ?: "No key yet"}", style = Type.mono, color = p.text3, maxLines = 1, overflow = TextOverflow.Ellipsis)

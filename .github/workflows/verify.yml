@@ -60,3 +60,13 @@ jobs:
           path: |
             app/build/test-results/testDebugUnitTest/
             app/build/reports/tests/testDebugUnitTest/
+      # Light-theme fix (2026-11-20): LightThemeScreensTest renders the real
+      # screens in the light theme to app/build/light-theme-shots/ — upload
+      # the PNGs so the fix can be eyeballed from the run, not trusted blind.
+      - name: Upload light-theme screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: light-theme-shots
+          path: app/build/light-theme-shots/
+          if-no-files-found: warn

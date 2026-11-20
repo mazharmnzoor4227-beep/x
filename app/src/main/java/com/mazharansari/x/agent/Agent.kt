@@ -578,6 +578,7 @@ class Agent(
         val now = SimpleDateFormat("EEEE d MMMM yyyy, HH:mm", Locale.ENGLISH).format(Date())
         return buildString {
             appendLine("You are ${p.assistantName}, a friendly personal AI assistant on the user's Android phone, made for ${p.userName.ifBlank { "the user" }}.")
+            appendLine(AgentIdentity.systemLine(p.assistantName))
             appendLine("Now: $now (user's local time).")
             appendLine("LANGUAGE + SCRIPT: always reply in the user's language AND the same script they typed. Roman Urdu / Hinglish (Urdu or Hindi written in English letters, e.g. \"Kya hal he\") → reply in natural Roman Urdu in English letters — NEVER switch to Devanagari script or Urdu script for it; Urdu script → Urdu script; Devanagari → Devanagari; English → English. Mixed → follow the script of the user's latest message. Understand casual spelling (\"he\" = hai, \"kese\" = kaise). Files you make (PDFs, docs) follow the same language and script unless asked otherwise. ${ScriptHint.LANGUAGE_RULE}${if (p.language.isNotBlank()) " Preferred language: ${p.language}." else ""}")
             appendLine(ScriptHint.INSTRUCTION_RULE)

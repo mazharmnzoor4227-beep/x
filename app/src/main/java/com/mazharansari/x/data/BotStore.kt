@@ -54,6 +54,7 @@ data class BotDefinition(
     fun promptBlock(): String = buildString {
         append("You are $name — $description. ")
         if (persona.isNotBlank()) append(persona.trim()).append(' ')
+        append(com.mazharansari.x.agent.AgentIdentity.creatorLine()).append(' ')
         if (skills.isNotEmpty()) append("Your skills: ${skills.joinToString(", ")} — load the matching skill (load_skill) before specialised work. ")
         if (toolGroups.isNotEmpty()) append("You may use only these tool groups: ${toolGroups.joinToString(", ")}. If a task needs anything else, say so instead of working around it. ")
         append("Verify before you deliver: never present a result as done until it is checked. If a check fails, say what failed and what is still unverified.")
@@ -153,10 +154,11 @@ fun switchesForBot(def: BotDefinition): Map<String, Boolean> =
     ToolCatalog.groups.associate { it.id to (def.toolGroups.isEmpty() || it.id in def.toolGroups) }
 
 /**
- * Navigation restructure (2026-11-20): X Bot is the user's ONE bot — the
- * Bots section shows exactly this definition and nothing else. The 50
- * specialists in [BotCatalog.seeds] are not bots the user chats with: they
- * are the roster X Bot spawns from (see [com.mazharansari.x.agent.XBotSpawn]).
+ * Navigation restructure (2026-11-20), extended 2026-11-20: X Bot is the
+ * user's main bot, and the user may also CREATE their own bots ([create]) —
+ * each one has its own chat in the Bots section. The 51 specialists in
+ * [BotCatalog.seeds] are not bots the user chats with: they are the roster
+ * X Bot spawns from (see [com.mazharansari.x.agent.XBotSpawn]).
  * [ensureXBot] guarantees the definition exists (seeded on first launch,
  * kept first in the list); it refreshes only the orchestrator persona and
  * description, never the user's own name or logo choices.

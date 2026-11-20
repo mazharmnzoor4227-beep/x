@@ -29,7 +29,20 @@ import com.mazharansari.x.R
  * green dot/pill. Diff-added lines use [accentSoft] (bronze tint), never green.
  *
  * Dark (default): bg #14161A, surface #1D2026, text #F2F3F5, accent #E0A63F.
- * Light ("Day"):   bg #F7F8FA, surface #FFFFFF, text #16181D, accent #92400E.
+ * Light ("Day"):   bg #DEE1E6, surface #FFFFFF, text #16181D, accent #92400E.
+ *
+ * LIGHT-THEME FIX (2026-11-20): the spec §2.1 light tokens rendered
+ * white-on-white — bg #F7F8FA with white surfaces/bubbles and a #E2E5EA
+ * hairline, so chat bubbles and the canvas were indistinguishable. The light
+ * canvas is now a real grey (#DEE1E6, bubble-vs-bg contrast 1.31), bubbles
+ * stay white but carry a visible border (#AEB4BE, 1.59 vs bg) + 2dp shadow
+ * (see UserBubble / the assistant bubble in MessageViews.kt), and every
+ * adjacent layer has a distinct value (page2 == bg: one canvas on every
+ * screen). This deliberately deviates from the spec §2.1 table's light
+ * bg/border/userBubble — those values ARE the bug. Contrast is guarded by
+ * LightThemeTest (thresholds: bubble-vs-bg ≥ 1.25, border-vs-bg ≥ 1.5,
+ * text-vs-bg ≥ 7) and by LightThemeScreensTest's real renders.
+ * DarkPalette is byte-identical to the spec and must stay that way.
  *
  * Legacy alias fields (chip/card/page2/sheet/sidebar…/blue/status*) are kept
  * so existing screens keep compiling; they all resolve to the tokens above
@@ -74,16 +87,16 @@ val DarkPalette = Palette(
     codeBg = Color(0xFF1E1E1E), codeText = Color(0xFFF5F5F5), scrim = Color(0x8C000000),
 )
 val LightPalette = Palette(
-    bg = Color(0xFFF7F8FA), surface = Color(0xFFFFFFFF), surface2 = Color(0xFFFFFFFF), sheet = Color(0xFFFFFFFF),
-    border = Color(0xFFE2E5EA), text = Color(0xFF16181D), text2 = Color(0xFF565D68), text3 = Color(0xFF8A919C),
+    bg = Color(0xFFDEE1E6), surface = Color(0xFFFFFFFF), surface2 = Color(0xFFEDF0F3), sheet = Color(0xFFFFFFFF),
+    border = Color(0xFFAEB4BE), text = Color(0xFF16181D), text2 = Color(0xFF565D68), text3 = Color(0xFF7C838E),
     accent = Color(0xFF92400E), onAccent = Color(0xFFFFFFFF), code = Color(0xFF1E1E1E), danger = Color(0xFFDC2626), isDark = false,
-    chip = Color(0xFFEDEFF2), card = Color(0xFFFFFFFF), page2 = Color(0xFFF7F8FA), cardBorder = Color(0xFFE2E5EA),
-    dim = Color(0xFF8A919C), popover = Color(0xFFFFFFFF), blue = Color(0xFF92400E),
+    chip = Color(0xFFE4E7EB), card = Color(0xFFFFFFFF), page2 = Color(0xFFDEE1E6), cardBorder = Color(0xFFAEB4BE),
+    dim = Color(0xFF7C838E), popover = Color(0xFFFFFFFF), blue = Color(0xFF92400E),
     accentSoft = Color(0xFFFDF3E3),
-    statusDone = Color(0xFF565D68), statusRunning = Color(0xFF92400E), statusFailed = Color(0xFFDC2626), statusPaused = Color(0xFF8A919C),
+    statusDone = Color(0xFF565D68), statusRunning = Color(0xFF92400E), statusFailed = Color(0xFFDC2626), statusPaused = Color(0xFF7C838E),
     sidebar = Color(0xFFFFFFFF),
     surfaceRaised = Color(0xFFFFFFFF), surfaceSunken = Color(0xFFEDEFF2), textSecondary = Color(0xFF565D68),
-    muted = Color(0xFF8A919C), dangerSoft = Color(0xFFFEF2F2), userBubble = Color(0xFFEDEFF2),
+    muted = Color(0xFF7C838E), dangerSoft = Color(0xFFFEF2F2), userBubble = Color(0xFFFFFFFF),
     codeBg = Color(0xFF1E1E1E), codeText = Color(0xFFF5F5F5), scrim = Color(0x52000000),
 )
 

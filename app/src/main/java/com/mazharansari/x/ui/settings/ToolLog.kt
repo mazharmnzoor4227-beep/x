@@ -52,7 +52,7 @@ private fun copyLog(ctx: android.content.Context, vm: ChatViewModel, toolId: Str
 
 private fun shareLog(ctx: android.content.Context, vm: ChatViewModel, toolId: String): String? = runCatching {
     val dir = File(ctx.cacheDir, "share").apply { mkdirs() }
-    val f = File(dir, "axion-$toolId-install-log.txt").apply { writeText(vm.g.devtools.logText(toolId, 2000)) }
+    val f = File(dir, "x-$toolId-install-log.txt").apply { writeText(vm.g.devtools.logText(toolId, 2000)) }
     val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f)
     ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_STREAM, uri)
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Share install log").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
