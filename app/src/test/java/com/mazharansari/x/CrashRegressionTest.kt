@@ -2,29 +2,14 @@ package com.mazharansari.x
 
 import android.app.Application
 import android.os.Looper
-import androidx.compose.ui.graphics.GraphicsMode
-import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertExists
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasAnyDescendant
-import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.hasScrollAction
-import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
-import androidx.compose.ui.test.onAllNodes
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToIndex
-import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mazharansari.x.agent.Attempt
-import com.mazharansari.x.agent.LlmClient
-import com.mazharansari.x.agent.LlmStream
-import com.mazharansari.x.agent.Text
 import com.mazharansari.x.build.ProjectStore
 import com.mazharansari.x.build.StaticServer
 import com.mazharansari.x.data.BotDefinition
@@ -33,12 +18,16 @@ import com.mazharansari.x.data.Message
 import com.mazharansari.x.data.Role
 import com.mazharansari.x.data.SettingsStore
 import com.mazharansari.x.data.X_BOT_ID
+import com.mazharansari.x.llm.LlmClient
+import com.mazharansari.x.llm.LlmEvent
+import com.mazharansari.x.llm.LlmRequest
 import com.mazharansari.x.ui.ChatViewModel
 import java.io.File
 import java.net.ServerSocket
 import java.util.Collections
 import java.util.UUID
-import java.util.concurrent.CompletableDeferred
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -49,7 +38,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import org.robolectric.annotation.GraphicsMode as RoboGraphicsMode
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * Crash regression tests (2026-11-20): the 50fa5c6f signed APK (CI green, 961 tests)
@@ -66,10 +55,20 @@ import org.robolectric.annotation.GraphicsMode as RoboGraphicsMode
  *    restore, scroll-to-bottom after the chat is cleared.
  *
  * Gradle does not run in this sandbox; CI (gradle testDebugUnitTest) runs these.
+ *
+ * Fix-forward (2026-11-20, 659586c broke Verify Tests on this file only):
+ * the first version imported invented APIs (agent.LlmClient/LlmStream/Text,
+ * java.util.concurrent.CompletableDeferred, androidx.compose.ui.graphics
+ * .GraphicsMode) and used Compose test APIs as top-level imports. Everything
+ * here now uses the real APIs: llm.LlmClient.stream(LlmRequest): Flow<LlmEvent>
+ * (LlmEvent.Text), kotlinx.coroutines.CompletableDeferred, the
+ * org.robolectric GraphicsMode, and the androidx.compose.ui.test.* wildcard
+ * that V06NavScreensTest proves compiles (assertExists / onAllNodes /
+ * isDisplayed are extensions/members, not top-level functions).
  */
 @RunWith(AndroidJUnit4::class)
 @Config(application = AxionApp::class, sdk = [35])
-@RoboGraphicsMode(RoboGraphicsMode.Mode.NATIVE)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @OptIn(ExperimentalTestApi::class)
 class CrashRegressionTest {
 
@@ -84,8 +83,8 @@ class CrashRegressionTest {
     private fun idle() = shadowOf(Looper.getMainLooper()).idle()
 
     private fun instantModel(reply: String) = object : LlmClient {
-        override fun stream(model: String, messages: List<Map<String, Any>>): LlmStream =
-            flow { emit(Text(reply)) }
+        override fun stream(req: LlmRequest): Flow<LlmEvent> =
+            flow { emit(LlmEvent.Text(reply)) }
     }
 
     private fun waitUntil(timeoutMs: Long = 5000, condition: () -> Boolean) {
@@ -116,16 +115,42 @@ class CrashRegressionTest {
         fail("timed out after ${timeoutMs}ms waiting for node $matcher")
     }
 
+    /**
+     * Copied from V06NavScreensTest: poll until exactly ONE node matches
+     * [matcher] AND it is displayed. Existence is not display: after a
+     * navigation tap, AnimatedContent composes the incoming screen at once,
+     * translated off-screen and transparent, so a node can exist for poll
+     * iterations while assertIsDisplayed still throws. The indexed [0]
+     * lookup can only ever address the one node the count check just
+     * observed; the runCatching is belt-and-braces for a tree change
+     * between the two queries.
+     */
     private fun waitForDisplayed(matcher: androidx.compose.ui.test.SemanticsMatcher, timeoutMs: Long = 8000) {
-        val end = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < end) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
             compose.mainClock.advanceTimeBy(200)
-            idle()
-            if (compose.onAllNodes(matcher).fetchSemanticsNodes().any { it.isDisplayed() }) return
             Thread.sleep(100)
-            idle()
+            val nodes = compose.onAllNodes(matcher).fetchSemanticsNodes()
+            if (nodes.size == 1 &&
+                runCatching { compose.onAllNodes(matcher)[0].isDisplayed() }.getOrDefault(false)
+            ) return
         }
-        fail("timed out after ${timeoutMs}ms waiting for displayed node $matcher")
+        val nodes = compose.onAllNodes(matcher).fetchSemanticsNodes()
+        val detail = nodes.joinToString("; ") { node ->
+            val text = node.config.getOrNull(SemanticsProperties.Text)
+                ?.joinToString("|") { it.text } ?: "?"
+            "text=\"$text\" boundsInRoot=${node.boundsInRoot}"
+        }
+        val allTexts = compose.onAllNodes(SemanticsMatcher("any node") { true })
+            .fetchSemanticsNodes()
+            .mapNotNull { node ->
+                node.config.getOrNull(SemanticsProperties.Text)
+                    ?.joinToString("|") { it.text }
+            }.filter { it.isNotBlank() }.take(40)
+        fail(
+            "node $matcher never displayed (matches=${nodes.size}): $detail" +
+                " | ALL_TEXTS_ON_SCREEN=$allTexts",
+        )
     }
 
     private fun seedSettings() {
@@ -218,7 +243,7 @@ class CrashRegressionTest {
         // A 200k-char paste becomes a file attachment, not a giant in-memory bubble.
         assertEquals(1, vm.messages.size)
         assertEquals(1, vm.messages[0].attachments.size)
-        assertEquals(200_000, vm.messages[0].attachments[0].sizeBytes)
+        assertEquals(200_000, vm.messages[0].attachments[0].size)
         waitForIdleRun(vm)
         assertEquals(2, vm.messages.size)
         assertEquals("read it", vm.messages[1].text)
@@ -228,8 +253,8 @@ class CrashRegressionTest {
     fun rapidRepeatedSendsStartOneReply() {
         val gate = CompletableDeferred<Unit>()
         val hanging = object : LlmClient {
-            override fun stream(model: String, messages: List<Map<String, Any>>): LlmStream =
-                flow { gate.await(); emit(Text("one")) }
+            override fun stream(req: LlmRequest): Flow<LlmEvent> =
+                flow { gate.await(); emit(LlmEvent.Text("one")) }
         }
         val vm = ChatViewModel(app)
         vm.debugAttempts = { _, _ -> listOf(Attempt("Fake", "m", hanging)) }
@@ -250,8 +275,8 @@ class CrashRegressionTest {
     fun sendWhileRunInFlightKeepsDraftAndWarns() {
         val gate = CompletableDeferred<Unit>()
         val hanging = object : LlmClient {
-            override fun stream(model: String, messages: List<Map<String, Any>>): LlmStream =
-                flow { gate.await(); emit(Text("first reply")) }
+            override fun stream(req: LlmRequest): Flow<LlmEvent> =
+                flow { gate.await(); emit(LlmEvent.Text("first reply")) }
         }
         val vm = ChatViewModel(app)
         vm.debugAttempts = { _, _ -> listOf(Attempt("Fake", "m", hanging)) }
