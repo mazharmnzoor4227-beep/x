@@ -1,7 +1,7 @@
 package com.mazharansari.x
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -41,7 +41,7 @@ import java.io.File
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w404dp-h897dp-xxhdpi", application = AxionApp::class)
 class IdeaFeedScreenTest {
-    @get:Rule val compose = createEmptyComposeRule()
+    @get:Rule val compose = createComposeRule()
 
     private val app get() = ApplicationProvider.getApplicationContext<AxionApp>()
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }

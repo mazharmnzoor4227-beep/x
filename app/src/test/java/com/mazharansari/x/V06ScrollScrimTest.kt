@@ -170,10 +170,10 @@ class V06ScrollScrimTest {
         // Edge-midpoints of the box, 3px inside the edge: inside the old tile's
         // fill, clear of its rounded corners, and clear of the centred chevron.
         val points = listOf(
-            "top" to (box.centerX to box.top + 3f),
-            "bottom" to (box.centerX to box.bottom - 4f),
-            "left" to (box.left + 3f to box.centerY),
-            "right" to (box.right - 4f to box.centerY),
+            "top" to (box.center.x to box.top + 3f),
+            "bottom" to (box.center.x to box.bottom - 4f),
+            "left" to (box.left + 3f to box.center.y),
+            "right" to (box.right - 4f to box.center.y),
         )
         for ((name, p) in points) {
             val rgb = pixel(bmp, (p.first * sx).toInt(), (p.second * sy).toInt())

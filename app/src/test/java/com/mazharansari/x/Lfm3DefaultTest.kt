@@ -55,7 +55,7 @@ class Lfm3DefaultTest {
         fastModels = listOf("allam-2-7b", "openai/gpt-oss-20b", "llama-3.1-8b-instant"), addedAt = 1)
     private fun gemini() = Connector("c-gemini", "gemini", blob("k"), "AIza…1",
         models = listOf("gemini-2.5-flash", "gemini-2.5-pro"),
-        fastModels = listOf("gemini-2.5-flash-lite"), pinned = "gemini-3-flash", addedAt = 1)
+        fastModels = listOf("gemini-2.5-flash-lite"), pinnedModel = "gemini-3-flash", addedAt = 1)
     private fun local(modelId: String) = Connector("c-local", "local", blob("local"), modelId,
         listOf(modelId), listOf(modelId), addedAt = 1, localModel = modelId)
     private fun server() = Connector("c-server", "myserver", blob(""), "example.invalid",

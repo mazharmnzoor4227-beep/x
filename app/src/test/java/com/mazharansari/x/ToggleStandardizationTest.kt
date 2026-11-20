@@ -1,13 +1,13 @@
 package com.mazharansari.x
 
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.ViewModelProvider
-import androidx.compose.ui.semantics.SemanticsMatcher
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.mazharansari.x.data.ScheduleEntry
@@ -39,7 +39,7 @@ import java.io.File
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w411dp-h914dp-280dpi", application = AxionApp::class)
 class ToggleStandardizationTest {
-    @get:Rule val compose = createEmptyComposeRule()
+    @get:Rule val compose = createComposeRule()
     private val app get() = ApplicationProvider.getApplicationContext<AxionApp>()
 
     @Test fun axionSwitchFlipsWhenTappedAndIsNotAMaterialSwitch() {
