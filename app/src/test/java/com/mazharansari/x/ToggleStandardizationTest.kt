@@ -93,26 +93,36 @@ class ToggleStandardizationTest {
             // card. The Daily-briefing card above it has an identical right-edge
             // AxionSwitch, and it comes first — so onFirst() over the whole
             // screen taps the briefing switch, which with no briefing scheduled
-            // just creates one, and the probe never flips. Scope the match to
-            // the probe card — IN THE UNMERGED TREE. In the merged tree the
-            // switch's parent is the shared LazyColumn itself (the card Rows /
-            // Columns carry no semantics of their own, so both switches merge
-            // up to the list), and hasParent(hasAnyDescendant(title)) matches
-            // BOTH switches — that is why the hasParent scoping on the merged
-            // tree still tapped the briefing switch. In the unmerged tree each
-            // switch's direct parent is its own card's Row, which contains
-            // only that card's title: the briefing Row has no "Toggle probe
-            // task" descendant, so exactly one node matches — the probe's
-            // enable switch. (The Delete button shares the probe Row but its
-            // centre is left of the 80% line, and the second-row switches sit
-            // in a different Row with no title descendant.)
+            // just creates one, and the probe never flips. Tree-shape scoping
+            // cannot fix this: hasParent(hasAnyDescendant(title)) was tried on
+            // the merged tree AND on the unmerged tree (useUnmergedTree=true)
+            // and both still tapped the briefing switch. The reason is that
+            // the card Rows/Columns carry no semantics of their own, so in
+            // EITHER tree a switch's nearest semantics parent is the shared
+            // LazyColumn, whose descendants include BOTH cards' titles — the
+            // parent matcher therefore matches both switches and onFirst()
+            // picks the briefing one. So target by BOUNDS instead, independent
+            // of tree shape: among the right-edge clickables (centre-x past
+            // 80% of the width — the probe switch's centre is ~357dp of 411dp;
+            // the Delete button's centre is ~300dp and the second-row
+            // "Needs network"/"Exact time" switches sit near ~160dp/~250dp,
+            // so none of them qualify), the probe's switch is the FIRST one
+            // BELOW the probe title — the briefing switch is above it, and
+            // nothing else right-edge sits below it on this screen. The
+            // probe switch's centre-y is below the title's centre-y because
+            // its Row is vertically centred on a five-line column while the
+            // title is the column's first line.
             val rootWidth = compose.onRoot().fetchSemanticsNode().boundsInRoot.width
-            compose.onAllNodes(
+            val titleY = compose.onNodeWithText("Toggle probe task").fetchSemanticsNode().boundsInRoot.center.y
+            val rightEdge = compose.onAllNodes(
                 hasClickAction() and
-                SemanticsMatcher("right-edge toggle") { it.boundsInRoot.center.x > 0.8f * rootWidth } and
-                hasParent(hasAnyDescendant(hasText("Toggle probe task"))),
+                SemanticsMatcher("right-edge clickable") { it.boundsInRoot.center.x > 0.8f * rootWidth },
                 useUnmergedTree = true
-            ).onFirst().performClick()
+            )
+            val edgeNodes = rightEdge.fetchSemanticsNodes()
+            val idx = edgeNodes.indexOfFirst { it.boundsInRoot.center.y > titleY }
+            check(idx >= 0) { "no right-edge clickable below the probe title (right-edge nodes: ${edgeNodes.map { it.boundsInRoot }})" }
+            rightEdge[idx].performClick()
             compose.mainClock.advanceTimeBy(500)
             assertEquals("tapping the gold toggle must switch the schedule off", false, vm.g.schedules.get("probe-1")?.enabled)
             assertNotNull("the toggle must flip the setting, not delete the schedule", vm.g.schedules.get("probe-1"))

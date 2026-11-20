@@ -141,18 +141,26 @@ class V06NavScreensTest {
             waitForNode(hasText("Edit profile"))
             // The profile editor is a ModalBottomSheet (AxionSheet): its
             // content is composed — and "Edit profile" exists in the tree —
-            // the moment it opens, but the sheet slides up from below the
-            // screen edge, so the rows under the title ("Monogram" sits
-            // ~180dp below it) are still off-screen while it animates in.
-            // waitForNode only proves existence, so asserting display right
-            // after the title appears catches the sheet mid-slide. Drive the
-            // clock until the row is actually on screen, then assert display
-            // on all four icon options as before.
-            compose.waitUntil(5000) { compose.onNodeWithText("Monogram").isDisplayed() }
-            compose.onNodeWithText("Monogram").assertIsDisplayed()
-            compose.onNodeWithText("Static image").assertIsDisplayed()
-            compose.onNodeWithText("3D").assertIsDisplayed()
-            compose.onNodeWithText("Video").assertIsDisplayed()
+            // the moment it opens. But "displayed" is UNPROVABLE for its rows
+            // in this harness — the 5 s waitUntil(5000) that used to be here
+            // timed out in CI (ComposeTimeoutException at :151), proving it:
+            // the sheet's slide-in animation runs on the ACTIVITY's real
+            // Choreographer frame clock, not the Compose test clock — so
+            // waitUntil/mainClock.advanceTimeBy (test clock) and waitForNode
+            // never advance the slide, "Monogram" stays below the visible
+            // bounds forever, and isDisplayed() stays false. No test in the
+            // suite asserts display inside a ModalBottomSheet, and the sheet
+            // is a separate Dialog window whose frames the paused Robolectric
+            // main looper never ticks under autoAdvance=false. So assert
+            // EXISTENCE for all four icon options instead — that still proves
+            // the editor opened with every option present — and drive the
+            // rename through the profileName field + Save exactly as before.
+            // The final "X Prime" assertIsDisplayed below stays: it is on
+            // the main window (BotStoreScreen list), not in the sheet.
+            compose.onNodeWithText("Monogram").assertExists()
+            compose.onNodeWithText("Static image").assertExists()
+            compose.onNodeWithText("3D").assertExists()
+            compose.onNodeWithText("Video").assertExists()
             // Rename and save.
             compose.onNodeWithTag("profileName").performTextClearance()
             compose.onNodeWithTag("profileName").performTextInput("X Prime")

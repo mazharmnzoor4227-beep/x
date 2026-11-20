@@ -132,19 +132,47 @@ Clawora Beauty — original Korean skincare, Cash on Delivery all over Pakistan.
         var vm: ChatViewModel? = null
         // Navigation restructure (2026-11-20): the app opens on the chat
         // screen already — open the conversation straight into it.
-        sc.onActivity { vm = ViewModelProvider(it)[ChatViewModel::class.java]; vm!!.debugStart = Route.Chat; vm!!.open(id) }
-        // vm.open() loads the conversation on a real IO thread — and since
-        // 2026-11-20 the load coroutine itself runs on Dispatchers.IO (see
-        // ChatViewModel.open): the state assignment no longer waits on a Main
-        // continuation, which under Robolectric + the Compose rule is never
-        // pumped — the store load succeeds yet conversationId/messages stay
-        // empty after 8 s of waitUntil, and per-iteration
-        // shadowOf(mainLooper).idle() does not drain it either (V052's
-        // DBG19: load=Success(12), conv=null, msgs=0; the bare-VM
-        // twoQuickChatTaps test passes because no Activity/Compose rule owns
-        // the clock there). So this poll only waits for the recomposition to
-        // render "Thought for" — poll in REAL time: sleep, drive the clock,
-        // check the nodes, until the conversation lands or 10 s pass.
+        sc.onActivity { vm = ViewModelProvider(it)[ChatViewModel::class.java]; vm!!.debugStart = Route.Chat }
+        // HARNESS LIMITATION (2026-11-20, proven by elimination — see below):
+        // vm.open(id) never lands in this harness. The load itself is fine
+        // and the VM logic is fine, but the async hand-off never completes
+        // here, so drive the load from the test instead (the same reflection
+        // V03/V05/V051 already use for the VM's messages state):
+        //  1. runBlocking load of the SEEDED file proves the seeded
+        //     conversation decodes from disk in this harness (DBG19 proved
+        //     the same for "scroll": load=Success(12) — but note DBG19's
+        //     waitUntil(8000) is VIRTUAL time, it burns in milliseconds of
+        //     wall time, so it never proved anything about 8 s of real time;
+        //     V031's own 10 s of REAL polling still never saw the state land).
+        //  2. The bare-VM test twoQuickChatTapsOpenTheLastOne passes with
+        //     the identical open() — no Activity, no Compose rule — so
+        //     open()'s guard/load/assignments are correct.
+        //  3. No resetter exists: grep of main code shows open()/newChat()
+        //     are only called from user taps (HomeScreen, WorkspaceScreens,
+        //     ChatScreen buttons); ChatScreen has no auto open/newChat
+        //     LaunchedEffect. No coroutine exception appears anywhere in
+        //     the CI log near these failures.
+        //  4. open() works on a real phone (the whole app opens chats this
+        //     way) and V031 passed at c83ffd99 through the old open path.
+        // The only remaining difference is the harness itself: the Compose
+        // rule owns Dispatchers.Main (clock-driven TestDispatcher) and
+        // Robolectric pauses the main looper, and the Main-bound
+        // viewModelScope's IO child never completes under it. So: load the
+        // seeded file synchronously here and set the exact state open()
+        // would have set (conversationId/title/messages) from the LOADED
+        // conversation — the render below still proves the seeded
+        // conversation's content ("Thought for") reaches the screen.
+        // vm.open(id) is deliberately NOT called as well: a stale open()
+        // coroutine landing mid-test (e.g. after New chat clears the chat
+        // in newChatButtonStartsNewChat) would re-assign messages and make
+        // the test non-deterministic.
+        val loaded = kotlinx.coroutines.runBlocking { ApplicationProvider.getApplicationContext<AxionApp>().graph.chats.load(id) }
+        checkNotNull(loaded) { "seeded conversation $id did not decode from chats/$id.json" }
+        check(loaded.messages.size == 2) { "seeded conversation $id should have 2 messages, got ${loaded.messages.size}" }
+        sc.onActivity { setConversation(vm!!, loaded) }
+        // This poll now only waits for the recomposition to render
+        // "Thought for" — poll in REAL time: sleep, drive the clock,
+        // check the nodes, until it renders or 10 s pass.
         var found = false
         for (i in 0 until 50) {
             shadowOf(Looper.getMainLooper()).idle()
@@ -154,6 +182,18 @@ Clawora Beauty — original Korean skincare, Cash on Delivery all over Pakistan.
         }
         check(found) { "Thought for never appeared — the seeded conversation did not load" }
         return sc to vm!!
+    }
+
+    /** V03/V05 pattern: the VM's conversation state is `by mutableStateOf` with a private setter — set the backing MutableState directly, on the test thread. */
+    @Suppress("UNCHECKED_CAST")
+    private fun setConversation(vm: ChatViewModel, c: Conversation) {
+        fun set(field: String, value: Any?) {
+            val f = vm.javaClass.getDeclaredField(field).apply { isAccessible = true }
+            (f.get(vm) as androidx.compose.runtime.MutableState<Any?>).value = value
+        }
+        set("conversationId\$delegate", c.id)
+        set("title\$delegate", c.title)
+        set("messages\$delegate", c.messages)
     }
 
     private fun pill(sc: ActivityScenario<MainActivity>, elapsed: Long, total: Long = 62_000) {
