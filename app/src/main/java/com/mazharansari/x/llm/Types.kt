@@ -37,6 +37,8 @@ sealed interface LlmEvent {
     data class Reasoning(val delta: String) : LlmEvent
     data class ToolCalls(val calls: List<ToolCall>) : LlmEvent
     data class Finished(val reason: String?) : LlmEvent
+    /** Auto-shift (2026-11-20): a client moved the work to another model/account after a limit — Agent turns it into a visible in-chat notice. */
+    data class Shifted(val from: String, val to: String) : LlmEvent
 }
 
 /** RATE = a per-minute limit (e.g. Groq "tokens per minute … try again in 28.17s"): skip to the next model now, retry this one in seconds. */

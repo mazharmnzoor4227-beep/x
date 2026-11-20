@@ -218,10 +218,10 @@ class SwarmPhase1Test {
     // ── Bot Store ────────────────────────────────────────────────────────────
 
     @Test fun botStoreSeedsAreRealAndLicensed() {
-        // Navigation restructure (2026-11-20): the roster is 50 specialists —
-        // 23 donor-pattern seeds + 27 X built-in specialists — that X Bot
+        // Navigation restructure (2026-11-20): the roster is 51 specialists —
+        // 24 donor-pattern seeds + 27 X built-in specialists — that X Bot
         // spawns from. X Bot itself is not in the seeds (see xBotDefinition).
-        assertEquals(50, BotCatalog.seeds.size)
+        assertEquals(51, BotCatalog.seeds.size)
         BotCatalog.seeds.forEach { def ->
             assertTrue(def.name.isNotBlank())
             assertTrue(def.description.isNotBlank())

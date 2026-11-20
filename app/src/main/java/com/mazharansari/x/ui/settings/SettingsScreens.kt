@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,7 +52,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.provider.OpenableColumns
 import com.mazharansari.x.llm.Http
+import com.mazharansari.x.voice.PickerVoice
 import com.mazharansari.x.voice.PiperPack
+import com.mazharansari.x.voice.ReadAloudPlayer
+import com.mazharansari.x.voice.VoicePicker
+import com.mazharansari.x.voice.VoicePrefs
+import com.mazharansari.x.voice.VoicePreview
 import com.mazharansari.x.ui.home.FileActions
 import com.mazharansari.x.ui.home.openFile
 import com.mazharansari.x.ui.theme.P
@@ -110,7 +117,7 @@ fun SettingsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) {
         SectionLabel("App")
         SettingsGroup {
             SettingsRow(Gk.theme, "Appearance", subtitle = s.theme.replaceFirstChar { it.uppercase() }) { nav(Route.Appearance) }
-            SettingsRow(Gk.voice, "Voice & Language", subtitle = PiperPack.of(s.voicePref).displayName) { nav(Route.Language) }
+            SettingsRow(Gk.voice, "Voice & Language", subtitle = VoicePicker.displayNameFor(s.voicePref)) { nav(Route.Language) }
             SettingsRow(Gk.sliders, "Advanced") { nav(Route.Advanced) }
         }
         SectionLabel("Assistant")
@@ -166,6 +173,14 @@ fun AppearanceScreen(vm: ChatViewModel, back: () -> Unit) {
                 }
             }
         }
+        // Restored 2026-11-20: textScale had stored state and a working read site
+        // (AppRoot → XTheme) but no row anywhere, so the size could never change.
+        SectionLabel("Text size")
+        SettingsGroup {
+            listOf(0.9f to "Small", 1f to "Normal", 1.15f to "Large").forEach { (scale, l) ->
+                SettingsRow(null, l, chevron = false, trailing = { Check(s.textScale == scale) }) { vm.g.settings.update { it.copy(textScale = scale) } }
+            }
+        }
         // Phase 2: haptics + tap sound, both on by default, both switchable here.
         SectionLabel("Touch feedback")
         SettingsGroup {
@@ -183,8 +198,18 @@ fun AppearanceScreen(vm: ChatViewModel, back: () -> Unit) {
  * language, which genuinely works (dictation + voice calls read it).
  */
 /**
- * Voice & Language (spec §10.10): the read-aloud / voice-call voice
- * preference. First pick is Piper Urdu Aegis (offline, on-device) — see
+ * Voice & Language (spec §10.10), redesigned 2026-11-20: a professional
+ * picker — one card per voice (monogram tile, name, language, short
+ * description, selected state), grouped in sections, in the same card
+ * style as the rest of Settings. Tap a card to select that voice AND hear
+ * a short sample in exactly that voice (voice/VoicePreview.kt +
+ * ReadAloudPlayer.preview); tap again to stop, tap another card to
+ * switch, and leaving the page stops a playing preview. The "System phone
+ * voice" filler row is gone (the Phone voices section is the real thing);
+ * a stored "system" pick migrates to Aegis once
+ * (VoicePicker.migrateVoicePref). Piper pack downloads / import and the
+ * speech-language picker keep working, restyled as the same cards.
+ * First pick is Piper Urdu Aegis (offline, on-device) — see
  * voice/PiperVoice.kt. The Piper engine (sherpa-onnx) IS bundled since
  * redesign round 2; a Piper pick reads in the phone's built-in Urdu/Hindi
  * voice only while the pack or the shared espeak-ng-data is missing — the
@@ -199,11 +224,21 @@ fun LanguageScreen(vm: ChatViewModel, back: () -> Unit) {
     var espeakBusy by remember { mutableStateOf(false) }
     var espeakProgress by remember { mutableIntStateOf(0) }
     var espeakRefresh by remember { mutableStateOf(0) }
-    // Tap-to-download state for the VITS packs (Aegis/Fasih): which pack is
+    // Tap-to-download state for the VITS packs (Aegis/Fasih/Amy): which pack is
     // downloading and its 0..100 progress. Kokoro has no download wired.
     var packBusy by remember { mutableStateOf<String?>(null) }
     var packProgress by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+    val playingId by ReadAloudPlayer.playing.collectAsState()
+    // Legacy stored picks ("system", or anything the picker no longer knows) move to the standing first pick once.
+    val migratedPref = VoicePicker.migrateVoicePref(s.voicePref)
+    LaunchedEffect(migratedPref) {
+        if (migratedPref != s.voicePref) vm.g.settings.update { it.copy(voicePref = migratedPref) }
+    }
+    // A preview is a read-aloud under the id "preview:<voice>"; leaving the page stops it — never a real read-aloud.
+    DisposableEffect(Unit) {
+        onDispose { if (VoicePreview.isPreviewId(ReadAloudPlayer.playingMessageId)) ReadAloudPlayer.stop() }
+    }
     val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         var n = 0
         uris.forEach { uri ->
@@ -217,22 +252,36 @@ fun LanguageScreen(vm: ChatViewModel, back: () -> Unit) {
         if (n > 0) { imported++; vm.toast = "Imported $n voice file${if (n == 1) "" else "s"}" }
         else vm.toast = "Those files are not a Piper voice pack — pick the .onnx and .json files"
     }
+    /** Tap a card: tap again stops the preview; otherwise select this voice (both stores, so read-aloud + calls use it at once) and preview it. */
+    fun onVoiceTap(v: PickerVoice) {
+        if (playingId == VoicePreview.messageId(v.id)) { ReadAloudPlayer.stop(); return }
+        vm.g.settings.update { it.copy(voicePref = v.id) }
+        if (v.isCatalog) VoicePrefs.setActive(ctx, v.id)
+        ReadAloudPlayer.preview(ctx, v.id, v.sampleText)
+    }
+    /** The live status line under a card: a Piper pack's real download state, else the card's engine note. */
+    fun cardStatus(v: PickerVoice): String? {
+        val pack = v.piperPack ?: return v.engineNote
+        if (pack == PiperPack.KOKORO_HINDI) return "Download not available yet — reads in the phone Hindi voice for now"
+        val st = store.status(pack)
+        return if (st.downloaded) "Downloaded · ${st.bytes / 1_048_576} MB on this phone"
+        else "Not downloaded yet — see Downloads below"
+    }
     SettingsPage("Voice & Language", back) {
-        SectionLabel("Voice (read-aloud + voice calls)")
-        SettingsGroup {
-            listOf(
-                PiperPack.AEGIS.id to "Piper Urdu Aegis — female",
-                PiperPack.FASIH.id to "Piper Urdu Fasih — male",
-                PiperPack.KOKORO_HINDI.id to "Kokoro Hindi — alternative",
-                "system" to "System phone voice",
-            ).forEach { (id, l) ->
-                SettingsRow(null, l, chevron = false, trailing = { Check(s.voicePref == id) }) { vm.g.settings.update { it.copy(voicePref = id) } }
+        key(imported) {
+            VoicePicker.sections().forEach { section ->
+                SectionLabel(section.title)
+                Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    VoicePicker.voicesIn(section).forEach { v ->
+                        VoiceCard(v, selected = s.voicePref == v.id, playing = playingId == VoicePreview.messageId(v.id), status = cardStatus(v)) { onVoiceTap(v) }
+                    }
+                }
             }
         }
         SectionLabel("Piper voice packs (offline)")
         key(imported, packBusy) {
             SettingsGroup {
-                listOf(PiperPack.AEGIS, PiperPack.FASIH).forEach { pack ->
+                listOf(PiperPack.AEGIS, PiperPack.FASIH, PiperPack.AMY).forEach { pack ->
                     val st = store.status(pack)
                     val downloading = packBusy == pack.id
                     SettingsRow(null, pack.displayName,
@@ -276,31 +325,116 @@ fun LanguageScreen(vm: ChatViewModel, back: () -> Unit) {
                 }
             }
         }
-        Text("The Piper engine (sherpa-onnx) is built into the app. Tap a pack to download its two files from Hugging Face, or import them yourself (Files → pick the .onnx and the .json — the converted copies, not the raw ones), then download the pronunciation data once; then the Piper voice reads on-device. The downloaded file is the raw Piper release and the engine needs the converted copy — if a downloaded pack still reads in the phone voice, import the converted copy instead. Until a pack and the data are both ready, a Piper pick reads in the phone's built-in Urdu/Hindi voice. Kokoro Hindi is a different model family and reads in the phone voice for now.",
+        Text("The Piper engine (sherpa-onnx) is built into the app. Tap a pack to download its two files from Hugging Face, or import them yourself (Files → pick the .onnx and the .json — the converted copies, not the raw ones), then download the pronunciation data once; then the Piper voice reads on-device. Amy is the offline English Piper voice (rhasspy/piper-voices). The downloaded file is the raw Piper release and the engine needs the converted copy — if a downloaded pack still reads in the phone voice, import the converted copy instead. Until a pack and the data are both ready, a Piper pick reads in the phone's built-in Urdu/Hindi voice. Kokoro Hindi is a different model family and reads in the phone voice for now — its download is not wired yet.",
             style = Type.small.copy(fontSize = 13.sp, lineHeight = 19.sp), color = P.text2,
             modifier = Modifier.padding(start = 30.dp, end = 24.dp, top = 10.dp))
         SettingsGroup {
             SettingsRow(Gk.uploadImage, "Import voice pack files", subtitle = "Pick the .onnx and .json files", chevron = false) { pickFiles.launch(arrayOf("*/*")) }
         }
         SectionLabel("Speech language (mic + voice calls)")
-        SettingsGroup {
+        Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("ur-PK" to "Urdu (Pakistan)", "hi-IN" to "Hindi", "en-US" to "English").forEach { (id, l) ->
-                SettingsRow(null, l, chevron = false, trailing = { Check(s.speechLang == id) }) { vm.g.settings.update { it.copy(speechLang = id) } }
+                SelectCard(l, null, s.speechLang == id) { vm.g.settings.update { it.copy(speechLang = id) } }
             }
         }
+    }
+}
+
+/** One voice in the picker: monogram tile, name, language, description, live status; accent border + check when selected, waveform + "Playing" while its preview plays. */
+@Composable
+private fun VoiceCard(voice: PickerVoice, selected: Boolean, playing: Boolean, status: String?, onTap: () -> Unit) {
+    val p = P
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card)
+            .border(2.dp, if (selected) p.accent else Color.Transparent, RoundedCornerShape(10.dp))
+            .semantics(mergeDescendants = true) { contentDescription = "Voice: ${voice.name}" }
+            .clickable(onClick = onTap).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Avatar(voice.name, 44.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(voice.name, style = Type.row.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium), color = p.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(voice.language, style = Type.small, color = p.text2, modifier = Modifier.padding(top = 2.dp))
+            Text(voice.description, style = Type.small, color = p.text2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp))
+            if (status != null) Text(status, style = Type.tiny, color = p.text3, modifier = Modifier.padding(top = 3.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        if (playing) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                PlayingBars()
+                Text("Playing", style = Type.tiny, color = p.text2, modifier = Modifier.padding(top = 4.dp))
+            }
+        } else if (selected) {
+            Check(true)
+        }
+    }
+}
+
+/** Three accent bars that shimmer while a preview plays (static in tests — infinite animations never settle under waitForIdle). */
+@Composable
+private fun PlayingBars() {
+    val p = P
+    if (com.mazharansari.x.ui.AnimationGate.inTestRuntime) {
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+            listOf(10.dp, 16.dp, 12.dp).forEach { h ->
+                Box(Modifier.width(3.dp).height(h).clip(RoundedCornerShape(2.dp)).background(p.accent))
+            }
+        }
+        return
+    }
+    val t = rememberInfiniteTransition(label = "preview-bars")
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+        listOf(900, 700, 1100).forEach { dur ->
+            val h by t.animateFloat(8f, 20f, infiniteRepeatable(tween(dur, easing = LinearEasing), RepeatMode.Reverse), label = "preview-bar")
+            Box(Modifier.width(3.dp).height(h.dp).clip(RoundedCornerShape(2.dp)).background(p.accent))
+        }
+    }
+}
+
+/** A single-select card in the same style as [VoiceCard], without the tile or preview state (speech language). */
+@Composable
+private fun SelectCard(title: String, subtitle: String?, selected: Boolean, onTap: () -> Unit) {
+    val p = P
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card)
+            .border(2.dp, if (selected) p.accent else Color.Transparent, RoundedCornerShape(10.dp))
+            .semantics(mergeDescendants = true) { contentDescription = title }
+            .clickable(onClick = onTap).padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = Type.row, color = p.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle != null) Text(subtitle, style = Type.small, color = p.text2, modifier = Modifier.padding(top = 2.dp))
+        }
+        if (selected) Check(true)
     }
 }
 
 @Composable
 fun AdvancedScreen(vm: ChatViewModel, back: () -> Unit) {
     val s = settingsOf(vm)
-    val ctx = LocalContext.current
     SettingsPage("Advanced", back) {
         SectionLabel("Paste as File")
         SettingsGroup {
             listOf("Always ask", "Always", "Never").forEach { l ->
                 SettingsRow(null, l, chevron = false, trailing = { Check(s.pasteAsFile == l) }) { vm.g.settings.update { it.copy(pasteAsFile = l) } }
             }
+        }
+        Text("Messages over 500 characters: Always ask shows \"Send as a file?\" first, Always sends them as a file, Never always sends them as text. Shorter messages always send as text.",
+            style = Type.small.copy(fontSize = 13.sp, lineHeight = 19.sp), color = P.text2,
+            modifier = Modifier.padding(start = 30.dp, end = 24.dp, top = 10.dp))
+        // Restored 2026-11-20: these three had stored state and a working read site, but no
+        // row anywhere in Settings, so the user could never change them — the review
+        // error even pointed at a "project menu" toggle that did not exist.
+        SectionLabel("Read aloud")
+        SettingsGroup {
+            ToggleRow(Gk.speaker, "Read replies aloud", "X reads each finished reply out loud", s.autoRead) { on -> vm.g.settings.update { it.copy(autoRead = on) } }
+        }
+        SectionLabel("Code changes")
+        SettingsGroup {
+            ToggleRow(Gk.shield, "Review changes before applying", "File changes wait for Approve before they touch the project", s.reviewBeforeApply) { on -> vm.g.settings.update { it.copy(reviewBeforeApply = on) } }
+            ToggleRow(Gk.hammer, "Allow un-reviewed changes in very large projects", "Only when a project is too large to hold for review", s.allowLargeUngated) { on -> vm.g.settings.update { it.copy(allowLargeUngated = on) } }
         }
     }
 }
@@ -543,7 +677,7 @@ private fun UpdateCard(vm: ChatViewModel) {
     fun installNow(f: java.io.File) { if (!up.canInstall()) needPermission = true else runCatching { up.install(f) }.onFailure { vm.toast = it.message } }
     Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card).padding(16.dp)) {
         when (val s = st) {
-            UpdateState.Idle -> Text("X does not check for updates yet — its own update feed is not set up. The button below will say so too.", style = Type.small, color = p.text2)
+            UpdateState.Idle -> Text("Updates come from X's own releases on GitHub — tap Check for updates.", style = Type.small, color = p.text2)
             UpdateState.Checking -> Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(16.dp), color = p.text, strokeWidth = 2.dp); Spacer(Modifier.width(10.dp))
                 Text("Checking for updates…", style = Type.small, color = p.text2)

@@ -161,7 +161,7 @@ class ScheduledRunWorker(appCtx: Context, params: WorkerParameters) : CoroutineW
             } else {
                 val agent = Agent(
                     g.workspace, g.skills,
-                    baseTools = Agent.defaultTools() + GenerateImageTool(g.imageGen),
+                    baseTools = Agent.defaultTools() + GenerateImageTool(g.imageGen) + com.mazharansari.x.agent.ideasGoalsTools(g.ideas, g.goals),
                     extraTools = { g.mcp.tools() },
                     toolSwitches = { g.settings.state.value.toolSwitches },
                     memory = g.memory, conversations = g.chats,
@@ -331,24 +331,6 @@ class ScheduledRunWorker(appCtx: Context, params: WorkerParameters) : CoroutineW
         g.chats.save(conv, immediate = true)
     }
 
-    /** The chat rotation without a screen: the user's keys, then their own models, then Free (slow). */
-    private fun headlessAttempts(g: Graph): List<Attempt> {
-        val clients = HashMap<String, LlmClient>()
-        val keys = g.connectors.attempts(Mode.AUTO).map { (c, model) ->
-            Attempt(c.provider.name, model, clients.getOrPut(c.id) { LazyClient { g.connectors.clientFor(c) } },
-                onFail = { e -> g.connectors.coolDown(c, model, e) })
-        }
-        val own = listOfNotNull(g.connectors.server()?.takeIf { it.enabled }, g.connectors.local()?.takeIf { it.enabled })
-            .mapNotNull { c ->
-                runCatching { g.connectors.clientFor(c) }.getOrNull()?.let { cl ->
-                    Attempt(c.provider.name, c.pinnedModel ?: c.localModel ?: c.models.firstOrNull().orEmpty(), cl,
-                        patientMs = if (c.providerId == "local") 150_000 else 90_000)
-                }
-            }
-        val free = listOf(Attempt(FreeFallback.NAME, FreeFallback.NAME, FreeFallback.Client(), patientMs = FreeFallback.PATIENT_MS))
-        return keys + own + free
-    }
-
     private fun notify(ctx: Context, title: String, body: String, ok: Boolean, id: Int) = runCatching {
         val nm = ctx.getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26)
@@ -366,6 +348,29 @@ class ScheduledRunWorker(appCtx: Context, params: WorkerParameters) : CoroutineW
 
     companion object {
         const val CH = "scheduled_tasks"
+
+        /**
+         * The chat rotation without a screen: the user's keys, then their own
+         * models, then Free (slow). Shared with [IdeaFeedWorker], so the
+         * daily idea refresh uses exactly the same model rotation as a
+         * scheduled run instead of a second one.
+         */
+        internal fun headlessAttempts(g: Graph): List<Attempt> {
+            val clients = HashMap<String, LlmClient>()
+            val keys = g.connectors.attempts(Mode.AUTO).map { (c, model) ->
+                Attempt(c.provider.name, model, clients.getOrPut(c.id) { LazyClient { g.connectors.clientFor(c) } },
+                    onFail = { e -> g.connectors.coolDown(c, model, e) })
+            }
+            val own = listOfNotNull(g.connectors.server()?.takeIf { it.enabled }, g.connectors.local()?.takeIf { it.enabled })
+                .mapNotNull { c ->
+                    runCatching { g.connectors.clientFor(c) }.getOrNull()?.let { cl ->
+                        Attempt(c.provider.name, c.pinnedModel ?: c.localModel ?: c.models.firstOrNull().orEmpty(), cl,
+                            patientMs = if (c.providerId == "local") 150_000 else 90_000)
+                    }
+                }
+            val free = listOf(Attempt(FreeFallback.NAME, FreeFallback.NAME, FreeFallback.Client(), patientMs = FreeFallback.PATIENT_MS))
+            return keys + own + free
+        }
 
         /**
          * P0-9: WorkManager stops a worker after ~10 minutes. The agent run is

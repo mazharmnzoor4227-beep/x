@@ -128,8 +128,14 @@ internal fun runLabel(r: StepRun): String {
     }
 }
 
-/** X assistant turn: NO bubble — plain text on the page, full width.
- * Thinking header → grouped steps → Bash cards → answer → actions. */
+/** X assistant turn: the reply TEXT sits in a bubble (2026-11-20, user order) — the
+ * mirror of [UserBubble]: left-aligned, 48dp end margin, 10dp corners with the 4dp
+ * corner at bottom-LEFT, [P.card] background. Only the text body is inside the
+ * bubble; Thinking header, plan, grouped steps and Bash cards keep their own
+ * cards above it, Sources list / artifact cards / images stay below it, and the
+ * action row stays outside, below the bubble. Streaming renders inside the same
+ * bubble (this node is drawn for STREAMING too, as soon as any text exists).
+ * Thinking header → grouped steps → Bash cards → bubble(answer) → actions. */
 @Composable
 fun AssistantMessage(
     m: Message, isLast: Boolean, speaking: Boolean,
@@ -177,7 +183,22 @@ fun AssistantMessage(
                 if (idx == null) text else text.substring(0, idx).trimEnd().ifBlank { text }
             }
         }
-        if (text.isNotBlank()) { Spacer(Modifier.height(12.dp)); Markdown(bodyText) }
+        // Assistant bubble: the reply text in a box like the user's bubble, mirrored
+        // to the left (48dp end margin, 4dp corner at bottom-left, p.card background).
+        // Markdown blocks that already carry their own card (code block, table) keep
+        // it inside the bubble; their horizontal scroll confines them to the bubble
+        // width, so long lines never break out. No bubble while the text is still
+        // empty (thinking-only streaming), so no empty box ever shows.
+        if (text.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Box(
+                Modifier.fillMaxWidth().padding(end = 48.dp)
+                    .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp, bottomStart = 4.dp, bottomEnd = 10.dp))
+                    .background(p.card)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .semantics { contentDescription = "Assistant reply bubble" }
+            ) { Markdown(bodyText, Modifier.fillMaxWidth()) }
+        }
         if (sources.isNotEmpty() && !streaming) { Spacer(Modifier.height(12.dp)); SourcesList(sources) }
         if (m.usedTools.isNotEmpty()) Text((if (m.usedTools.size == 1) "Used tool: " else "Used tools: ") + m.usedTools.joinToString(", "), style = Type.small.copy(fontSize = 13.sp), color = p.text3, modifier = Modifier.padding(top = 10.dp))   // axion-p3
         images.forEach { a -> Spacer(Modifier.height(14.dp)); ImageArtifact(a, { onOpenFile(a) }, { onDownload(a) }) }

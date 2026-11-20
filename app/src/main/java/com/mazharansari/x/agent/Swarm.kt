@@ -194,6 +194,7 @@ class SwarmWorkerExecutor(private val ctx: ToolContext) {
                 You are a coding worker. Do ONLY this brief, nothing else:
                 ${task.brief.ifBlank { task.angle }}
                 Workspace root is the working directory; paths are relative to it (outputs/ for new files).
+                BRAIN — plan first, then act: list 2-3 short steps and what success looks like for each ("done means …"), then do them in order. After each file you write, check it actually exists with content before reporting it — never claim a file you did not verify.
                 Reply in this exact shape, nothing else:
                 READ: <path> (one per line, at most 4 files you must see before writing)
                 WRITE: <path> then the full file content in one fenced code block (one block per file)
@@ -237,6 +238,7 @@ class SwarmWorkerExecutor(private val ctx: ToolContext) {
                 """
                 You are a testing worker. Do ONLY this brief, nothing else:
                 ${task.brief.ifBlank { task.angle }}
+                BRAIN — plan first: state what a passing run looks like (exit code 0 and what output proves it), then list the commands. After each command, check its exit code — a non-zero exit means the test FAILED, never report it as passed.
                 Reply with the shell test commands to run, one plain command per line, at most ${task.maxSteps}.
                 No deletions, no installs, no payments, no network calls that change anything.
                 If one part needs its own worker, add a line: SPAWN: ROLE: <sub-brief> (at most 2).

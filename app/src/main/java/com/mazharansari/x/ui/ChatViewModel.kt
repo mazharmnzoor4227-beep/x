@@ -609,10 +609,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         return f
     }
 
-    /** v0.5.2: a pasted message longer than this goes in as a .txt attachment instead (keeps the request and the list fast). */
-    internal val maxInlineChars = 60_000
-
-    /** Phase 2 (settings audit): a giant paste waiting on the user's "Paste as File" choice (Advanced → "Always ask"). */
+    /** Phase 2 (settings audit): a paste waiting on the user's "Paste as File" choice (Advanced → "Always ask"). */
     var pendingPaste by mutableStateOf<String?>(null); private set
 
     /** Write a long pasted text to uploads/ and return the short "read the attachment" text. */
@@ -620,7 +617,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val f = uniqueFile(g.workspace.uploads.apply { mkdirs() }, "pasted_${System.currentTimeMillis()}.txt")
         runCatching { f.writeText(text) }.onSuccess {
             pending += Attachment(f.name, "text/plain", f.absolutePath, f.length())
-            return "Read the attached text (${text.length / 1000}k characters)."
+            return "Read the attached text (${text.length} characters)."
         }
         return text
     }
@@ -646,13 +643,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             text = com.mazharansari.x.security.SecretScanner.scrub(text)
             toast = "X hid an API key in your message. Keys are never sent in chat — add them in Settings → Connectors."
         }
-        // Phase 2 (settings audit): "Paste as File" (Settings → Advanced) used to be a dead
-        // control — the setting was never read and every giant paste was silently converted.
-        // Now it is honoured: "Always" (default) converts any paste over 2,000 chars, "Always ask"
-        // asks before converting a giant paste, "Never" never converts.
+        // Phase 2 (settings audit) + fixed 2026-11-20: "Paste as File" (Settings → Advanced)
+        // used to be a dead control twice over — first the setting was never read, then the
+        // rule that replaced it only fired over 2,000 chars ("Always") / 60,000 chars
+        // ("Always ask"), so a normal paste behaved the same under every mode. Now the
+        // rule is one threshold (PastePolicy.FILE_THRESHOLD = 500 chars): over it,
+        // "Always" converts, "Always ask" asks, "Never" sends inline; at or under it,
+        // every mode sends inline, so short chat is untouched.
         if (!skipPasteCheck) {
             val pasteMode = g.settings.state.value.pasteAsFile
-            when (com.mazharansari.x.ui.chat.PastePolicy.decide(pasteMode, text.length, maxInlineChars)) {
+            when (com.mazharansari.x.ui.chat.PastePolicy.decide(pasteMode, text.length)) {
                 com.mazharansari.x.ui.chat.PasteAction.ASK_USER -> { pendingPaste = text; return }
                 com.mazharansari.x.ui.chat.PasteAction.CONVERT_TO_FILE -> text = pasteToFile(text)
                 com.mazharansari.x.ui.chat.PasteAction.SEND_INLINE -> { /* as typed */ }
@@ -889,6 +889,26 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 override fun usedTool(title: String) = synchronized(buf) { buf.used += title; buf.dirty = true }      // axion-p3
                 override fun model(label: String) = synchronized(buf) { buf.model = label; buf.dirty = true }
                 override fun switching(label: String) = synchronized(buf) { buf.notice = "Switching to $label\u2026"; buf.dirty = true }
+                /**
+                 * Auto-shift (2026-11-20): the work moved to another model/account IN THIS TURN because the
+                 * previous one hit its limit. The line is kept (unlike [switching], which the first answer
+                 * text clears) and the new pick is persisted at once, so the next message keeps using it.
+                 */
+                override fun shifted(fromLabel: String, toLabel: String) {
+                    val line = com.mazharansari.x.llm.ModelChoice.shiftNotice(fromLabel, toLabel)
+                    synchronized(buf) {
+                        if (line !in buf.shifts) buf.shifts += line
+                        buf.notice = line; buf.dirty = true
+                    }
+                    runCatching {
+                        val entries = com.mazharansari.x.llm.ModelChoice.buildChooserEntries(
+                            g.connectors.list.value, g.agy.store.value.accounts, g.agy::hasToken)
+                        com.mazharansari.x.llm.ModelChoice.findChoiceId(entries, toLabel)?.let { id ->
+                            g.settings.update { it.copy(pickedModel = id) }
+                        }
+                    }
+                }
+                override fun allExhausted() { synchronized(buf) { buf.allExhausted = true; buf.dirty = true } }
                 override fun discardRound() = synchronized(buf) { buf.text.setLength(buf.roundStart); buf.dirty = true }
                 override fun text(delta: String) { synchronized(buf) { if (buf.closed) return; buf.text.append(delta); buf.notice = ""; buf.dirty = true } }
                 override fun requestStart() { if (requestAt == 0L) requestAt = System.currentTimeMillis() }
@@ -916,10 +936,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         // instead of answering chat-only. The final answer streams through the sink.
                         sink.text(runLocalToolTurn(history, userItem, sink))
                     } else {
-                        Agent(g.workspace, g.skills, baseTools = Agent.defaultTools() + GenerateImageTool(g.imageGen), extraTools = { g.mcp.tools() }, toolSwitches = { bot?.let { com.mazharansari.x.data.switchesForBot(it) } ?: g.settings.state.value.toolSwitches }, memory = g.memory, conversations = g.chats, researchMode = researchOn,
+                        Agent(g.workspace, g.skills, baseTools = Agent.defaultTools() + GenerateImageTool(g.imageGen) + com.mazharansari.x.agent.ideasGoalsTools(g.ideas, g.goals), extraTools = { g.mcp.tools() }, toolSwitches = { bot?.let { com.mazharansari.x.data.switchesForBot(it) } ?: g.settings.state.value.toolSwitches }, memory = g.memory, conversations = g.chats, researchMode = researchOn,
                             approvals = g.approvals, approver = approver, longTask = longTaskOn, turbo = turboOn, schedules = g.schedules, appCtx = getApplication(),
                             contextBudget = ctxBudget).run(
-                            history, userItem, attempts = { if (pid != null) buildAttempts() else com.mazharansari.x.data.preferProvider(attempts(runMode, quick, onFreeWait = { secs -> freeWaitNotice(buf, secs) }), bot?.suggestedProvider) }, sink = sink,
+                            history, userItem, attempts = { if (pid != null) buildAttempts() else run {
+                                val list = attempts(runMode, quick, onFreeWait = { secs -> freeWaitNotice(buf, secs) })
+                                // Model chooser (2026-11-20): an explicit pick outranks a bot's provider suggestion — the pick sticks.
+                                if (g.settings.state.value.pickedModel.isBlank()) com.mazharansari.x.data.preferProvider(list, bot?.suggestedProvider) else list
+                            } }, sink = sink,
                             profile = Profile(botName, s.userName, s.replyLanguage, s.instructions),
                             intent = if (pid != null) com.mazharansari.x.agent.Intent.CHAT else intent,   // agy brings its own tools
                             swarmParentId = convId, fastAttempts = { attempts(Mode.FAST, quick) },
@@ -935,14 +959,35 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             if (buf.closed) { g.bots.parentFinished("run-$aid", BotStatus.FAILED, "Stopped"); g.taskRuns.finish(runKind, convId, "interrupted"); sessions.remove(convId); refreshRunning(); BotRunService.noteRunFinished("run-$aid"); BotRunService.refresh(getApplication()); return@launch }   // Stop already froze this reply into its own conversation
             withContext(NonCancellable) {
                 buf.dirty = true; flush(sess)
+                // Auto-shift (2026-11-20): the shift lines stay in the chat as the first lines of this answer
+                // (or of the error, when the run failed) — a visible notice, not a silent switch. The pick was
+                // already persisted when the shift happened, so the next message keeps the new model/account.
+                val shiftLines = synchronized(buf) { buf.shifts.toList() }
+                val shiftPrefix = shiftLines.takeIf { it.isNotEmpty() }?.joinToString("\n")?.plus("\n\n")
+                val finalError = com.mazharansari.x.security.SecretScanner.scrub(error).let { e ->
+                    if (buf.allExhausted && e.isNotBlank()) e + "\n\n" + com.mazharansari.x.llm.ModelChoice.ALL_EXHAUSTED_MESSAGE else e
+                }
                 sess.msgs = sess.msgs.map {
-                    if (it.id == aid) it.copy(status = status, error = com.mazharansari.x.security.SecretScanner.scrub(error), notice = "", thinkingMs = System.currentTimeMillis() - started,
+                    if (it.id == aid) it.copy(status = status,
+                        text = if (shiftPrefix != null && it.text.isNotBlank()) shiftPrefix + it.text else it.text,
+                        error = if (shiftPrefix != null && it.text.isBlank() && finalError.isNotBlank()) shiftPrefix + finalError else finalError,
+                        notice = "", thinkingMs = System.currentTimeMillis() - started,
                         firstWordMs = if (firstAt > 0) firstAt - tapped else 0, prepMs = if (requestAt > 0) requestAt - tapped else 0,
                         steps = it.steps.map { st -> if (st.status == StepStatus.RUNNING) st.copy(status = StepStatus.ERROR, endedAt = System.currentTimeMillis()) else st },
                         plan = it.plan.map { ps -> if (ps.status == PlanStatus.RUNNING) ps.copy(status = PlanStatus.FAILED, note = ps.note.ifBlank { "stopped" }) else ps })   // axion-p2
                     else it
                 }
                 if (conversationId == convId) messages = sess.msgs
+                // Memory fix (2026-11-20): deterministic post-chat save pass. An explicit "yaad
+                // rakhna / remember this" is saved even when the model answered without calling
+                // memory_add — the old code honoured it in words and lost it in fact. Only fires
+                // for explicit save instructions (MemorySavePass.extract is narrow by design);
+                // skipped when the agent already saved something this turn, and the store's
+                // duplicate + budget checks still apply to everything it adds.
+                if (status == MsgStatus.DONE) {
+                    val agentSaved = sess.msgs.firstOrNull { it.id == aid }?.steps?.any { it.title == "Remembered" || it.title == "Memory updated" } == true
+                    if (!agentSaved) runCatching { com.mazharansari.x.agent.MemorySavePass.saveAll(g.memory, u.text) }
+                }
                 g.bots.parentFinished("run-$aid", if (status == MsgStatus.DONE) BotStatus.DONE else BotStatus.FAILED,
                     sess.msgs.firstOrNull { it.id == aid }?.text.orEmpty().take(120))
                 sessions.remove(convId)
@@ -970,7 +1015,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val file = g.localModels.file(model)
         if (!file.isFile) throw NoModelException("The local model file is missing. Download it again in Connectors → Local model.")
         val client = com.mazharansari.x.local.LocalLlmClient(file, ctx = model.ctx)
-        val tools = Agent.defaultTools().filter { it.spec.name in com.mazharansari.x.local.LocalToolUse.ALLOWED_TOOLS }
+        val tools = Agent.defaultTools().filter { it.spec.name in com.mazharansari.x.local.LocalToolUse.ALLOWED_TOOLS } + com.mazharansari.x.agent.ideasGoalsTools(g.ideas, g.goals)
         val ctx = ToolContext(g.workspace, g.skills, memory = g.memory, chats = g.chats, schedules = g.schedules, appCtx = getApplication())
         val runner = com.mazharansari.x.local.LocalAgentRunner(
             generate = { items ->
@@ -1015,7 +1060,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             gated = try { withContext(Dispatchers.IO) { com.mazharansari.x.build.ChangeGate.backup(folder, dir) }; true }
             catch (e: com.mazharansari.x.build.ChangeGate.TooLargeException) {
                 // v0.6.1: never slip into un-reviewed changes quietly — the user must have switched this on for large projects.
-                if (!g.settings.state.value.allowLargeUngated) throw NoModelException("This project is too large to hold changes for review (${e.message}), and un-reviewed changes are off. Either reduce the project size, or open the project menu and switch on \"Allow un-reviewed changes in very large projects\" — then ask again.")
+                if (!g.settings.state.value.allowLargeUngated) throw NoModelException("This project is too large to hold changes for review (${e.message}), and un-reviewed changes are off. Either reduce the project size, or switch on \"Allow un-reviewed changes in very large projects\" in Settings → Advanced — then ask again.")
                 sink.reasoning("This project is too big to hold changes for review (${e.message}); you allowed un-reviewed changes for large projects, so changes apply directly.\n"); false
             }
         }
@@ -1066,6 +1111,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         val used = LinkedHashSet<String>()                 // axion-p3: tool groups used (Used tool line)
         var model = ""; var notice = ""; var dirty = false; var roundStart = 0
         @Volatile var closed = false
+        /** Auto-shift (2026-11-20): visible "Shifted to …" lines for this turn, kept in the answer text at completion. */
+        val shifts = ArrayList<String>()
+        /** Auto-shift (2026-11-20): every attempt failed on a limit — the honest all-exhausted state, not a loop. */
+        @Volatile var allExhausted = false
     }
 
     /**
@@ -1090,7 +1139,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Ask (v0.4, mazhar 2:28 PM): API keys only — every model on a key before the next key — then "Free (slow)"
-     * (Pollinations, no key) only when nothing else is left. Antigravity is never used here.
+     * (Pollinations, no key) only when nothing else is left. Antigravity joins the chat only when the user
+     * picked an Antigravity account in the model chooser, or set Antigravity to "first"/"fallback" for chat
+     * (2026-11-20) — never by default, since its store ships "off".
      */
     /** "Free model is busy — retrying in 12 s…" under Thinking while Free (slow) waits out its limit. */
     private fun freeWaitNotice(b: StreamBuffer, secs: Int) {
@@ -1100,26 +1151,74 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     /** Tests: replaces the model list (a fake model) while everything else in the send path stays real. */
     internal var debugAttempts: ((Mode, Boolean) -> List<Attempt>)? = null
 
+    /**
+     * Model chooser (2026-11-20): the user picks a model/account in the chat's
+     * model selector and the pick sticks (settings.pickedModel) until changed.
+     * "" = Auto: the old behaviour — the user picked nothing. Picking an
+     * Antigravity account also turns Antigravity on for chat (it ships "off"
+     * by default), so the pick actually routes. The pick never invents a
+     * model: an id that matches nothing (key removed since) falls back to Auto.
+     */
+    fun pickModel(choiceId: String) {
+        val pick = com.mazharansari.x.llm.ModelChoice.parsePick(choiceId)
+        if (choiceId.isNotBlank() && pick == null) return   // unknown id — never persist a pick that routes nowhere
+        g.settings.update { it.copy(pickedModel = choiceId) }
+        if (pick is com.mazharansari.x.llm.ModelChoice.ModelPick.Agy) g.agy.setUseInChat("first")
+    }
+
     internal fun attempts(mode: Mode, quick: Boolean = false, onFreeWait: ((Int) -> Unit)? = null): List<Attempt> {
         debugAttempts?.let { return it(mode, quick) }
+        val s = g.settings.state.value
+        val pick = com.mazharansari.x.llm.ModelChoice.parsePick(s.pickedModel)
+        // Exclusive picks keep their old guarantees: Free only, or ONLY the picked own model (P0-4: never the API keys, never Free).
+        if (pick is com.mazharansari.x.llm.ModelChoice.ModelPick.Free) return freeAttempts(onFreeWait)
+        if (pick is com.mazharansari.x.llm.ModelChoice.ModelPick.Local) return ownAttempts("LOCAL", pick.model)
+        if (pick is com.mazharansari.x.llm.ModelChoice.ModelPick.Server) return ownAttempts("SERVER", pick.model)
+        // The old speed-tier picks still work when nothing is picked in the chooser.
+        if (pick == null) {
+            if (s.mode == "FREE") return freeAttempts(onFreeWait)
+            if (s.mode == "LOCAL" || s.mode == "SERVER") return ownAttempts(s.mode)
+        }
         val pairs = g.connectors.attempts(mode).let { if (quick) quickOrder(it) { p -> p.second } else it }
         // v0.5.2 speed: one lazily-made client per key (was: a key decrypt for every model on every key, before the first request).
         val clients = HashMap<String, LlmClient>()
         val keys = pairs.map { (c, model) ->
             val cl = if (debugEagerClients) g.connectors.clientFor(c) else clients.getOrPut(c.id) { LazyClient { g.connectors.clientFor(c) } }
-            Attempt(c.provider.name, model, cl, onFail = { e -> g.connectors.coolDown(c, model, e) })
+            Attempt(c.provider.name, model, cl, onFail = { e -> g.connectors.coolDown(c, model, e) }, connectorId = c.id)
         }
         // v0.5.2: labelled "Free (slow)" (was "openai"); its 45 s rate limit is waited out with a visible countdown.
-        val free = listOf(Attempt(FreeFallback.NAME, FreeFallback.NAME, FreeFallback.Client(onWait = { secs -> onFreeWait?.invoke(secs) }), patientMs = FreeFallback.PATIENT_MS))
+        val free = freeAttempts(onFreeWait)
         // v0.5 (addendum 6): the user's own models. Picked in the model menu → they go first; otherwise they're the backup
         // after the API keys and before Free (slow).
-        val pick = g.settings.state.value.mode
-        if (pick == "FREE") return free   // picked in the model menu
-        if (pick == "LOCAL" || pick == "SERVER") return ownAttempts(pick)   // P0-4 (HI-2): only the picked own model, never keys/Free — see below
         val own = listOfNotNull(g.connectors.server()?.takeIf { it.enabled }, g.connectors.local()?.takeIf { it.enabled })
-            .mapNotNull { c -> runCatching { g.connectors.clientFor(c) }.getOrNull()?.let { cl -> Attempt(c.provider.name, c.pinnedModel ?: c.localModel ?: c.models.firstOrNull().orEmpty(), cl, patientMs = if (c.providerId == "local") 150_000 else 90_000) } }
-        return keys + own + free
+            .mapNotNull { c -> runCatching { g.connectors.clientFor(c) }.getOrNull()?.let { cl -> Attempt(c.provider.name, c.pinnedModel ?: c.localModel ?: c.models.firstOrNull().orEmpty(), cl, patientMs = if (c.providerId == "local") 150_000 else 90_000, connectorId = c.id) } }
+        // Antigravity in chat: the picked account first when one is picked; otherwise where its stored mode puts it
+        // ("first" = before the keys, "fallback" = after the keys, "off" = not in chat at all).
+        val agyAttempt = if (runCatching { g.agyReady() }.getOrDefault(false))
+            Attempt("Antigravity", g.agy.store.value.model.ifBlank { "auto" }, g.agyClient, patientMs = 180_000) else null
+        g.agyClient.pinnedAccountEmail = (pick as? com.mazharansari.x.llm.ModelChoice.ModelPick.Agy)?.email
+        if (pick is com.mazharansari.x.llm.ModelChoice.ModelPick.Agy) {
+            // Picked account first, then the keys as the failover tail (account A spent → next account inside
+            // AgyClient, then the next provider model here). A stale pick (account gone) falls back to Auto.
+            return if (agyAttempt != null) listOf(agyAttempt) + keys + own + free else keys + own + free
+        }
+        if (pick is com.mazharansari.x.llm.ModelChoice.ModelPick.Api) {
+            val reordered = (keys + own + free).let { base ->
+                val i = base.indexOfFirst { it.connectorId == pick.connectorId && it.model == pick.model }
+                if (i > 0) listOf(base[i]) + base.filterIndexed { j, _ -> j != i } else base
+            }
+            return reordered
+        }
+        return when (g.agy.store.value.useInChat) {
+            "first" -> listOfNotNull(agyAttempt) + keys + own + free
+            "fallback" -> keys + own + listOfNotNull(agyAttempt) + free
+            else -> keys + own + free
+        }
     }
+
+    /** The built-in no-key model, as its own attempt (shared by the FREE mode and a Free pick). */
+    private fun freeAttempts(onFreeWait: ((Int) -> Unit)? = null): List<Attempt> =
+        listOf(Attempt(FreeFallback.NAME, FreeFallback.NAME, FreeFallback.Client(onWait = { secs -> onFreeWait?.invoke(secs) }), patientMs = FreeFallback.PATIENT_MS))
 
     /**
      * P0-4 (HI-2): LOCAL / SERVER mode uses ONLY the picked own model — never the API keys, never Free (slow).
@@ -1128,7 +1227,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
      * missing, disabled or un-buildable own model throws [NoModelException], which the send path catches and shows
      * as a visible error on the message (ChatViewModel send catch, MsgStatus.ERROR) — and nothing is sent anywhere.
      */
-    private fun ownAttempts(pick: String): List<Attempt> {
+    private fun ownAttempts(pick: String, modelOverride: String? = null): List<Attempt> {
         val c = (if (pick == "LOCAL") g.connectors.local() else g.connectors.server())?.takeIf { it.enabled }
             ?: throw NoModelException(
                 if (pick == "LOCAL") "Local mode is on but no local model is set up. Download one in Connectors → Local model."
@@ -1140,12 +1239,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 else "Server mode is on but the server could not start (${e.message ?: e.javaClass.simpleName}). Nothing was sent to your API keys."
             )
         }
-        return listOf(Attempt(c.provider.name, c.pinnedModel ?: c.localModel ?: c.models.firstOrNull().orEmpty(), cl, patientMs = if (c.providerId == "local") 150_000 else 90_000))
+        return listOf(Attempt(c.provider.name, modelOverride ?: c.pinnedModel ?: c.localModel ?: c.models.firstOrNull().orEmpty(), cl, patientMs = if (c.providerId == "local") 150_000 else 90_000, connectorId = c.id))
     }
 
     /** Build: Antigravity only (the client itself switches accounts on a limit). No API key, no Free (slow). */
     internal fun buildAttempts(): List<Attempt> {
         if (!agyBuildReady()) throw NoModelException("Build runs on Antigravity — add an Antigravity account (and Developer tools) first.")
+        g.agyClient.pinnedAccountEmail = null   // a chat pick never steers a build — builds use the active account + auto-switch
         // v0.5.1: the stall watchdog is for API models; agy starts a CLI inside Linux and may take a while to speak.
         return listOf(Attempt("Antigravity", g.agy.store.value.model.ifBlank { "auto" }, g.agyClient, patientMs = 180_000))
     }
@@ -1201,7 +1301,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
         val voiceRules = "\n\nThis is a LIVE VOICE CALL: your words are spoken aloud. Reply in one to three short, natural spoken sentences " +
             "in the language the user speaks (Urdu, Hindi, English or a mix). NEVER reply in Arabic (the Arabic language). No markdown, lists, emojis, links or code."
-        val answer = Agent(g.workspace, g.skills, baseTools = listOf(WebSearchTool()), maxRounds = 4).run(
+        val answer = Agent(g.workspace, g.skills, baseTools = listOf(WebSearchTool()), maxRounds = 4, memory = g.memory).run(
             hist, UserItem(text), attempts = { attempts(Mode.FAST) }, sink = sink,
             profile = Profile(s.assistantName.ifBlank { "X" }, s.userName, s.replyLanguage, s.instructions + voiceRules),
         )

@@ -171,7 +171,7 @@ fun SettingsRow(
     }
 }
 
-/** X switch: accent track when on, grey when off; white thumb. */
+/** X switch: gold accent track when on, grey when off; dark on-accent thumb when on (the gold toggle in the Settings screenshot). */
 @Composable
 fun AxionSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
     val p = P

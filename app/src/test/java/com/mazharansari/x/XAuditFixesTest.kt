@@ -40,7 +40,9 @@ class XAuditFixesTest {
         assertEquals("3793e1e6e2266919d6e015287221b41100175a98eddaba92e111aed3b05c93c4", LocalModel.LFM3_1_7B.sha256)
         assertEquals(1_117_320_768L, LocalModel.QWEN_CODER_1_5B.bytes)
         assertEquals("cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046", LocalModel.QWEN_CODER_1_5B.sha256)
-        assertEquals(3, LocalModel.entries.size)
+        // Was 3 before the tiered catalog (2026-11-20): the original three plus
+        // six newly verified tier models (0.5B, 1.5B instruct, 2x 3B, 7B, 8B).
+        assertEquals(9, LocalModel.entries.size)
     }
 
     // ── Piper packs (voice/PiperVoice.kt) ─────────────────────────────────────

@@ -26,6 +26,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -133,17 +134,17 @@ fun RoundTool(icon: Int, desc: String, onClick: () -> Unit, active: Boolean = fa
 @Composable
 private fun ModeChip(label: String, open: Boolean, onClick: () -> Unit) {
     val p = P; val tap = rememberTap(onClick)
-    Row(Modifier.height(36.dp).clip(RoundedCornerShape(6.dp)).background(if (open) p.accentSoft else p.chip).clickable(onClick = tap).padding(start = 12.dp, end = 10.dp),
+    Row(Modifier.height(36.dp).widthIn(max = 200.dp).clip(RoundedCornerShape(6.dp)).background(if (open) p.accentSoft else p.chip).clickable(onClick = tap).padding(start = 12.dp, end = 10.dp),
         verticalAlignment = Alignment.CenterVertically) {
         GkIcon(modeIcon(label), null, 18.dp, p.text)
         Spacer(Modifier.width(6.dp))
-        Text(label, style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.text)
+        Text(label, style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.width(4.dp))
         GkIcon(Gk.chevronDown, null, 16.dp, p.text2)
     }
 }
 
-fun modeIcon(label: String) = when (label) { "Fast" -> Gk.bolt; "Expert" -> Gk.think; "Heavy" -> Gk.connectors; else -> Gk.rocket }
+fun modeIcon(label: String) = when (label) { "Fast" -> Gk.bolt; "Expert" -> Gk.think; "Heavy" -> Gk.connectors; else -> if (label.startsWith("Antigravity")) Gk.agent else Gk.rocket }
 
 /**
  * 0 = disabled send (empty composer: 40% opacity accent circle, taps do

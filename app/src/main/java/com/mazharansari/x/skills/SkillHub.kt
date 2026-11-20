@@ -88,8 +88,12 @@ object SkillHub {
         return builtIn + COMMUNITY
     }
 
-    /** One-tap install of a community entry: refuses non-MIT/Apache licences, then reuses SkillRepo.scanGitHub/install. */
-    suspend fun install(repo: SkillRepo, entry: HubEntry): List<Skill> {
+    /**
+     * One-tap install of a community entry: refuses non-MIT/Apache licences, then reuses
+     * SkillRepo.scanGitHub/install. Returns what landed and what failed — a failed
+     * download is reported, never shown as installed.
+     */
+    suspend fun install(repo: SkillRepo, entry: HubEntry): InstallResult {
         require(entry.kind == HubKind.COMMUNITY) { "Only community entries are installed from the hub — built-in skills are already in the app." }
         require(entry.repoUrl.isNotBlank()) { "No repo URL recorded for ${entry.name}." }
         if (!licenceAllowed(entry.licence)) error("Cannot install ${entry.name}: its licence (${entry.licence}) is not MIT or Apache-2.0.")

@@ -26,6 +26,28 @@ object ScriptHint {
     /** Pinned alongside [LANGUAGE_RULE] in the main agent system prompt. */
     const val INSTRUCTION_RULE = "Do EXACTLY what the user asked — no unsolicited extras, no nonsense, no filler talk. If a request is unclear, ask ONE short clarifying question instead of guessing and rambling."
 
+    /**
+     * Arabic-first models: ALLaM (SDAIA, served as "allam-2-7b" on Groq and as
+     * "sdaia/allam-2-7b" elsewhere) is trained for Arabic first and answers short
+     * Latin greetings in Arabic even when the system prompt says otherwise — its own
+     * model card says it is optimised to work without a predefined system prompt,
+     * so a single generic line buried in a long prompt does not hold it. Any other
+     * Arabic-first model id belongs in this check, next to "allam".
+     */
+    fun isArabicFirstModel(model: String): Boolean = "allam" in model.lowercase()
+
+    /**
+     * Self-contained language pin for an Arabic-first model: the shared rule, the
+     * per-message script anchor for THIS message, and an explicit repeat for short
+     * greetings (the exact case that drifted: a 2-word "hi" / "Kya Hal he" answered
+     * in Arabic). Latin letters only, like [LANGUAGE_RULE] — no Arabic-script or
+     * Devanagari primer characters a small model could copy into its reply.
+     * Applied in OpenAiClient.buildBody, where the model id is known.
+     */
+    fun arabicFirstPin(userText: String): String =
+        LANGUAGE_RULE + " " + ruleFor(userText) + " " +
+            "Even for a one-word greeting such as \"hi\", answer in the user's language and script — never in Arabic. Do not fall back to Arabic when the message is short."
+
     /** Per-message anchor for prompts that cannot carry the full rule (small local models): the script of THIS message, named concretely, plus the Arabic ban. */
     fun ruleFor(text: String): String = when (of(text)) {
         Script.DEVANAGARI -> "The user's latest message is in Devanagari Hindi: reply in Devanagari Hindi. NEVER reply in Arabic (the Arabic language)."

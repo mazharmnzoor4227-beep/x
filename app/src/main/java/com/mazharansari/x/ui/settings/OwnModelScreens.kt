@@ -54,12 +54,14 @@ fun LocalModelsScreen(vm: ChatViewModel, back: () -> Unit) {
     val settings by g.settings.state.collectAsState()
     val ram by produceState(0.0 to 0.0) { value = withContext(Dispatchers.IO) { runCatching { store.ram() }.getOrDefault(0.0 to 0.0) } }
     val free by produceState(0L) { value = withContext(Dispatchers.IO) { store.freeBytes() } }
+    val totalStorage by produceState(0L) { value = withContext(Dispatchers.IO) { totalStorageBytes(store.dir) } }
+    val phoneTier = if (ram.first > 0 && totalStorage > 0) ModelTier.tierFor(ram.first, totalStorage / 1073741824.0) else null
     var confirm by remember { mutableStateOf<LocalModel?>(null) }
     Column(Modifier.fillMaxSize().background(p.page2)) {
         ScreenHeader("Local model", back)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding()) {
-            HonestBanner("Runs on your phone with no internet. Honest: these small models are much slower and weaker than API models (Gemini, Groq…). Good for quick offline answers and small code snippets, not big projects. The phone gets warm. Local models answer chats only — they do not run tools or agent tasks; switch back to an API model for those.")
-            Note("Languages: Hindi works well on LFM3; Urdu is limited on all three — none of these models covers Urdu properly yet.", Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            HonestBanner("Runs on your phone with no internet. Honest: these small models are much slower and weaker than API models (Gemini, Groq…). Good for quick offline answers and small code snippets, not big projects. The phone gets warm. In Local mode they also run basic file and shell tools in chat; web search, skills and multi-step agent runs still need an API model.")
+            Note("Languages: Hindi works well on LFM3; Urdu is limited on all of these models — none covers Urdu properly yet.", Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
             Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 @Composable fun box(label: String, value: String, m: Modifier) = Column(m.clip(RoundedCornerShape(10.dp)).background(p.card).padding(12.dp)) {
                     Text(value, style = Type.row.copy(fontSize = 16.sp), color = p.text); Text(label, style = Type.tiny, color = p.text2)
@@ -68,54 +70,17 @@ fun LocalModelsScreen(vm: ChatViewModel, back: () -> Unit) {
                 box("RAM free now", if (ram.second > 0) "%.1f GB".format(ram.second) else "—", Modifier.weight(1f))
                 box("Storage free", mb(free / 1024), Modifier.weight(1f))
             }
-            SectionLabel("Models")
-            LocalModel.entries.forEach { m ->
-                val st = states[m.id] ?: DlState.None
-                val verdict = if (ram.first > 0) LocalModelStore.ramVerdict(m, ram.first, ram.second) else null
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 5.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card)
-                    .then(if (active == m.id) Modifier.border(1.5.dp, p.text, RoundedCornerShape(10.dp)) else Modifier).padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(if (m.family == "Qwen") Color(0xFF3B2A6B) else Color(0xFF6B4A1F)), contentAlignment = Alignment.Center) {
-                            Text(if (m.family == "Qwen") "Qw" else "Lf", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(m.title, style = Type.row, color = p.text)
-                            Text("${m.params} · ${if (m.bytes > 0) mb(m.bytes / 1024) else "~1.28 GB (to confirm)"} · needs ${m.minRamGb} GB+ RAM", style = Type.tiny, color = p.text2)
-                        }
-                        when {
-                            active == m.id -> Badge("In use", p.accent)
-                            st == DlState.Ready -> Badge("Downloaded", p.accent)
-                        }
-                    }
-                    Text(m.purpose.uppercase(), style = Type.eyebrow, color = p.accent, modifier = Modifier.padding(top = 8.dp))
-                    Text(m.blurb, style = Type.small.copy(fontSize = 13.sp), color = p.text2, modifier = Modifier.padding(top = 4.dp))
-                    if (verdict != null && st != DlState.Ready) Text(verdict, style = Type.small.copy(fontSize = 13.sp), color = OAmber, modifier = Modifier.padding(top = 6.dp))
-                    when (st) {
-                        is DlState.Downloading -> {
-                            QuotaBar(st.done.toDouble() / st.total.coerceAtLeast(1), Modifier.padding(top = 10.dp), 5.dp)
-                            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("${mb(st.done / 1024)} of ${mb(st.total / 1024)}", style = Type.tiny, color = p.text2, modifier = Modifier.weight(1f))
-                                SmallButton("Cancel") { store.cancel(m) }
-                            }
-                        }
-                        DlState.Verifying -> Text("Checking the download…", style = Type.tiny, color = p.text2, modifier = Modifier.padding(top = 8.dp))
-                        is DlState.Failed -> Text(st.message, style = Type.small, color = ORed, modifier = Modifier.padding(top = 8.dp))
-                        else -> {}
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        when (st) {
-                            DlState.Ready -> {
-                                if (active != m.id) SmallButton("Use in Ask", filled = true) { g.connectors.setLocal(m.id, m.title) }
-                                else SmallButton("Stop using") { g.connectors.setLocal(null) }
-                                SmallButton("Delete") { if (active == m.id) g.connectors.setLocal(null); store.delete(m) }
-                            }
-                            is DlState.Downloading, DlState.Verifying -> {}
-                            else -> if (m.url.isBlank()) Text("Download link not confirmed yet — the exact file is being checked.", style = Type.tiny, color = p.text2)
-                            else SmallButton("Download ${mb(m.bytes / 1024)}", filled = true) { if (verdict != null) confirm = m else store.download(m) }
-                        }
-                    }
+            // Tiered catalog: the phone's own tier first ("Your phone — … — use
+            // these"), then the other tiers in size order. A model that needs
+            // more RAM than this phone has is shown with its honest reason and
+            // its download blocked — never a silent failure.
+            val tiers = phoneTier?.let { ModelTier.orderedForPhone(it) } ?: ModelTier.ALL
+            tiers.forEach { tier ->
+                SectionLabel(tier.headline)
+                if (tier == phoneTier) Note("Your phone — ${tier.label} — use these.", Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
+                Note(tier.note, Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+                tier.models.forEach { m ->
+                    LocalModelCard(m, states[m.id] ?: DlState.None, active, ram, free, store, vm) { confirm = it }
                 }
             }
             if (active != null) {
@@ -123,12 +88,68 @@ fun LocalModelsScreen(vm: ChatViewModel, back: () -> Unit) {
                 Note("Ask's model menu now has \"Local model\". Pick it to answer offline first; otherwise it's the backup after your API keys and before Free (slow).", Modifier.padding(horizontal = 20.dp))
                 ToggleRow(Gk.bolt, "Answer with the local model first", "Same as picking it in the model menu", settings.mode == "LOCAL") { on -> g.settings.update { it.copy(mode = if (on) "LOCAL" else "AUTO") } }
             }
-            Note("Models come from Hugging Face (Liquid AI and Qwen, GGUF Q4_K_M) and are checked with their SHA-256 after download.", Modifier.padding(horizontal = 20.dp, vertical = 14.dp))
+            Note("Models come from Hugging Face (Liquid AI, Qwen and Meta, GGUF Q4_K_M), grouped by phone RAM and storage so you only see models that fit your phone, and are checked with their SHA-256 after download.", Modifier.padding(horizontal = 20.dp, vertical = 14.dp))
             Spacer(Modifier.height(30.dp))
         }
     }
     confirm?.let { m ->
-        ConfirmDialog("Download anyway?", LocalModelStore.ramVerdict(m, ram.first, ram.second).orEmpty(), "Download", onDismiss = { confirm = null }) { store.download(m); confirm = null }
+        ConfirmDialog("Download anyway?", blockReason(m, ram.first, ram.second, free).orEmpty(), "Download", onDismiss = { confirm = null }) { store.download(m); confirm = null }
+    }
+}
+
+/** One model card inside a tier section. Download still goes through the existing [LocalModelStore.download] path (shared resumable/parallel downloader); a model the phone's total RAM cannot run shows its honest reason and a disabled button instead of a download. */
+@Composable
+private fun LocalModelCard(m: LocalModel, st: DlState, active: String?, ram: Pair<Double, Double>, free: Long, store: LocalModelStore, vm: ChatViewModel, onConfirm: (LocalModel) -> Unit) {
+    val p = P; val g = vm.g
+    val reason = if (ram.first > 0) blockReason(m, ram.first, ram.second, free) else null
+    val hardBlocked = if (ram.first > 0) isHardRamBlock(m, ram.first) else false
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 5.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.card)
+        .then(if (active == m.id) Modifier.border(1.5.dp, p.text, RoundedCornerShape(10.dp)) else Modifier).padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val initials = when (m.family) { "Qwen" -> "Qw"; "Meta" -> "Ll"; else -> "Lf" }
+            val chipColor = when (m.family) { "Qwen" -> Color(0xFF3B2A6B); "Meta" -> Color(0xFF2E4A62); else -> Color(0xFF6B4A1F) }
+            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(chipColor), contentAlignment = Alignment.Center) {
+                Text(initials, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(m.title, style = Type.row, color = p.text)
+                Text("${m.params} · ${mb(m.bytes / 1024)} · needs ${m.minRamGb} GB+ RAM", style = Type.tiny, color = p.text2)
+            }
+            when {
+                active == m.id -> Badge("In use", p.accent)
+                st == DlState.Ready -> Badge("Downloaded", p.accent)
+            }
+        }
+        Text(m.purpose.uppercase(), style = Type.eyebrow, color = p.accent, modifier = Modifier.padding(top = 8.dp))
+        Text(m.blurb, style = Type.small.copy(fontSize = 13.sp), color = p.text2, modifier = Modifier.padding(top = 4.dp))
+        if (reason != null && st != DlState.Ready) Text(reason, style = Type.small.copy(fontSize = 13.sp), color = if (hardBlocked) ORed else OAmber, modifier = Modifier.padding(top = 6.dp))
+        when (st) {
+            is DlState.Downloading -> {
+                QuotaBar(st.done.toDouble() / st.total.coerceAtLeast(1), Modifier.padding(top = 10.dp), 5.dp)
+                Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${mb(st.done / 1024)} of ${mb(st.total / 1024)}", style = Type.tiny, color = p.text2, modifier = Modifier.weight(1f))
+                    SmallButton("Cancel") { store.cancel(m) }
+                }
+            }
+            DlState.Verifying -> Text("Checking the download…", style = Type.tiny, color = p.text2, modifier = Modifier.padding(top = 8.dp))
+            is DlState.Failed -> Text(st.message, style = Type.small, color = ORed, modifier = Modifier.padding(top = 8.dp))
+            else -> {}
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            when (st) {
+                DlState.Ready -> {
+                    if (active != m.id) SmallButton("Use in Ask", filled = true) { g.connectors.setLocal(m.id, m.title) }
+                    else SmallButton("Stop using") { g.connectors.setLocal(null) }
+                    SmallButton("Delete") { if (active == m.id) g.connectors.setLocal(null); store.delete(m) }
+                }
+                is DlState.Downloading, DlState.Verifying -> {}
+                else -> if (m.url.isBlank()) Text("Download link not confirmed yet — the exact file is being checked.", style = Type.tiny, color = p.text2)
+                else if (hardBlocked) SmallButton("Needs ${m.minRamGb} GB RAM", enabled = false) {}
+                else SmallButton("Download ${mb(m.bytes / 1024)}", filled = true) { if (reason != null) onConfirm(m) else store.download(m) }
+            }
+        }
     }
 }
 

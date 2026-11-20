@@ -113,6 +113,9 @@ object IntentGate {
         // v0.12: scheduling is conversational too ("kal 9 baje yaad dilana…", "roz sham ko…") — it must
         // work in plain chat, not only in ACTION turns.
         "schedule_create", "schedule_list", "schedule_delete",
+        // 2026-11-20 (blanket audit): ideas and goals are conversational too ("ye idea save kar lo",
+        // "is ko goal bana do") — they must work in plain chat, not only in ACTION turns.
+        "save_idea", "set_goal",
     )
 
 

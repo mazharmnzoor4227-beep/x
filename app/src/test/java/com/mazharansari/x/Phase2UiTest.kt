@@ -187,16 +187,16 @@ class Phase2UiTest {
 
     // ── PastePolicy (settings audit: Paste as File is a real setting now) ──
 
-    @Test fun pasteAlwaysConvertsOver2000() {
-        assertEquals(PasteAction.CONVERT_TO_FILE, PastePolicy.decide("Always", 2_001))
-        assertEquals(PasteAction.SEND_INLINE, PastePolicy.decide("Always", 2_000))
+    @Test fun pasteAlwaysConvertsOver500() {
+        assertEquals(PasteAction.CONVERT_TO_FILE, PastePolicy.decide("Always", 501))
+        assertEquals(PasteAction.SEND_INLINE, PastePolicy.decide("Always", 500))
         assertEquals(PasteAction.SEND_INLINE, PastePolicy.decide("Always", 100))
     }
 
-    @Test fun pasteAlwaysAskOnlyForGiant() {
-        assertEquals(PasteAction.ASK_USER, PastePolicy.decide("Always ask", 60_001))
-        assertEquals(PasteAction.SEND_INLINE, PastePolicy.decide("Always ask", 60_000))
-        assertEquals(PasteAction.SEND_INLINE, PastePolicy.decide("Always ask", 5_000))
+    @Test fun pasteAlwaysAskPromptsOver500() {
+        assertEquals(PasteAction.ASK_USER, PastePolicy.decide("Always ask", 501))
+        assertEquals(PasteAction.SEND_INLINE, PastePolicy.decide("Always ask", 500))
+        assertEquals(PasteAction.ASK_USER, PastePolicy.decide("Always ask", 5_000))
     }
 
     @Test fun pasteNeverConverts() {

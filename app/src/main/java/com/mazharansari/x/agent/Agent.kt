@@ -15,7 +15,8 @@ import kotlinx.serialization.json.jsonObject
 import java.text.SimpleDateFormat
 import java.util.*
 
-data class Attempt(val provider: String, val model: String, val client: LlmClient, val onFail: (LlmException) -> Unit = {}, /** v0.5: local/own-server models get longer before the next one is tried. */ val patientMs: Long = 0)
+data class Attempt(val provider: String, val model: String, val client: LlmClient, val onFail: (LlmException) -> Unit = {}, /** v0.5: local/own-server models get longer before the next one is tried. */ val patientMs: Long = 0,
+    /** Model chooser (2026-11-20): which saved connector this attempt runs on ("" = built-in / Antigravity) — lets the picker's choice be matched to its attempt. */ val connectorId: String = "")
 
 interface AgentSink {
     fun text(delta: String)
@@ -27,6 +28,15 @@ interface AgentSink {
     fun model(label: String)
     /** v0.5.1: a stalled model is being replaced — show a small "Switching to <model>…" line under Thinking. */
     fun switching(label: String) {}
+    /**
+     * Auto-shift (2026-11-20): the attempt at [fromLabel] hit its limit and the
+     * work moved to [toLabel] IN THE SAME TURN. Unlike [switching] (transient,
+     * cleared by the first answer text), the receiver must keep this visible
+     * and persist the new pick — the user was told the shift sticks.
+     */
+    fun shifted(fromLabel: String, toLabel: String) {}
+    /** Auto-shift (2026-11-20): every attempt failed with a limit — the receiver shows the honest all-exhausted state instead of looping. */
+    fun allExhausted() {}
     /** v0.5.1: drop the text streamed in this round (a model stalled mid-answer; the next model answers from scratch). */
     fun discardRound() {}
     /** v0.5.2 timing: the HTTP request for this attempt is about to leave the phone. */
@@ -40,6 +50,25 @@ interface AgentSink {
 }
 
 class NoModelException(msg: String) : Exception(msg)
+
+/**
+ * Memory fix (2026-11-20): a short message that is a memory statement, not small talk.
+ * "mera naam Mazhar hai", "yaad rakhna, I prefer short answers" and "remember this: …" are
+ * all under 40 characters, so [IntentGate.isSmallTalk] classified them as greetings and the
+ * CHAT branch stripped every tool — the agent could never call memory_add for exactly the
+ * utterances that exist to teach it something. These messages keep the memory tools.
+ * Deliberately narrow: a question ("do you remember …?") or a plain greeting never matches.
+ */
+internal fun isMemoryStatement(text: String): Boolean {
+    val t = text.trim()
+    if (t.isEmpty() || t.endsWith('?') || t.endsWith('؟')) return false
+    return MEMORY_STATEMENT.containsMatchIn(t)
+}
+
+private val MEMORY_STATEMENT = Regex(
+    "yaad rakh(na)?|remember (this|that)|note (this|that|down)|save this|don't forget|do not forget|bhoolna mat|یاد رکھنا|" +
+        "mera naam|my name is|i prefer|i like|pasand hai|pasand hain|keep in mind",
+    RegexOption.IGNORE_CASE)
 
 class Agent(
     private val workspace: Workspace,
@@ -153,7 +182,7 @@ class Agent(
 
         /** Hermes-style learning nudge, appended whenever the memory/skill tools are in play. */
         const val LEARNING_GUIDANCE = """LEARNING — you improve between chats, like this:
-- MEMORY: you have a small persistent memory (memory_add / memory_replace / memory_remove / memory_read). When the user states a preference or habit, corrects you, or you learn a durable fact about them or their projects (names, decisions, lessons), save it — 'user' target for who they are and how they like things, 'memory' for facts and lessons. When a saved fact changes, memory_replace it instead of adding a conflicting second entry. Keep entries short and durable; never save passwords, keys or one-off small talk. Your saved memory is shown at the top of this prompt in future chats.
+- MEMORY: you have a small persistent memory (memory_add / memory_replace / memory_remove / memory_read). When the user states a preference or habit, corrects you, or you learn a durable fact about them or their projects (names, decisions, lessons), save it — 'user' target for who they are and how they like things, 'memory' for facts and lessons. When a saved fact changes, memory_replace it instead of adding a conflicting second entry. Keep entries short and durable; never save passwords, keys or one-off small talk. Your saved memory is shown at the top of this prompt in future chats. IMPORTANT: call memory_add BEFORE your final answer in the same turn — a fact only counts as remembered once the tool confirms it was saved; merely mentioning it in your reply does not save it.
 - SKILLS: when you finish a task that took several steps, a tricky workaround, or a procedure the user may ask for again, write it down with skill_create (clear steps, pitfalls, how to verify) so you repeat it the same way; when using a skill teaches you something better, improve it with skill_update. Before a specialised task, load the matching skill (load_skill / skill_view) — your own learned skills are in the skills list like the others.
 - PAST CHATS: when the user refers to something from an earlier conversation ("last time…", "jo pehle decide hua tha") or you need an old decision, use session_search instead of guessing."""
     }
@@ -185,7 +214,11 @@ class Agent(
         // chat or lookup request gets the web tools (IntentGate.chatTools), so "open the browser and
         // research this" works wherever the user says it. File/command tools still need an ACTION turn.
         val tools = when (intent) {
-            Intent.CHAT -> if (IntentGate.isSmallTalk(user.text, intent) && !researchMode) emptyList() else all.filter { it.spec.name in IntentGate.chatTools }
+            // Memory fix (2026-11-20): small talk still gets no tools — EXCEPT a memory statement
+            // ("mera naam … hai", "yaad rakhna …"), which is short by nature and is exactly when
+            // the agent must be able to save. Without this carve-out the canonical learning
+            // utterances never saw memory_add at all.
+            Intent.CHAT -> if (IntentGate.isSmallTalk(user.text, intent) && !isMemoryStatement(user.text) && !researchMode) emptyList() else all.filter { it.spec.name in IntentGate.chatTools }
             Intent.LOOKUP -> all.filter { it.spec.name in IntentGate.chatTools }
             Intent.ACTION -> all
         } + planTools
@@ -228,6 +261,17 @@ class Agent(
         val effort = if (quick || (intent == Intent.CHAT && user.text.trim().length <= 160)) "low" else null
         var planPhase = wantsPlan && tools.any { it.spec.name == Planner.PLAN_SET }
         var toolsOff = false
+        // BRAIN (2026-11-20): the verify-before-deliver gate and the
+        // self-correction tracker for this run. The gate only lets a completion
+        // claim through when a tool result (or a live file check) proved it;
+        // the tracker refuses an identical re-issue of a failed call. One
+        // verification round at most (MAX_VERIFY_ROUNDS) — never a second
+        // model call per turn by default.
+        val verifyGate = Brain.VerifyGate { p ->
+            runCatching { workspace.resolve(p) }.getOrNull()?.let { it.isFile && it.length() > 0 } ?: false
+        }
+        val corrections = Brain.CorrectionTracker()
+        var verificationPrompted = false
         // v0.12: a long task gets a far bigger budget (and more alternative attempts) than a quick favour.
         val policy = FaultPolicy(maxAlternatives = if (longTask) 6 else 2, maxToolCalls = if (longTask) 200 else 40)
         // v0.11: tools that think internally (deep research) get plain completions on this run's own models.
@@ -272,7 +316,23 @@ class Agent(
             val (text, calls) = streamOnce(HistoryCompressor.compressRun(items), specs, attempts, sink, quick, effort)
             planPhase = false
             items += AssistantItem(text, calls)
-            if (calls.isEmpty()) { answer.append(text); if (planState.active) { planState.finish(ok = !toolsOff, reason = "stopped early"); onPlan() }; return answer.toString() }
+            if (calls.isEmpty()) {
+                // BRAIN — verify-before-deliver gate: a completion claim ("PDF ban
+                // gaya", "build ready") with no tool evidence behind it does NOT
+                // go out as a success. One extra round to verify with a tool;
+                // after that, the honest "could not verify" note rides along.
+                // Chat/small-talk turns never enter the gate (no claims to prove).
+                val decision = if (intent == Intent.ACTION) verifyGate.check(text) else Brain.Decision.Allowed
+                if (decision is Brain.Decision.NeedsVerification && !verificationPrompted) {
+                    verificationPrompted = true
+                    items += UserItem(Brain.verificationNote(decision.claims))
+                } else {
+                    val finalText = if (decision is Brain.Decision.NeedsVerification) text + "\n\n" + Brain.unverifiedDisclaimer(decision.claims) else text
+                    answer.append(finalText)
+                    if (planState.active) { planState.finish(ok = decision !is Brain.Decision.NeedsVerification && !toolsOff, reason = if (decision is Brain.Decision.NeedsVerification) "could not verify: ${decision.claims.joinToString { it.phrase }}" else "stopped early"); onPlan() }
+                    return answer.toString()
+                }
+            } else {
             if (text.isNotBlank()) sink.textToThoughts()
             val ctx = ToolContext(workspace, skills, memory = memory, chats = conversations, schedules = schedules, appCtx = appCtx, ask = ask, askWith = askWith, swarmParentId = swarmParentId, turbo = turbo)
             for (call in calls) {
@@ -284,6 +344,24 @@ class Agent(
                     items += ToolResultItem(call.id, call.name, o.forModel); continue
                 }
                 if (toolsOff) { items += ToolResultItem(call.id, call.name, "Tools are switched off for the rest of this task. Explain to the user what failed and why."); continue }
+                // BRAIN — never call a tool twice with identical failing input:
+                // the loop refuses the re-issue (no execution, no new step row)
+                // and tells the model what already failed, so it must change
+                // arguments or tool. After MAX_SELF_CORRECTIONS_PER_STEP
+                // different failed approaches on this tool, the run stops
+                // calling tools and reports honestly instead of looping.
+                if (corrections.isIdenticalRepeat(call.name, call.arguments)) {
+                    corrections.noteIdenticalRepeat(call.name, call.arguments)
+                    if (corrections.shouldGiveUp(call.name)) {
+                        toolsOff = true
+                        items += ToolResultItem(call.id, call.name,
+                            "Stop calling tools: ${call.name} has kept failing in this run (tried: ${corrections.triedSummary()}). Tell the user plainly what failed and what was tried.")
+                    } else {
+                        items += ToolResultItem(call.id, call.name,
+                            "Skipped — this exact ${call.name} call already failed (${corrections.lastError(call.name, call.arguments)}). Do NOT repeat it: use different arguments or a different tool, or explain the problem to the user.")
+                    }
+                    continue
+                }
                 // v0.12: the approval gate — consequential shell work needs the user's OK (or a remembered rule).
                 var rememberedNote = false
                 val gate = ApprovalGate.requestFor(call.name, args)
@@ -344,10 +422,20 @@ class Agent(
                 ))
                 if (!out.isError) out.artifact?.let(sink::artifact)
                 sink.usedTool(ToolCatalog.titleOf(call.name))   // axion-p3: Used tool: …
+                // BRAIN — record the attempt for the self-correction tracker and
+                // the verify gate, then feed the model the real result. An empty
+                // "success" produced nothing the next step can use, so the model
+                // is told to check it instead of moving on as if the step worked.
+                verifyGate.noteToolCall(call.name, args, out)
+                corrections.record(call.name, call.arguments, !failedKind && !out.isError, out.forModel)
+                val modelText = if (Brain.isEmptySuccess(out)) outcome.forModel +
+                    "\n[System note: that step returned no usable output — check what it actually produced (re-read the file, list the folder) before moving on; an empty result is not a done step.]"
+                else outcome.forModel
                 // v0.5.2: a key printed by a command (cat .env, env, a config file) never goes back to the AI provider.
-                items += ToolResultItem(call.id, call.name, com.mazharansari.x.security.SecretScanner.scrub(outcome.forModel))
+                items += ToolResultItem(call.id, call.name, com.mazharansari.x.security.SecretScanner.scrub(modelText))
                 if (outcome.mustReport) { toolsOff = true; planState.failRunning(out.forModel.lineSequence().firstOrNull().orEmpty()); onPlan() }
             }
+            } // else (calls were present): the gate above only runs on a text-only round
             if (round == maxRounds - 2) items += UserItem("(System note: you are near the step limit. Finish now with your best answer.)")
         }
         if (planState.active) { planState.finish(ok = false, reason = "step limit"); onPlan() }
@@ -401,7 +489,10 @@ class Agent(
     private suspend fun streamOnce(items: List<ChatItem>, specs: List<ToolSpec>, attempts: () -> List<Attempt>, sink: AgentSink, quick: Boolean = false, effort: String? = null): Pair<String, List<ToolCall>> {
         val list = attempts()
         if (list.isEmpty()) throw NoModelException("No AI connector yet. Open Connectors and paste a free API key (Gemini, Groq, OpenRouter…).")
+        // Auto-shift (2026-11-20): the list is walked ONCE — no wrap-around, so the shift chain always ends.
+        val labelOf: (Attempt) -> String = { at -> if (at.model == at.provider) at.provider else "${at.provider} · ${at.model}" }
         var last: LlmException? = null
+        var allExhaustion = true
         for ((idx, a) in list.withIndex()) {
             val text = StringBuilder(); val reasoning = StringBuilder(); var calls = emptyList<ToolCall>()
             val t0 = System.currentTimeMillis()
@@ -409,7 +500,7 @@ class Agent(
             val answering = java.util.concurrent.atomic.AtomicBoolean(false)
             val thinking = java.util.concurrent.atomic.AtomicBoolean(false)
             val slowWhy = java.util.concurrent.atomic.AtomicReference<String?>(null)
-            if (idx > 0) sink.switching(if (a.model == a.provider) a.provider else "${a.provider} · ${a.model}")
+            if (idx > 0) sink.switching(labelOf(a))
             try {
                 sink.model(if (a.model == a.provider) a.provider else "${a.provider} · ${a.model}")
                 kotlinx.coroutines.coroutineScope {
@@ -440,6 +531,7 @@ class Agent(
                             }
                             is LlmEvent.ToolCalls -> { lastEvent.set(System.currentTimeMillis()); answering.set(true); calls = ev.calls }
                             is LlmEvent.Finished -> lastEvent.set(System.currentTimeMillis())
+                            is LlmEvent.Shifted -> sink.shifted(ev.from, ev.to)
                         }
                     }
                     watchdog.cancel()
@@ -455,20 +547,25 @@ class Agent(
             } catch (e: SlowModel) {
                 currentCoroutineContextActive()
                 val le = LlmException("${a.model} ${e.why}", FailKind.SERVER)
-                a.onFail(le); last = le
+                a.onFail(le); last = le; allExhaustion = false   // too slow is not a limit — no shift, and the run did not exhaust every model on limits
                 if (text.isNotEmpty()) sink.discardRound()
             } catch (e0: LlmException) {
                 // v0.5.2: the watchdog closed the call → whatever the socket said ("Canceled"), the truth is "too slow".
                 val e = slowWhy.get()?.let { LlmException("${a.model} $it", FailKind.SERVER) } ?: e0
                 a.onFail(e)
                 last = e
+                // Auto-shift (2026-11-20): a limit on this attempt moves the SAME work to the next attempt and says so in chat.
+                if (ModelChoice.isExhaustion(e)) {
+                    if (idx + 1 < list.size) sink.shifted(labelOf(a), labelOf(list[idx + 1]))
+                } else allExhaustion = false
                 if (text.isNotEmpty()) {
                     // Failed mid-answer: if another model is left, it answers from scratch; otherwise keep what we have.
-                    if (idx == list.size - 1) throw e
+                    if (idx == list.size - 1) { if (allExhaustion) sink.allExhausted(); throw e }
                     sink.discardRound()
                 }
             }
         }
+        if (allExhaustion && last != null) sink.allExhausted()
         throw last ?: NoModelException("No model answered.")
     }
 
@@ -486,6 +583,7 @@ class Agent(
             appendLine(ScriptHint.INSTRUCTION_RULE)
             appendLine("STYLE: talk like a smart friend in a chat — short and natural. Greetings and small talk get one or two warm lines, no headings, no lists. Use markdown only for real content (steps, tables, code).")
             appendLine("ACTIONS: only DO things (search, create files, run commands, build) when the user clearly asks for that action. Never create or write files for a greeting, a question, or small talk. If you are not sure what they want, ask ONE short question instead of acting.")
+            appendLine(Brain.BRAIN_GUIDANCE)
             appendLine("ABOUT YOU (answer honestly if asked): you can chat in English/Urdu/Roman Urdu, search the web and read pages, read uploaded files (PDF, docs, ZIP), write files and code, make PDF reports and images, run shell commands (${com.mazharansari.x.linux.LinuxHub.devtools?.summaryForAgent() ?: "Android sh with toybox tools — Python/Node are NOT installed until the user installs Developer tools in Settings"}), use installed skills and MCP connectors, and do voice calls. Websites/apps are built in the Build tab.")
             appendLine("You also have your OWN real web browser (the browser_* tools: pages open with JavaScript, cookies and logins persist, you can click, type into forms and take screenshots — the user can watch or take over in the Browser screen) and a persistent Linux terminal (shell_session keeps its directory and variables between commands; run_background runs long jobs).")
             if (tools.isEmpty()) {

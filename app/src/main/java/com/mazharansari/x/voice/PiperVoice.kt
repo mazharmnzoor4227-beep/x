@@ -76,6 +76,26 @@ import java.nio.file.Paths
  *    lands. Never present Kokoro audio as Piper audio, or vice versa.
  *    Its filenames below (`kokoro-hi-IN.onnx`) are PLACEHOLDERS, not real
  *    files — Kokoro has no download URL wired (see the 2026-11-20 audit).
+ *    VERIFIED 2026-11-20: the sherpa-onnx `tts-models` release DOES carry
+ *    `kokoro-multi-lang-v1_0.tar.bz2` and `kokoro-int8-multi-lang-v1_0.tar.bz2`
+ *    (confirmed by the release's own issue #4086 and the model registry),
+ *    but no verified size / SHA-256 / Hindi voice-sid mapping could be
+ *    confirmed from this sandbox (the GitHub API answered 403 here), and
+ *    the size claims in circulation conflict (fp32 archive ~350 MB per the
+ *    lever doc, int8 126 MB per prior research, unverified). So no URL is
+ *    guessed and no download is wired — wiring it needs, in order: the
+ *    verified asset size + SHA-256, the Hindi voice sids, and the Kokoro
+ *    branch of the bundled sherpa-onnx v1.10.42 OfflineTts config
+ *    (model + voices.bin + tokens + dataDir + lexicon) proven on-device.
+ *  - Amy (added 2026-11-20): Piper English Amy, female, US — the one
+ *    extra free offline voice verified this round. Repo
+ *    rhasspy/piper-voices, file
+ *    en/en_US/amy/medium/en_US-amy-medium.onnx, 63,221,984 bytes
+ *    (+ .onnx.json, 6,289 bytes), verified via the Hugging Face API file
+ *    tree 2026-11-20. Same VITS engine as Aegis/Fasih, same download +
+ *    import path. HF API search this round found only two Urdu Piper
+ *    repos (Aegis, Fasih) and no verified Hindi VITS pack, so Amy is the
+ *    only addition beyond the two Urdu packs.
  *  - Voice research is still running: the final pack choice may swap; the
  *    swap point is [PiperPack] + the default in AppSettings.voicePref.
  */
@@ -103,6 +123,9 @@ enum class PiperPack(
     FASIH("piper-fasih", "Piper Urdu Fasih (male)", "ur_PK-fasih-medium-model.onnx", "ur_PK-fasih-medium-model.onnx.json", "ur-PK", "fasih.onnx", "fasih.onnx.json",
         legacyOnnxName = "ur_PK-fasih-medium.onnx", legacyJsonName = "ur_PK-fasih-medium.onnx.json",
         downloadBase = "https://huggingface.co/IhorShevchuk/piper-voice-ur-fasih/resolve/main"),
+    /** 2026-11-20: Piper English Amy (female, US), rhasspy/piper-voices — verified .onnx size 63,221,984 bytes. */
+    AMY("piper-amy", "Piper English Amy (female)", "en_US-amy-medium.onnx", "en_US-amy-medium.onnx.json", "en-US",
+        downloadBase = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium", onnxBytes = 63_221_984),
     KOKORO_HINDI("kokoro-hindi", "Kokoro Hindi (alternative)", "kokoro-hi-IN.onnx", "kokoro-hi-IN.onnx.json", "hi-IN");
 
     /** Direct download URLs for the pack's two files (null when no download is wired for this pack). */
@@ -111,9 +134,9 @@ enum class PiperPack(
 
     companion object {
         fun of(id: String?): PiperPack = entries.firstOrNull { it.id == id } ?: AEGIS
-        fun isPiperPick(id: String?): Boolean = id == AEGIS.id || id == FASIH.id || id == KOKORO_HINDI.id
+        fun isPiperPick(id: String?): Boolean = id == AEGIS.id || id == FASIH.id || id == AMY.id || id == KOKORO_HINDI.id
         /** Only the VITS Piper packs can run on the sherpa-onnx VITS engine (Kokoro cannot). */
-        fun isVitsPack(id: String?): Boolean = id == AEGIS.id || id == FASIH.id
+        fun isVitsPack(id: String?): Boolean = id == AEGIS.id || id == FASIH.id || id == AMY.id
     }
 }
 

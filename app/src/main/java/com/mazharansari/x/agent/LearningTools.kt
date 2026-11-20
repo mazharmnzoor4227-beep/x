@@ -25,6 +25,66 @@ private fun JsonObject.target(): MemoryTarget =
 
 private fun noMemory() = ToolOutput("Memory is not available in this surface.", isError = true)
 
+/**
+ * Memory fix (2026-11-20): the deterministic post-chat save pass.
+ *
+ * The agent tools + prompt nudge already existed, but nothing ever saved: the model has to
+ * volunteer a memory_add call, and in practice it answers without calling it — so an explicit
+ * "yaad rakhna / remember this" from the user was honoured in words and lost in fact. This pass
+ * runs after a finished chat turn (ChatViewModel) and saves ONLY explicit save instructions:
+ * a remember-this with a fact, a stated name, or a stated preference. Everything else returns
+ * empty — it never guesses, never summarises a chat, and never saves secrets (anything that
+ * looks like a password/key/token is refused). The store's own duplicate + budget checks still
+ * apply, so a re-save is a no-op and a full section stays full. Classification rule: the
+ * section is chosen by the phrasing — who the user is / how they like things goes to USER,
+ * a fact to remember goes to MEMORY.
+ */
+object MemorySavePass {
+    data class Save(val target: MemoryTarget, val content: String)
+
+    private val rememberRe = Regex(
+        "(yaad rakhna|yaad rakh|remember this|remember that|remember(?!\\s+(?:when|where|who|why|how|what|if|whether)\\b)|note this|note down|save this|don't forget|do not forget|bhoolna mat|یاد رکھنا)\\s*(?:that|:|,|ke|ki)?\\s*(.+)",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+    private val nameRe = Regex(
+        "(mera naam|my name is)\\s+([A-Za-z][A-Za-z .'-]{1,60}?)(?:\\s+hai|\\s+is)?\\s*[.!؟?]?\\s*$",
+        RegexOption.IGNORE_CASE)
+    private val preferRe = Regex(
+        "(^|\\b)(i prefer|i like)\\b|pasand\\s+hai[n]?\\b",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+    private val secretRe = Regex("\\b(password|passwd|api[-_ ]?key|secret|token|otp|pin)\\b", RegexOption.IGNORE_CASE)
+
+    fun extract(text: String): List<Save> {
+        val t = text.trim()
+        if (t.isEmpty()) return emptyList()
+        val out = ArrayList<Save>()
+        val add = { target: MemoryTarget, raw: String ->
+            val clean = raw.trim().trimEnd('.', '!', '؟', '?', '۔', ',', ';').trim()
+            if (clean.length >= 3 && !secretRe.containsMatchIn(clean)) {
+                val capped = if (clean.length > com.mazharansari.x.data.MemoryStore.ENTRY_MAX_CHARS)
+                    clean.take(com.mazharansari.x.data.MemoryStore.ENTRY_MAX_CHARS - 1) + "…" else clean
+                if (out.none { it.content.equals(capped, ignoreCase = true) }) out += Save(target, capped)
+            }
+        }
+        val isQuestion = t.endsWith('?') || t.endsWith('؟')
+        if (!isQuestion) {
+            rememberRe.find(t)?.let { m ->
+                val fact = m.groupValues[2]
+                if (fact.isNotBlank()) add(MemoryTarget.MEMORY, fact)
+            }
+            nameRe.find(t)?.let { m -> add(MemoryTarget.USER, "Name: " + m.groupValues[2].trim()) }
+            if (preferRe.containsMatchIn(t) && out.none { t.contains(it.content, ignoreCase = true) }) add(MemoryTarget.USER, t)
+        }
+        return out
+    }
+
+    /** Saves every extracted entry into [store]; returns how many were actually added. */
+    fun saveAll(store: com.mazharansari.x.data.MemoryStore, text: String): Int {
+        var n = 0
+        for (s in extract(text)) if (store.add(s.target, s.content) == null) n++
+        return n
+    }
+}
+
 class MemoryAddTool : Tool {
     override val spec = ToolSpec("memory_add",
         "Save ONE durable thing to your persistent memory so you remember it in future chats. target 'user' = the user's preferences, habits, name, how they like things; target 'memory' = facts, decisions, lessons and project notes. Keep entries short and dense — memory is small on purpose. Do not save chit-chat, one-off requests, or anything with a password/key.",

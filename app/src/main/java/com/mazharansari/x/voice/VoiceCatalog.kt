@@ -5,7 +5,7 @@ package com.mazharansari.x.voice
  *
  * 1. Kodex voices — the exact six on-device Google voices his Kodex app shows on its Voice settings screen,
  *    with Kodex's friendly names in Kodex's order (read off his screen recording, 1 Nov 2026):
- *      Rounded  en-gb-x-gbb-network  English (United Kingdom)   ← Kodex default (first card)
+ *      Rounded  en-gb-x-gbb-network  English (United Kingdom)
  *      Glassy   en-au-x-aub-network  English (Australia)
  *      Mellow   en-in-x-ene-network  English (India)
  *      Airy     en-au-x-aud-network  English (Australia)
@@ -13,7 +13,10 @@ package com.mazharansari.x.voice
  *      Clear    en-gb-x-gbd-network  English (United Kingdom)
  *    They are Google "Speech Services" voices: free, and the "-network" ones are Google's higher-quality online
  *    rendering; offline the engine uses the same voice's "-local" twin. Pace: Kodex's Slow 0.85 / Normal 1.0 /
- *    Fast 1.18, Normal by default.
+ *    Fast 1.18, Normal by default. Rounded is the engine's last-resort fallback voice ([DEFAULT_ID] — kept
+ *    because the fallback chain and V03Test depend on it); it is NOT the picker's default. The picker
+ *    (Settings → Voice & Language) and its default live in [VoicePicker]: Aegis female first, and the
+ *    "Default voice" / "Phone voice" filler tags were removed 2026-11-20 — every tag is a real description now.
  *
  * 3. Gemini voices (added 1 Nov 2026, mazhar: "the call must speak in the SAME voice I selected"): Google's own
  *    Gemini Live voices. Picking one makes the Live call native Gemini audio (lowest latency, barge-in). Read-aloud
@@ -50,12 +53,12 @@ object VoiceCatalog {
     const val PREVIEW_URDU = "नमस्ते! मैं आपका X हूँ। बताइए, आज मैं आपकी क्या मदद कर सकता हूँ?"
 
     val kodex = listOf(
-        AxVoice("kodex:rounded", "Rounded", VoiceFamily.KODEX, "English (United Kingdom)", "Default voice", "en-gb-x-gbb-network", false),
-        AxVoice("kodex:glassy", "Glassy", VoiceFamily.KODEX, "English (Australia)", "Phone voice", "en-au-x-aub-network", false),
-        AxVoice("kodex:mellow", "Mellow", VoiceFamily.KODEX, "English (India)", "Phone voice", "en-in-x-ene-network", false),
-        AxVoice("kodex:airy", "Airy", VoiceFamily.KODEX, "English (Australia)", "Phone voice", "en-au-x-aud-network", false),
-        AxVoice("kodex:buttery", "Buttery", VoiceFamily.KODEX, "English (United States)", "Phone voice", "en-us-x-sfg-network", true),
-        AxVoice("kodex:clear", "Clear", VoiceFamily.KODEX, "English (United Kingdom)", "Phone voice", "en-gb-x-gbd-network", false),
+        AxVoice("kodex:rounded", "Rounded", VoiceFamily.KODEX, "English (United Kingdom)", "On-device phone voice", "en-gb-x-gbb-network", false),
+        AxVoice("kodex:glassy", "Glassy", VoiceFamily.KODEX, "English (Australia)", "On-device phone voice", "en-au-x-aub-network", false),
+        AxVoice("kodex:mellow", "Mellow", VoiceFamily.KODEX, "English (India)", "On-device phone voice", "en-in-x-ene-network", false),
+        AxVoice("kodex:airy", "Airy", VoiceFamily.KODEX, "English (Australia)", "On-device phone voice", "en-au-x-aud-network", false),
+        AxVoice("kodex:buttery", "Buttery", VoiceFamily.KODEX, "English (United States)", "On-device phone voice", "en-us-x-sfg-network", true),
+        AxVoice("kodex:clear", "Clear", VoiceFamily.KODEX, "English (United Kingdom)", "On-device phone voice", "en-gb-x-gbd-network", false),
     )
 
     val natural = listOf(
@@ -73,7 +76,7 @@ object VoiceCatalog {
 
     /** Gemini Live voices (Google's names + Google's one-word styles). Samples: voice_samples/geminilive_*.mp3. */
     val gemini = listOf(
-        AxVoice("gemini:Kore", "Kore", VoiceFamily.GEMINI, "Gemini · any language", "Firm · Gemini default", "Kore", true),
+        AxVoice("gemini:Kore", "Kore", VoiceFamily.GEMINI, "Gemini · any language", "Firm", "Kore", true),
         AxVoice("gemini:Puck", "Puck", VoiceFamily.GEMINI, "Gemini · any language", "Upbeat", "Puck", false),
         AxVoice("gemini:Aoede", "Aoede", VoiceFamily.GEMINI, "Gemini · any language", "Breezy", "Aoede", true),
         AxVoice("gemini:Charon", "Charon", VoiceFamily.GEMINI, "Gemini · any language", "Informative", "Charon", false),

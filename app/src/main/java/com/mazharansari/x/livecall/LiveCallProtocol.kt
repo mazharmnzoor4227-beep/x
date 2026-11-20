@@ -139,15 +139,18 @@ object LiveCallProtocol {
     const val END_CALL = "end_call"
 
     /**
-     * v0.7.0: appended to [SYSTEM_INSTRUCTION] when the call has tools (LiveToolBridge built): the model may
-     * research the web live, operate the phone, and end the call itself when the user says goodbye.
+     * v0.7.0: appended to [SYSTEM_INSTRUCTION] when the call has tools (LiveToolBridge built).
+     * The call's tools are ONLY web search / opening pages (see [LiveToolBridge.build]) plus
+     * end_call — there are no phone tools in a call: the model cannot open apps, and it
+     * cannot send WhatsApp, Telegram or WeChat messages (for those it drafts, and the user
+     * sends — the same rule as the Messenger bot). The guidance must never promise otherwise.
      */
     const val TOOL_GUIDANCE =
-        " You have tools in this call. When the user asks about anything current — news, prices, weather, scores — " +
-            "use web_search and browse_url instead of guessing, and briefly say what you found. " +
-            "When the user asks you to do something on the phone — open an app, send a WhatsApp message, search in the browser — " +
-            "use the phone tools and narrate briefly what you are doing. Some phone actions pause and ask the user to tap CONFIRM " +
-            "on the screen; when that happens, wait calmly for them. Never use the phone tools for banking or payment apps. " +
+        " You have tools in this call: web_search and browse_url for anything current — news, prices, weather, scores — " +
+            "use them instead of guessing, and briefly say what you found. " +
+            "You cannot open apps on the phone or send messages from this call: no WhatsApp, Telegram or WeChat sending, " +
+            "and no phone actions at all — if the user asks for one, say plainly that you cannot do it from a call and offer to draft the message instead, so the user can send it. " +
+            "Never use the tools for banking or payment apps. " +
             "When the user says goodbye — for example \"X ab tum jao\", \"chalo jao\" or \"bye\" — say one short warm goodbye " +
             "and then call the end_call tool to end the call."
 

@@ -21,7 +21,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Navigation restructure (2026-11-20) — X Bot + its 50-specialist roster.
+ * Navigation restructure (2026-11-20) — X Bot + its 51-specialist roster.
  * Pure JVM tests: no model, no network, no Android framework.
  */
 class XBotRosterTest {
@@ -38,13 +38,13 @@ class XBotRosterTest {
         "mika-content-transcribe", "mika-documents", "mika-info-research",
         "mika-messaging", "mika-skill-authoring", "pdf", "ponytail-minimal-code",
         "reverse-engineering-android", "roman-urdu", "token-efficiency",
-        "video", "website-audit",
+        "video", "website-audit", "web-clone-design",
     )
 
-    @Test fun rosterHasFiftySpecialistsPlusXBot() {
-        assertEquals(50, BotCatalog.seeds.size)
-        assertEquals(50, BotCatalog.seeds.map { it.id }.distinct().size)
-        assertEquals(50, BotCatalog.seeds.map { it.name }.distinct().size)
+    @Test fun rosterHasFiftyOneSpecialistsPlusXBot() {
+        assertEquals(51, BotCatalog.seeds.size)
+        assertEquals(51, BotCatalog.seeds.map { it.id }.distinct().size)
+        assertEquals(51, BotCatalog.seeds.map { it.name }.distinct().size)
         // X Bot is the orchestrator on top of the roster, not a seed in it.
         assertNull(BotCatalog.byId(X_BOT_ID))
         val x = xBotDefinition()

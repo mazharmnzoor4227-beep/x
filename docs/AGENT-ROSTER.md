@@ -44,9 +44,9 @@ tool group / bundled skill / named engine — see the Backing column).
 |-------|---------------|----------|------------------------|--------|
 | **X Bot** | Main bot + orchestrator. General chat, routes work, spawns specialist sub-bots, merges + verifies all results, talks to the user — the ONLY bot the user ever talks to | Auto failover (Gemini → Grok → OpenRouter…) | All tool groups; `subagent_swarm`; `agent/Agent.kt`, `agent/Swarm.kt`, `agent/XBotSpawn` | ✅ Wired — `xBotDefinition()` in `data/BotStore.kt` |
 
-## 2. The roster — 50 specialists
+## 2. The roster — 51 specialists
 
-All 50 live in `data/BotCatalog.kt` (`seeds`). 23 are donor-pattern seeds
+All 51 live in `data/BotCatalog.kt` (`seeds`). 24 are donor-pattern seeds
 (verified MIT/Apache sources, see `third_party/NOTICE-bot-store.md`); 27
 are X built-in (`sourceName = "X built-in"`, no URL — never a fabricated
 link). Every `skills` entry is a directory in
@@ -105,8 +105,9 @@ entry is a real `ToolCatalog` group id.
 | 48 | **Skill Smith** | Writes + improves skills (small, reviewed) | `mika-skill-authoring`, `agent-building`; skills group; `agent/SkillTools.kt` |
 | 49 | **Token Saver** | More with fewer tokens (short prompts, tight plans) | `token-efficiency`; skills group |
 | 50 | **Delivery Checker** | Checks work is delivered as the thing itself (link / APK) | `delivery`; files, web |
+| 51 | **Design Agent** | Clones any website from its link as the user's own site, then keeps changing that same site while keeping its theme | `web`, `browser`, `research`, `files`, `commands`, `skills`; `web-clone-design` |
 
-**Count: 50 specialists + X Bot = 51 agents — all ✅ wired.**
+**Count: 51 specialists + X Bot = 52 agents — all ✅ wired.**
 
 What changed vs the old roster: the 3 stub seeds are gone — "Doc
 Maker" (no docs workspace) is rewritten as **Doc Writer** (writes files +

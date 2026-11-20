@@ -69,12 +69,29 @@ object AgyEvents {
  * re-runs the same request. X's own tools (PDF, web, images) are not available inside an agy run — agy uses its own.
  */
 class AgyClient(private val linux: LinuxRuntime, private val accounts: AgyAccounts, private val quota: QuotaRepo?, private val probe: AgyQuotaProbe?) : LlmClient {
+    /**
+     * Model chooser (2026-11-20): the Antigravity account the user picked in
+     * the chat chooser. The next stream starts on this account (when it is
+     * usable) and only then auto-switches to the next account on a limit.
+     * Null = the build/chat default (active account, then auto-switch).
+     * ChatViewModel sets this when it builds an Antigravity attempt and
+     * clears it for build attempts — the build loop never reads it.
+     */
+    @Volatile var pinnedAccountEmail: String? = null
+
     override fun stream(req: LlmRequest): Flow<LlmEvent> = channelFlow {
         if (!linux.isInstalled()) throw LlmException("Antigravity needs the Linux download first (Settings → Antigravity).", FailKind.AUTH)
         val prompt = promptOf(req.items)
         val tried = mutableSetOf<String>()
+        var pinnedTried = false
         while (true) {
-            val acc = accounts.pickForRun(exclude = tried) ?: run {
+            val acc = if (!pinnedTried && pinnedAccountEmail != null) {
+                pinnedTried = true
+                val pinned = pinnedAccountEmail?.let { email -> accounts.accounts().firstOrNull { it.email.equals(email, true) } }
+                    ?.takeIf { AgySelector.usable(it, System.currentTimeMillis(), accounts::hasToken) && it.email !in tried }
+                pinned ?: accounts.pickForRun(exclude = tried)
+            } else accounts.pickForRun(exclude = tried)
+            acc ?: run {
                 val back = AgySelector.earliestBack(accounts.accounts(), System.currentTimeMillis())
                 throw LlmException(if (back != null) "All Antigravity accounts hit their limit. ${back.label.ifBlank { back.email }} is back at ${java.text.SimpleDateFormat("h:mm a", java.util.Locale.ENGLISH).format(java.util.Date(back.cooldownUntil))}."
                     else "No Antigravity account is ready. Add one in Settings → Antigravity.", FailKind.QUOTA, 429)
@@ -133,6 +150,9 @@ class AgyClient(private val linux: LinuxRuntime, private val accounts: AgyAccoun
                 }
                 val next = if (canSwitch) accounts.pickForRun(exclude = tried) else null
                 if (next == null) throw LlmException(friendly(why), when { AgyFailover.isAuthFailure(why) -> FailKind.AUTH; AgyFailover.isQuotaFailure(why) -> FailKind.QUOTA; else -> FailKind.SERVER }, if (AgyFailover.isQuotaFailure(why)) 429 else 0)
+                // Auto-shift (2026-11-20): the account switch is a visible in-chat notice (Agent turns Shifted into one),
+                // not just a Thoughts line — the same work continues on the next account.
+                send(LlmEvent.Shifted("Antigravity · ${acc.label.ifBlank { acc.email }}", "Antigravity · ${next.label.ifBlank { next.email }}"))
                 send(LlmEvent.Reasoning("${acc.label.ifBlank { acc.email }} hit its limit — switching to ${next.label.ifBlank { next.email }}.\n"))
             } finally {
                 if (proc.isAlive) { proc.destroyForcibly(); runCatching { proc.waitFor(3, java.util.concurrent.TimeUnit.SECONDS) } }

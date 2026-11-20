@@ -206,6 +206,7 @@ object XBotSpawn {
     /** Keyword rule → roster seed id. First match wins; order is specific-first. */
     private val rules: List<Pair<Regex, String>> = listOf(
         Regex("playwright|browser test|e2e test|end-to-end", RegexOption.IGNORE_CASE) to "store-playwright",
+        Regex("clone.*website|website.*clone|clone.*site|mirror.*website|recreate.*website|remix.*site|make.*site like|website like|site like\\s", RegexOption.IGNORE_CASE) to "store-designagent",
         Regex("review.*pull request|pull request.*review", RegexOption.IGNORE_CASE) to "store-prreviewer",
         Regex("github|clone.*repo|\\brepo\\b|commit|push to", RegexOption.IGNORE_CASE) to "store-githubber",
         Regex("apk.*build|build.*apk|android.*build|sign.*apk|release.*apk", RegexOption.IGNORE_CASE) to "store-apkbuilder",

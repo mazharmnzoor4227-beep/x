@@ -22,12 +22,17 @@ data class AppSettings(
     // read, so it was a fake setting. Old settings.json files still decode (ignoreUnknownKeys).
     val speechLang: String = "ur-PK",    // dictation + read-aloud language
     /**
-     * 2026-11-19: the read-aloud / voice-call voice preference. First pick is
-     * the user's standing natural voice, Piper Urdu Aegis (offline, on-device).
-     * "piper-aegis" | "piper-fasih" | "kokoro-hindi" | "system". Until the
-     * Piper engine (sherpa-onnx) is bundled, the Piper picks read in the
-     * phone's built-in Urdu/Hindi voice — see voice/PiperVoice.kt. The
-     * Edge/Gemini chain stays as the online fallback.
+     * 2026-11-19, picker redesigned 2026-11-20: the read-aloud / voice-call
+     * voice preference — one id from the Voice & Language picker
+     * (voice/VoicePicker.kt): a Piper pack ("piper-aegis" | "piper-fasih" |
+     * "piper-amy" | "kokoro-hindi") or a catalog voice ("kodex:*" |
+     * "edge:*" | "gemini:*"). First pick is the user's standing natural
+     * voice, Piper Urdu Aegis (offline, on-device). The old "system" value
+     * is legacy: opening Voice & Language migrates it to "piper-aegis"
+     * (VoicePicker.migrateVoicePref). A Piper pick reads in the phone's
+     * built-in Urdu/Hindi voice until its pack + the shared espeak-ng-data
+     * are downloaded — see voice/PiperVoice.kt. The Edge/Gemini chain stays
+     * as the online fallback.
      */
     val voicePref: String = "piper-aegis",
     val voice: String = "Kore",          // Gemini prebuilt voice
@@ -38,6 +43,15 @@ data class AppSettings(
     val instructions: String = "",
     val replyLanguage: String = "",
     val mode: String = "AUTO",
+    /**
+     * Model chooser (2026-11-20): the model/account the user picked in the
+     * chat's model selector — "api:<connectorId>:<model>" | "local:<model>" |
+     * "server:<model>" | "free" | "agy:<email>". "" = Auto (the ranked
+     * failover order, as before). The pick sticks until the user changes it;
+     * an auto-shift re-picks the model it landed on, so the shift sticks too.
+     * See [com.mazharansari.x.llm.ModelChoice].
+     */
+    val pickedModel: String = "",
     /** v0.6 Build: the AI's file changes wait for Approve (diff review) before they touch the project. */
     val reviewBeforeApply: Boolean = true,
     /** v0.6.1: a project too large to hold for review (over the ChangeGate limits) may run un-reviewed ONLY if the user switched this on — never silently. */

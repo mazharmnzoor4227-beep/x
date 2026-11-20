@@ -52,7 +52,7 @@ class TelegramRunner(private val g: Graph) {
         return try {
             val agent = Agent(
                 g.workspace, g.skills,
-                baseTools = Agent.defaultTools(),
+                baseTools = Agent.defaultTools() + com.mazharansari.x.agent.ideasGoalsTools(g.ideas, g.goals),
                 extraTools = { g.mcp.tools() },
                 toolSwitches = { g.settings.state.value.toolSwitches },
                 memory = g.memory, conversations = g.chats,

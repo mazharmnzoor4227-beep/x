@@ -134,41 +134,79 @@ object ReadAloudPlayer {
         // this: it asked for a specific voice. Otherwise the preference wins
         // over the Edge/Gemini chain below, which stays as the online fallback.
         if (voiceOverride == null && PiperPack.isPiperPick(voicePref())) {
-            val pack = PiperPack.of(voicePref())
-            val store = piperStore()
-            val status = store?.status(pack)
-            val engine = PiperVoiceEngines.engine
-            if (engine != null && status?.downloaded == true) {
-                playJob = scope.launch {
-                    val ok = runCatching { engine.speak(app, pack, plain) }.getOrDefault(false)
-                    if (ok) {
-                        provenance = "Piper · ${pack.displayName}"
-                        finish(my)
-                    } else {
-                        postNotice(app, "Piper ${pack.displayName} could not read this — reading in the phone's ${if (pack.phoneLocale == "hi-IN") "Hindi" else "Urdu"} voice instead.")
-                        speakPhoneLocale(app, plain, my, pack)
-                    }
-                }
-                return
-            }
-            // Redesign round 2 (Addendum F): the Piper engine IS bundled now
-            // (sherpa-onnx, see PiperVoice.kt), so the phone voice is only a
-            // fallback when the pack or the shared espeak-ng-data is missing.
-            // The notice names exactly what is missing (pack / espeak data).
-            if (missingNoticeShown.add("piper:$pack")) {
-                val missing = when {
-                    engine == null -> "the Piper engine is not installed yet"
-                    status?.downloaded != true -> "the ${pack.displayName} voice pack is not downloaded"
-                    store?.espeakReady() == false -> "the shared espeak-ng-data (downloaded once from Settings → Voice & Language) is not downloaded"
-                    else -> "the ${pack.displayName} voice pack is damaged or incomplete"
-                }
-                postNotice(app, "Piper ${pack.displayName} is picked, but $missing — reading in the phone's ${if (pack.phoneLocale == "hi-IN") "Hindi" else "Urdu"} voice instead. See Settings → Voice & Language.")
-            }
-            provenance = "Phone · ${if (pack.phoneLocale == "hi-IN") "Hindi" else "Urdu"}"
-            speakPhoneLocale(app, plain, my, pack)
+            speakPiperPick(app, PiperPack.of(voicePref()), plain, my)
             return
         }
         playJob = scope.launch { speakWithChain(app, chosen, plain, my) }
+    }
+
+    /**
+     * Tap-to-preview for the Voice & Language picker (redesign 2026-11-20).
+     * Speaks [text] in exactly the voice [voiceId] names — a Piper pack on
+     * the sherpa-onnx Piper engine (with the same honest phone-voice
+     * fallback as read-aloud when the pack is not downloaded yet), a
+     * catalog voice through the one normal path with that voice forced —
+     * never a generic default. The preview is a read-aloud under the id
+     * [VoicePreview.messageId] ("preview:<voiceId>"), which is what the
+     * picker's playing indicator reads. Stops any current playback first,
+     * so tapping another card switches the preview; [stop] (tap again /
+     * leave the page) ends it, and a real [speak] stops it the same way.
+     */
+    fun preview(context: Context, voiceId: String, text: String) {
+        stop()
+        val my = ++session
+        val app = context.applicationContext
+        val plain = stripMarkdownForSpeech(text)
+        if (plain.isBlank()) { finish(my); return }
+        playingMessageId = VoicePreview.messageId(voiceId)
+        if (PiperPack.isPiperPick(voiceId)) {
+            speakPiperPick(app, PiperPack.of(voiceId), plain, my)
+            return
+        }
+        // Catalog voices (phone / Edge / Gemini) go through the one normal
+        // path, with this voice forced. speak() stops again (harmless) and
+        // sets the same preview message id as its playing id.
+        speak(context, VoicePreview.messageId(voiceId), plain, voiceOverride = VoiceCatalog.byId(voiceId))
+    }
+
+    /**
+     * The Piper pick's read path, shared by [speak] and [preview]: the
+     * sherpa-onnx engine when the pack is downloaded, else the phone's
+     * built-in Urdu/Hindi voice with one honest notice naming what is
+     * missing — never silence, never a fake Piper voice.
+     */
+    private fun speakPiperPick(app: Context, pack: PiperPack, plain: String, my: Int) {
+        val store = piperStore()
+        val status = store?.status(pack)
+        val engine = PiperVoiceEngines.engine
+        if (engine != null && status?.downloaded == true) {
+            playJob = scope.launch {
+                val ok = runCatching { engine.speak(app, pack, plain) }.getOrDefault(false)
+                if (ok) {
+                    provenance = "Piper · ${pack.displayName}"
+                    finish(my)
+                } else {
+                    postNotice(app, "Piper ${pack.displayName} could not read this — reading in the phone's ${if (pack.phoneLocale == "hi-IN") "Hindi" else "Urdu"} voice instead.")
+                    speakPhoneLocale(app, plain, my, pack)
+                }
+            }
+            return
+        }
+        // Redesign round 2 (Addendum F): the Piper engine IS bundled now
+        // (sherpa-onnx, see PiperVoice.kt), so the phone voice is only a
+        // fallback when the pack or the shared espeak-ng-data is missing.
+        // The notice names exactly what is missing (pack / espeak data).
+        if (missingNoticeShown.add("piper:$pack")) {
+            val missing = when {
+                engine == null -> "the Piper engine is not installed yet"
+                status?.downloaded != true -> "the ${pack.displayName} voice pack is not downloaded"
+                store?.espeakReady() == false -> "the shared espeak-ng-data (downloaded once from Settings → Voice & Language) is not downloaded"
+                else -> "the ${pack.displayName} voice pack is damaged or incomplete"
+            }
+            postNotice(app, "Piper ${pack.displayName} is picked, but $missing — reading in the phone's ${if (pack.phoneLocale == "hi-IN") "Hindi" else "Urdu"} voice instead. See Settings → Voice & Language.")
+        }
+        provenance = "Phone · ${if (pack.phoneLocale == "hi-IN") "Hindi" else "Urdu"}"
+        speakPhoneLocale(app, plain, my, pack)
     }
 
     /**

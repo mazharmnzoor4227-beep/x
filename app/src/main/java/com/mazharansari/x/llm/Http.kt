@@ -1,5 +1,6 @@
 package com.mazharansari.x.llm
 
+import okhttp3.Dispatcher
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -9,8 +10,16 @@ object Http {
     const val UA = "Mozilla/5.0 (Linux; Android 16; Infinix X6885) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36"
 
     /** One shared pool: connections and threads are reused by every request in the app. */
-    /** Big file downloads (Ubuntu base): long reads, no overall cap. */
-    val download: OkHttpClient by lazy { client.newBuilder().readTimeout(120, TimeUnit.SECONDS).callTimeout(0, TimeUnit.SECONDS).build() }
+    /**
+     * Big file downloads (Ubuntu base, local models): long reads, no overall cap.
+     * The shared client's dispatcher only allows 5 concurrent calls per host, which would queue
+     * 3 of the 8 parallel download chunks — so downloads get their own dispatcher (16 per host).
+     * The connection pool is still shared with [client].
+     */
+    val download: OkHttpClient by lazy {
+        client.newBuilder().readTimeout(120, TimeUnit.SECONDS).callTimeout(0, TimeUnit.SECONDS)
+            .dispatcher(Dispatcher().apply { maxRequests = 64; maxRequestsPerHost = 16 }).build()
+    }
 
     val client: OkHttpClient by lazy {
         OkHttpClient.Builder()

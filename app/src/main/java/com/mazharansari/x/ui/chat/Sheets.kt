@@ -123,37 +123,49 @@ fun BoxScope.PlusPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp,
 }
 
 /**
- * Model picker: the same popover, 283dp wide, rows "title / grey description" with the chosen mode on a
- * accent-tinted pill and a check at the right. The top block holds the providers (same layout: title, one grey line, an accent pill button).
+ * Model picker (2026-11-20): the same popover, 283dp wide — "Auto" first
+ * (let X choose), then EVERY model the user can actually use, grouped by
+ * provider (Antigravity accounts each get their own row, by account), with
+ * the picked row on an accent-tinted pill and a check at the right. The top
+ * block holds the providers (same layout: title, one grey line, an accent
+ * pill button). Rows come from [com.mazharansari.x.llm.ModelChoice]
+ * (the providers' real configured models/accounts) — nothing is guessed.
+ * Tapping a row picks it immediately; the pick sticks until changed.
  */
 @Composable
-fun BoxScope.ModelPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp, maxHeight: Dp = Dp.Unspecified, mode: String, connectors: List<Connector>, onPick: (String) -> Unit, onConnectors: () -> Unit) {
+fun BoxScope.ModelPopover(visible: Boolean, onDismiss: () -> Unit, bottomGap: Dp, maxHeight: Dp = Dp.Unspecified, entries: List<com.mazharansari.x.llm.ModelChoice.ChooserEntry>, pickedId: String, onPick: (String) -> Unit, onConnectors: () -> Unit) {
     val p = P
     GlassPopover(visible, onDismiss, bottomGap, 283.dp, maxHeight) {
-        val on = connectors.filter { it.enabled }
+        val on = entries.count { it.kind != com.mazharansari.x.llm.ModelChoice.Kind.FREE }
         // Providers block (icon + title, one grey line, accent pill button)
         Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 GkIcon(Gk.connectors, null, 22.dp, p.text); Spacer(Modifier.width(8.dp))
                 Text("Providers", style = Type.body.copy(fontSize = 19.sp, fontWeight = FontWeight.Medium), color = p.text)
             }
-            Text(if (on.isEmpty()) "Add a free API key to start" else "${on.size} key${if (on.size > 1) "s" else ""} · auto-switch on limits",
+            Text(if (on == 0) "Add a free API key to start" else "$on model${if (on == 1) "" else "s"} · auto-switch on limits",
                 style = Type.small.copy(fontSize = 13.sp), color = p.text2, maxLines = 1, modifier = Modifier.padding(top = 4.dp, bottom = 10.dp))
-            DotsButton(if (on.isEmpty()) "Add key" else "Manage keys", { onDismiss(); onConnectors() })
+            DotsButton(if (on == 0) "Add key" else "Manage keys", { onDismiss(); onConnectors() })
         }
         PopDivider()
-        PopRow(Gk.think, "Expert", "Thinks hard", selected = mode == "EXPERT") { onPick("EXPERT"); onDismiss() }
-        PopRow(Gk.bolt, "Fast", "Quick responses", selected = mode == "FAST") { onPick("FAST"); onDismiss() }
-        PopRow(Gk.rocket, "Auto", "Chooses Fast or Expert", selected = mode == "AUTO") { onPick("AUTO"); onDismiss() }
-        // v0.5 (addendum 6): the user's own models, only when set up
-        val local = connectors.firstOrNull { it.providerId == "local" && it.enabled }
-        val server = connectors.firstOrNull { it.providerId == "myserver" && it.enabled }
-        if (local != null || server != null) PopDivider()
-        if (local != null) PopRow(Gk.phone, "Local model", "${local.keyHint} · offline, slower", selected = mode == "LOCAL") { onPick("LOCAL"); onDismiss() }
-        if (server != null) PopRow(Gk.database, "My server", "${server.pinnedModel ?: server.keyHint} · slower", selected = mode == "SERVER") { onPick("SERVER"); onDismiss() }
-        // v0.5.2 (mazhar's test): the built-in no-key model, by name — Auto also falls back to it when no key works.
-        PopDivider()
-        PopRow(Gk.globe, "Free (slow)", "No key needed · about 1 reply every 45 s", selected = mode == "FREE") { onPick("FREE"); onDismiss() }
+        PopRow(Gk.rocket, "Auto", "Let X choose the best model", selected = pickedId.isBlank()) { onPick(""); onDismiss() }
+        var lastGroup: String? = null
+        for (e in entries) {
+            if (e.group != lastGroup) {
+                lastGroup = e.group
+                if (e.kind != com.mazharansari.x.llm.ModelChoice.Kind.FREE) PopDivider()
+                Text(e.group, style = Type.small.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold), color = p.text2,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 2.dp))
+            }
+            val icon = when (e.kind) {
+                com.mazharansari.x.llm.ModelChoice.Kind.AGY -> Gk.agent
+                com.mazharansari.x.llm.ModelChoice.Kind.LOCAL -> Gk.phone
+                com.mazharansari.x.llm.ModelChoice.Kind.SERVER -> Gk.database
+                com.mazharansari.x.llm.ModelChoice.Kind.FREE -> Gk.globe
+                com.mazharansari.x.llm.ModelChoice.Kind.API -> Gk.bolt
+            }
+            PopRow(icon, e.title, e.subtitle, selected = e.id == pickedId) { onPick(e.id); onDismiss() }
+        }
     }
 }
 

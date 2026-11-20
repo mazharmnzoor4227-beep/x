@@ -148,8 +148,7 @@ fun ConnectorsScreen(vm: ChatViewModel, nav: (Route) -> Unit, back: () -> Unit) 
                             chevron = false,
                             trailing = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Switch(s.enabled, { vm.g.mcp.setEnabled(s.id, it) },
-                                        colors = SwitchDefaults.colors(checkedThumbColor = p.onAccent, checkedTrackColor = p.accent, uncheckedThumbColor = p.text2, uncheckedTrackColor = p.surface2, uncheckedBorderColor = p.border))
+                                    AxionSwitch(s.enabled) { vm.g.mcp.setEnabled(s.id, it) }
                                     Spacer(Modifier.width(8.dp))
                                     IconTap(Gk.trash, "Remove") { vm.g.mcp.remove(s.id) }
                                 }
@@ -470,16 +469,35 @@ fun SkillsScreen(vm: ChatViewModel, back: () -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Pill(if (busy) "Scanning…" else "Find skills", icon = Gk.globe, filled = true) {
                             if (busy || url.isBlank()) return@Pill
-                            busy = true; msg = null
+                            busy = true; msg = null; found = emptyList()
                             scope.launch {
-                                runCatching { vm.g.skills.scanGitHub(url) }.onSuccess { f -> found = f; picked.clear(); f.forEach { picked[it.repoPath] = true }; msg = "${f.size} skills found" }
-                                    .onFailure { msg = it.message }
+                                runCatching { vm.g.skills.scanGitHub(url) }.onSuccess { f ->
+                                    found = f; picked.clear()
+                                    // Pre-pick everything on a small list; on a big repo (hundreds
+                                    // of skills) pre-picking all would install the whole repo on
+                                    // one tap, so the user picks the ones they want instead.
+                                    f.forEach { picked[it.repoPath] = f.size <= 100 }
+                                    msg = "${f.size} skills found" + if (f.size > 100) " — tap to pick the ones to install" else ""
+                                }
+                                    .onFailure { found = emptyList(); msg = it.message }
                                 busy = false
                             }
                         }
                         if (found.isNotEmpty()) { Spacer(Modifier.width(8.dp)); Pill("Install ${picked.count { it.value }}") {
+                            if (busy || picked.none { it.value }) return@Pill
                             busy = true
-                            scope.launch { val n = vm.g.skills.install(found.filter { picked[it.repoPath] == true }, url).size; msg = "Installed $n skills"; found = emptyList(); busy = false }
+                            scope.launch {
+                                runCatching { vm.g.skills.install(found.filter { picked[it.repoPath] == true }, url) }
+                                    .onSuccess { r ->
+                                        val failedNote = if (r.failed.isNotEmpty()) " · ${r.failed.size} failed: " + r.failed.take(3).joinToString("; ") { "${it.name} — ${it.reason}" } else ""
+                                        msg = "Installed ${r.added.size} skill${if (r.added.size == 1) "" else "s"}$failedNote"
+                                        // Installed ones leave the list; failed ones stay so they can be retried.
+                                        found = found.filterNot { f -> r.added.any { it.name.equals(f.name, ignoreCase = true) } }
+                                        picked.keys.retainAll(found.map { it.repoPath }.toSet())
+                                    }
+                                    .onFailure { msg = it.message }
+                                busy = false
+                            }
                         } }
                     }
                     msg?.let { Text(it, style = Type.small, color = p.text2, modifier = Modifier.padding(top = 10.dp)) }
@@ -519,7 +537,10 @@ fun SkillsScreen(vm: ChatViewModel, back: () -> Unit) {
                             hubBusy = e.repoUrl; msg = null
                             scope.launch {
                                 runCatching { SkillHub.install(vm.g.skills, e) }
-                                    .onSuccess { added -> msg = "Installed ${added.size} skill${if (added.size == 1) "" else "s"} from ${e.name}" }
+                                    .onSuccess { r ->
+                                        val failedNote = if (r.failed.isNotEmpty()) " · ${r.failed.size} failed: " + r.failed.take(3).joinToString("; ") { "${it.name} — ${it.reason}" } else ""
+                                        msg = "Installed ${r.added.size} skill${if (r.added.size == 1) "" else "s"} from ${e.name}$failedNote"
+                                    }
                                     .onFailure { msg = it.message }
                                 hubBusy = null
                             }
@@ -530,34 +551,39 @@ fun SkillsScreen(vm: ChatViewModel, back: () -> Unit) {
             item { SectionLabel("Installed") }
             items(skills, key = { "s_" + it.name }) { s ->
                 val learned = s.source == SkillRepo.LEARNED
+                val removable = s.source != "built-in"
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(p.surface)
-                    .then(if (learned) Modifier.clickable { viewing = s } else Modifier)
+                    .then(if (removable) Modifier.clickable { viewing = s } else Modifier)
                     .padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     GkIcon(Gk.skills, null, 22.dp, p.text); Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(s.name + when { s.source == "built-in" -> "  · built-in"; learned -> "  · Learned"; else -> "" }, style = Type.label, color = p.text)
-                        Text(s.description + if (learned) "  (tap to read or delete)" else "", style = Type.small, color = p.text2, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(s.name + when { s.source == "built-in" -> "  · built-in"; learned -> "  · Learned"; else -> "  · Added" }, style = Type.label, color = p.text)
+                        Text(s.description + if (removable) "  (tap to read or delete)" else "", style = Type.small, color = p.text2, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
-                    Switch(s.enabled, { vm.g.skills.setEnabled(s.name, it) }, colors = SwitchDefaults.colors(checkedThumbColor = p.onAccent, checkedTrackColor = p.accent, uncheckedThumbColor = p.text2, uncheckedTrackColor = p.surface2, uncheckedBorderColor = p.border))
+                    AxionSwitch(s.enabled) { vm.g.skills.setEnabled(s.name, it) }
                 }
             }
         }
     }
 
     // v0.10: a learned skill can be read in full and deleted by the user.
+    // Any skill the user added (GitHub / upload / learned) can be read and deleted here; built-ins cannot.
     viewing?.let { s ->
-        val body = remember(s.name) { vm.g.skills.body(s.name).orEmpty() }
+        val learned = s.source == SkillRepo.LEARNED
+        val fullBody = remember(s.name) { vm.g.skills.body(s.name).orEmpty() }
+        val body = if (learned) fullBody else fullBody.take(2000) + if (fullBody.length > 2000) "\n…" else ""
         AlertDialog(onDismissRequest = { viewing = null }, containerColor = p.card, shape = RoundedCornerShape(10.dp),
-            title = { Text(s.name + " · Learned", style = Type.title, color = p.text) },
+            title = { Text(s.name + if (learned) " · Learned" else " · Added", style = Type.title, color = p.text) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    Text("X wrote this skill itself from work it did for you. It loads these instructions before that kind of task.", style = Type.small, color = p.text2)
+                    Text(if (learned) "X wrote this skill itself from work it did for you. It loads these instructions before that kind of task."
+                        else "Installed from ${s.source}. Deleting removes it from the list and from this phone.", style = Type.small, color = p.text2)
                     Spacer(Modifier.height(10.dp))
                     Text(body, style = Type.small.copy(fontSize = 13.sp, lineHeight = 19.sp), color = p.text)
                 }
             },
             confirmButton = {
-                TextButton(onClick = { vm.g.skills.deleteLearned(s.name); viewing = null }) { Text("Delete skill", color = p.danger) }
+                TextButton(onClick = { if (learned) vm.g.skills.deleteLearned(s.name) else vm.g.skills.remove(s.name); viewing = null }) { Text("Delete skill", color = p.danger) }
             },
             dismissButton = { TextButton(onClick = { viewing = null }) { Text("Close", color = p.text2) } })
     }

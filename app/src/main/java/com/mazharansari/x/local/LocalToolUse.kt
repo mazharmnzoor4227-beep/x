@@ -66,8 +66,18 @@ sealed interface ParsedCall {
  * plus a GBNF schema builder in C++ — a native change, deliberately not done here.
  */
 object LocalToolUse {
-    /** Tools the on-device model may call: file + shell only — the small model cannot drive the rest safely. */
-    val ALLOWED_TOOLS = setOf("read_file", "write_file", "list_files", "run_command", "shell_session")
+    /**
+     * Tools the on-device model may call. File + shell are the original set (the small model
+     * cannot drive the rest safely); memory_* joined in the 2026-11-20 memory fix, because
+     * LOCAL-mode action turns otherwise had no memory at all — no snapshot in the prompt and
+     * no way to save — while the same user in a cloud chat could remember things. The runner
+     * below injects the snapshot and a one-line save rule next to the tool list.
+     */
+    val ALLOWED_TOOLS = setOf("read_file", "write_file", "list_files", "run_command", "shell_session",
+        "memory_add", "memory_replace", "memory_remove", "memory_read",
+        // 2026-11-20 (blanket audit): the on-device model files ideas and goals too — the same
+        // save_idea / set_goal tools the cloud agent gets, so LOCAL-mode chats can file them.
+        "save_idea", "set_goal")
 
     fun approxTokens(chars: Int): Int = (chars + 3) / 4
 
@@ -84,6 +94,10 @@ object LocalToolUse {
         appendLine("FORMAT — a tool call: {\"tool\": \"read_file\", \"arguments\": {\"path\": \"notes.txt\"}}")
         appendLine("FORMAT — a final answer (no more tools needed): {\"answer\": \"your reply here\"}")
         appendLine("RULES: one JSON object only, no text outside it. Use tools for real work; answer directly when no tool is needed. Never invent file contents — read the file first.")
+        // BRAIN (2026-11-20): the same brain discipline, compressed for a small
+        // on-device model — short plan, one tool per turn, check each step,
+        // verify before saying done (or say "could not verify").
+        appendLine(com.mazharansari.x.agent.Brain.SMALL_MODEL_GUIDANCE)
     }
 
     /** Pulls the first balanced JSON object out of the reply (fenced ```json or bare, prose around it allowed). */
@@ -145,17 +159,49 @@ class LocalAgentRunner(
 
     suspend fun run(history: List<ChatItem>, user: UserItem): LocalAgentResult {
         val items = ArrayList<ChatItem>()
-        items += SystemItem(LocalToolUse.buildToolPrompt(byName.values.map { it.spec }) + "\n" + ScriptHint.ruleFor(user.text))
+        // Memory fix (2026-11-20): the local loop built its prompt from the tool list alone, so
+        // it never saw saved memory and never knew it could save. The snapshot rides here (read),
+        // and the save rule rides with it — the small model only saves when the user states a
+        // durable preference/fact or says "remember this", same rule as the cloud agent.
+        val memBlock = ctx.memory?.promptBlock().orEmpty()
+        val memRule = if (byName.containsKey("memory_add"))
+            "\nMEMORY: your saved memory is below (use it, personalise with it). If the user states a durable preference or fact, or says 'remember this', call memory_add first (target 'user' for who they are and how they like things, 'memory' for facts and lessons), then answer. Never save passwords, keys or one-off small talk." else ""
+        items += SystemItem(LocalToolUse.buildToolPrompt(byName.values.map { it.spec }) + "\n" + ScriptHint.ruleFor(user.text) + memRule + memBlock)
         items += history.takeLast(6)
         items += user
         val steps = ArrayList<LocalToolStep>()
         val gens = ArrayList<LocalGeneration>()
         var invalid = 0
+        // BRAIN (2026-11-20): same discipline as the cloud loop — the
+        // self-correction tracker refuses an identical re-issue of a failed
+        // call, and the verify gate stops a false "done" in the final answer.
+        // One verification round at most; the repeat() bound still caps the run.
+        val tracker = com.mazharansari.x.agent.Brain.CorrectionTracker()
+        val verifyGate = com.mazharansari.x.agent.Brain.VerifyGate { p ->
+            runCatching { ctx.workspace.resolve(p) }.getOrNull()?.let { it.isFile && it.length() > 0 } ?: false
+        }
+        var verificationPrompted = false
         repeat(maxSteps + 1) { round ->
             val gen = generate(items)
             gens += gen
             when (val p = LocalToolUse.parse(gen.text, byName.keys)) {
-                is ParsedCall.Final -> return LocalAgentResult(p.text, steps, gens)
+                is ParsedCall.Final -> {
+                    // BRAIN — verify-before-deliver: a final answer that claims a
+                    // file was made/saved/fixed/downloaded with no tool evidence
+                    // behind it gets one round to verify with a tool; after that
+                    // the honest "could not verify" note rides along instead of
+                    // a false success.
+                    val decision = verifyGate.check(p.text)
+                    if (decision is com.mazharansari.x.agent.Brain.Decision.NeedsVerification && !verificationPrompted) {
+                        verificationPrompted = true
+                        items += AssistantItem(gen.text)
+                        items += UserItem(com.mazharansari.x.agent.Brain.verificationNote(decision.claims))
+                    } else {
+                        val finalText = if (decision is com.mazharansari.x.agent.Brain.Decision.NeedsVerification)
+                            p.text + "\n\n" + com.mazharansari.x.agent.Brain.unverifiedDisclaimer(decision.claims) else p.text
+                        return LocalAgentResult(finalText, steps, gens)
+                    }
+                }
                 is ParsedCall.Invalid -> {
                     invalid++
                     if (invalid >= 2 || round == maxSteps) {
@@ -169,6 +215,24 @@ class LocalAgentRunner(
                 }
                 is ParsedCall.Call -> {
                     val tool = byName[p.tool]!!
+                    // BRAIN — never re-run the exact call that already failed:
+                    // refuse it without executing and make the model change
+                    // arguments or tool. After MAX_SELF_CORRECTIONS_PER_STEP
+                    // different failed approaches on this tool, stop honestly.
+                    // (No `continue` here: a repeat{} lambda is not a loop body,
+                    // so the refused branch just does nothing more this round.)
+                    if (tracker.isIdenticalRepeat(p.tool, p.args.toString())) {
+                        tracker.noteIdenticalRepeat(p.tool, p.args.toString())
+                        items += AssistantItem(gen.text)
+                        if (tracker.shouldGiveUp(p.tool)) {
+                            return LocalAgentResult(
+                                "I could not finish this — ${p.tool} kept failing in this run. What I tried: ${tracker.triedSummary()}.",
+                                steps, gens,
+                            )
+                        }
+                        items += ToolResultItem(UUID.randomUUID().toString(), p.tool,
+                            "That exact call already failed (${tracker.lastError(p.tool, p.args.toString())}). Do NOT repeat it: use different arguments or a different tool, or say what is blocking you.")
+                    } else {
                     val gate = ApprovalGate.requestFor(p.tool, p.args)
                     if (gate != null && !( !gate.hard && approvals?.matches(gate.pattern) == true)) {
                         val msg = "The command was NOT run: it needs the user's approval (${gate.summary}). Ask again from the chat and approve it there."
@@ -181,8 +245,17 @@ class LocalAgentRunner(
                     val out = runCatching { tool.run(p.args, ctx) }.getOrElse { ToolOutput("Tool error: ${it.message}", isError = true) }
                     sink?.step(step.copy(status = if (out.isError) StepStatus.ERROR else StepStatus.DONE, output = out.display.clip(20000), endedAt = System.currentTimeMillis(), exitCode = out.exitCode))
                     steps += LocalToolStep(p.tool, p.args.toString(), out.forModel, !out.isError)
+                    // BRAIN — record the attempt (tracker + verify gate) and feed
+                    // the model the real result. An empty "success" produced
+                    // nothing, so the model is told to check it, not move on.
+                    tracker.record(p.tool, p.args.toString(), !out.isError, out.forModel)
+                    verifyGate.noteToolCall(p.tool, p.args, out)
+                    val resultText = if (com.mazharansari.x.agent.Brain.isEmptySuccess(out))
+                        out.forModel + "\n[System note: that step returned no usable output — check what it actually produced before moving on; an empty result is not a done step.]"
+                    else out.forModel
                     items += AssistantItem(gen.text)
-                    items += ToolResultItem(UUID.randomUUID().toString(), p.tool, SecretScanner.scrub(out.forModel))
+                    items += ToolResultItem(UUID.randomUUID().toString(), p.tool, SecretScanner.scrub(resultText))
+                    }
                 }
             }
         }

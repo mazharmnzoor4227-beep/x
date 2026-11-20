@@ -9,14 +9,23 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import okhttp3.Call
 import okhttp3.Request
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import java.io.BufferedInputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.io.RandomAccessFile
 import java.security.MessageDigest
+import java.util.concurrent.Callable
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.GZIPInputStream
 
 /** Where the private Ubuntu lives and what the first-use download is. Numbers are the real file sizes (checked 1 Nov 2026). */
@@ -380,36 +389,446 @@ open class LinuxRuntime(private val ctx: Context) {
             "COMPOSER_ALLOW_SUPERUSER" to "1", "PIP_ROOT_USER_ACTION" to "ignore",
         )
 
-        fun downloadResumable(url: String, dest: File, expected: Long, progress: (Long, Long) -> Unit) {
-            dest.parentFile?.mkdirs()
+        // Parallel downloads (2026-11-20, model downloads were very slow): the old path was one
+        // connection, one stream, 64 KB buffer. A 1.1 GB model on a throttled connection crawls on
+        // one stream; 8 ranges in parallel use the connection properly. Tuning, all measured in
+        // ParallelDownloadTest against a per-connection-throttled local server:
+        // 8 connections, 256 KB buffers (8 x 256 KB = 2 MB heap, safe on a 4 GB phone).
+        const val DOWNLOAD_CONNECTIONS = 8
+        const val DOWNLOAD_BUFFER_BYTES = 256 * 1024
+        // Below this size one stream is fine (a probe + 8 connections would cost more than it saves).
+        const val PARALLEL_MIN_BYTES = 16L * 1024 * 1024
+        // A chunk smaller than this is not worth its own connection.
+        const val MIN_CHUNK_BYTES = 2L * 1024 * 1024
+        const val MAX_DOWNLOAD_ATTEMPTS = 6
+        const val CHUNK_MANIFEST_SUFFIX = ".chunks"
+        private val MANIFEST_MAGIC = byteArrayOf(0x58, 0x44, 0x4C, 0x31) // "XDL1"
+        private const val MANIFEST_HEADER_BYTES = 24L // magic(4) + total(8) + chunkSize(8) + count(4)
+
+        /** The chunk-manifest sidecar for a partial download: [dest] + ".chunks". */
+        fun manifestFile(dest: File): File = File(dest.absolutePath + CHUNK_MANIFEST_SUFFIX)
+
+        /** How a file of [total] bytes splits into at most [connections] ranges. Pure, unit-tested. */
+        internal data class ChunkPlan(val total: Long, val chunkSize: Long, val ranges: List<Pair<Long, Long>>)
+        internal fun chunkPlan(total: Long, connections: Int): ChunkPlan {
+            val n = connections.coerceAtMost(maxOf(1, (total / MIN_CHUNK_BYTES).toInt())).coerceAtLeast(1)
+            val size = (total + n - 1) / n
+            val ranges = (0 until n).map { i -> val s = i * size; s to minOf(total, s + size) }
+            return ChunkPlan(total, size, ranges)
+        }
+
+        /**
+         * Per-chunk progress for a parallel download. [doneThrough] is the absolute file offset up
+         * to which chunk i's bytes are on disk; chunk i owns [start(i), end(i)) and only ever
+         * writes inside it, sequentially from its resume point. A chunk counts as done only when
+         * its bytes are flushed to disk (fd.sync) and its manifest entry is persisted after that,
+         * so a crash mid-chunk re-downloads that chunk and never corrupts the file. The manifest
+         * is the only record of which ranges are valid: a parallel partial's file LENGTH is not
+         * (later chunks write at high offsets first, so length can read near-total with holes).
+         * The whole-file SHA-256 the callers check afterwards is the final backstop.
+         */
+        private class ChunkManifest(val total: Long, val chunkSize: Long, val doneThrough: LongArray) {
+            val count: Int get() = doneThrough.size
+            fun start(i: Int): Long = i * chunkSize
+            fun end(i: Int): Long = minOf(total, (i + 1) * chunkSize)
+            @Synchronized fun getDone(i: Int): Long = doneThrough[i]
+            @Synchronized fun setDone(i: Int, pos: Long) { doneThrough[i] = pos }
+            @Synchronized fun isComplete(): Boolean = (0 until count).all { doneThrough[it] >= end(it) }
+            @Synchronized fun doneBytes(): Long = (0 until count).sumOf { (doneThrough[it] - start(it)).coerceAtLeast(0) }
+        }
+
+        /** One open handle on a manifest file; entry writes are single 8-byte writes, fsync only on chunk completion. */
+        private class ManifestStore(file: File, private val manifest: ChunkManifest) : java.io.Closeable {
+            private val raf = RandomAccessFile(file, "rw")
+            @Synchronized fun update(i: Int, pos: Long) {
+                raf.seek(MANIFEST_HEADER_BYTES + 8L * i)
+                raf.writeLong(pos)
+            }
+            @Synchronized fun sync() { raf.fd.sync() }
+            override fun close() { runCatching { raf.close() } }
+        }
+
+        private fun readManifest(dest: File): ChunkManifest? {
+            val f = manifestFile(dest)
+            if (!f.isFile) return null
+            return try {
+                DataInputStream(f.inputStream().buffered()).use { d ->
+                    val magic = ByteArray(4).also { d.readFully(it) }
+                    if (!magic.contentEquals(MANIFEST_MAGIC)) return null
+                    val total = d.readLong()
+                    val chunkSize = d.readLong()
+                    val count = d.readInt()
+                    if (total <= 0 || chunkSize <= 0 || count < 1 || count > 64) return null
+                    if ((count - 1) * chunkSize >= total || count * chunkSize < total) return null
+                    if (f.length() != MANIFEST_HEADER_BYTES + 8L * count) return null
+                    val done = LongArray(count) { i ->
+                        val v = d.readLong()
+                        val s = i * chunkSize
+                        val e = minOf(total, s + chunkSize)
+                        if (v < s || v > e) return null
+                        v
+                    }
+                    ChunkManifest(total, chunkSize, done)
+                }
+            } catch (_: Exception) { null }
+        }
+
+        private fun writeManifestFile(file: File, man: ChunkManifest) {
+            file.parentFile?.mkdirs()
+            DataOutputStream(file.outputStream().buffered()).use { d ->
+                d.write(MANIFEST_MAGIC)
+                d.writeLong(man.total); d.writeLong(man.chunkSize); d.writeInt(man.count)
+                for (i in 0 until man.count) d.writeLong(man.doneThrough[i])
+                d.flush()
+            }
+        }
+
+        /**
+         * Loads the manifest for a parallel resume, or builds one from a legacy single-stream
+         * partial (a prefix: every byte below its length is valid). A manifest whose entries
+         * claim bytes past the file's end (external truncation) is discarded the same way.
+         */
+        private fun loadOrCreateManifest(dest: File, plan: ChunkPlan): ChunkManifest {
+            readManifest(dest)?.let { old ->
+                if (old.total == plan.total && old.chunkSize == plan.chunkSize && old.count == plan.ranges.size) {
+                    val len = if (dest.exists()) dest.length() else 0L
+                    if ((0 until old.count).all { old.getDone(it) <= len }) return old
+                }
+            }
+            val have = if (dest.exists()) dest.length() else 0L
+            val fresh = ChunkManifest(plan.total, plan.chunkSize, LongArray(plan.ranges.size) { i ->
+                minOf(maxOf(have, plan.ranges[i].first), plan.ranges[i].second)
+            })
+            writeManifestFile(manifestFile(dest), fresh)
+            return fresh
+        }
+
+        private class ProbeResult(val resolvedUrl: String, val total: Long, val rangeSupported: Boolean)
+
+        /**
+         * One cheap request that answers three questions: where does this URL really point
+         * (the Hugging Face resolve URL 302-redirects to a signed CDN URL, and re-resolving
+         * costs ~1 s plus resolver rate-limit budget per chunk, so chunks reuse this URL),
+         * how big is the file, and does the server honour Range. A 1-byte Range GET: the
+         * CDN answers 206 with Content-Range "bytes 0-0/<total>"; anything else means no Range.
+         */
+        private fun probe(url: String, expected: Long): ProbeResult {
+            val call = Http.download.newCall(
+                Request.Builder().url(url).header("User-Agent", Http.UA).header("Range", "bytes=0-0").build()
+            )
+            call.execute().use { r ->
+                check(r.isSuccessful) { "Download failed (HTTP ${r.code})" }
+                val resolved = r.request.url.toString()
+                if (r.code == 206) {
+                    val total = r.header("Content-Range")?.substringAfter('/', "")?.toLongOrNull() ?: -1L
+                    return ProbeResult(resolved, total, true)
+                }
+                return ProbeResult(resolved, expected, false)
+            }
+        }
+
+        /** A failed chunk attempt waits this long (times the attempt number); interruptible by cancel. */
+        private fun sleepBackoff(attempt: Int, isCancelled: () -> Boolean) {
+            val budgetMs = 1500L * attempt
+            var slept = 0L
+            while (slept < budgetMs) {
+                if (isCancelled()) throw CancellationException("Download cancelled")
+                try { Thread.sleep(minOf(100L, budgetMs - slept)) } catch (_: InterruptedException) { Thread.currentThread().interrupt(); throw CancellationException("Download cancelled") }
+                slept += 100
+            }
+        }
+
+        /** The server stopped honouring Range mid-download: abort the chunks, fall back to one stream. */
+        private class FallbackToSingleStream : Exception("Server stopped honouring Range requests")
+
+        /**
+         * Downloads [index]'s range from [urlRef] (the probe's resolved CDN URL) into [dest] at the
+         * right offset, resuming from the manifest. Up to 6 attempts per chunk, same discipline as
+         * the old whole-download retries, but a failed chunk retries only its own range: finished
+         * chunks are never re-downloaded. A 401/403 means the signed CDN URL expired, so the URL
+         * is re-resolved once and the chunk retries. A non-206 answer means Range went away: every
+         * other chunk's call is cancelled and the whole download falls back to one stream.
+         */
+        private fun downloadChunk(
+            urlRef: AtomicReference<String>, refreshUrl: () -> Unit, dest: File,
+            manifest: ChunkManifest, store: ManifestStore, index: Int,
+            isCancelled: () -> Boolean, calls: ConcurrentHashMap<Int, Call>,
+            rangeUnsupported: AtomicBoolean, report: () -> Unit,
+        ) {
+            val start = manifest.start(index)
+            val end = manifest.end(index)
             var attempt = 0
             while (true) {
-                val have = if (dest.exists()) dest.length() else 0L
-                if (expected > 0 && have == expected) return
-                if (expected > 0 && have > expected) dest.delete()
+                if (isCancelled()) throw CancellationException("Download cancelled")
+                val from = manifest.getDone(index)
+                if (from >= end) return
                 try {
-                    val rb = Request.Builder().url(url).header("User-Agent", Http.UA)
-                    if (have > 0) rb.header("Range", "bytes=$have-")
-                    Http.download.newCall(rb.build()).execute().use { r ->
-                        check(r.isSuccessful) { "Download failed (HTTP ${r.code})" }
-                        val append = r.code == 206
-                        val total = if (expected > 0) expected else (r.body!!.contentLength() + if (append) have else 0)
-                        var done = if (append) have else 0L
-                        FileOutputStream(dest, append).use { o ->
-                            val src = r.body!!.byteStream(); val buf = ByteArray(64 * 1024); var last = 0L
-                            while (true) {
-                                val n = src.read(buf); if (n < 0) break
-                                o.write(buf, 0, n); done += n
-                                if (done - last > 512 * 1024) { progress(done, total); last = done }
+                    val call = Http.download.newCall(
+                        Request.Builder().url(urlRef.get()).header("User-Agent", Http.UA)
+                            .header("Range", "bytes=$from-${end - 1}").build()
+                    )
+                    calls[index] = call
+                    try {
+                        call.execute().use { r ->
+                            if (r.code == 401 || r.code == 403) {
+                                refreshUrl()
+                                throw IOException("CDN link expired (HTTP ${r.code}); re-resolved")
                             }
+                            if (r.code != 206) {
+                                rangeUnsupported.set(true)
+                                calls.values.forEach { runCatching { it.cancel() } }
+                                throw FallbackToSingleStream()
+                            }
+                            val range = r.header("Content-Range").orEmpty()
+                            if (range.isNotEmpty() && !range.startsWith("bytes $from-")) throw IOException("Server answered the wrong range ($range)")
+                            RandomAccessFile(dest, "rw").use { f ->
+                                f.seek(from)
+                                var pos = from
+                                val src = r.body!!.byteStream()
+                                val buf = ByteArray(DOWNLOAD_BUFFER_BYTES)
+                                while (true) {
+                                    if (isCancelled()) throw CancellationException("Download cancelled")
+                                    val n = src.read(buf)
+                                    if (n < 0) break
+                                    f.write(buf, 0, n)
+                                    pos += n
+                                    manifest.setDone(index, pos)
+                                    store.update(index, pos)
+                                    report()
+                                }
+                                if (pos != end) throw IOException("Chunk ended early ($pos of $end bytes)")
+                                f.fd.sync()
+                            }
+                            manifest.setDone(index, end)
+                            store.update(index, end)
+                            store.sync()
+                            report()
                         }
-                        progress(done, total)
+                    } finally {
+                        calls.remove(index)
                     }
-                    if (expected <= 0 || dest.length() == expected) return
-                } catch (e: java.io.IOException) {
-                    if (++attempt >= 6) throw IllegalStateException("Download stopped: ${e.message}. Check the internet and tap install again — it resumes.")
-                    Thread.sleep(1500L * attempt)
+                    return
+                } catch (e: CancellationException) { throw e }
+                  catch (e: FallbackToSingleStream) { throw e }
+                  catch (e: IOException) {
+                    if (isCancelled()) throw CancellationException("Download cancelled")
+                    if (++attempt >= MAX_DOWNLOAD_ATTEMPTS) throw e
+                    sleepBackoff(attempt, isCancelled)
                 }
+            }
+        }
+
+        /**
+         * The parallel half of [downloadResumable]. Returns true on success, false when the server
+         * stopped honouring Range (the caller falls back to one stream). Throws CancellationException
+         * on cancel — every chunk's live call is cancelled first, so a blocked read aborts at once —
+         * and IllegalStateException when a chunk exhausts its 6 attempts. The partial file plus its
+         * manifest stay behind on failure, so the next run resumes the unfinished chunks.
+         */
+        private fun downloadParallel(
+            url: String, dest: File, total: Long, connections: Int,
+            isCancelled: () -> Boolean, progress: (Long, Long) -> Unit,
+        ): Boolean {
+            val plan = chunkPlan(total, connections)
+            val manifest = loadOrCreateManifest(dest, plan)
+            val calls = ConcurrentHashMap<Int, Call>()
+            val rangeUnsupported = AtomicBoolean(false)
+            val urlRef = AtomicReference(url)
+            val resolveLock = Any()
+            fun refreshUrl() {
+                synchronized(resolveLock) {
+                    val fresh = probe(url, total)
+                    if (fresh.total != total) throw IOException("Server file changed size while downloading")
+                    urlRef.set(fresh.resolvedUrl)
+                }
+            }
+            val progressLock = Any()
+            var lastReported = 0L
+            fun report() {
+                val done = manifest.doneBytes()
+                synchronized(progressLock) {
+                    if (done > lastReported) { lastReported = done; progress(done, total) }
+                }
+            }
+            val pool = Executors.newFixedThreadPool(plan.ranges.size) { r -> Thread(r, "x-dl-chunk").apply { isDaemon = true } }
+            val store = ManifestStore(manifestFile(dest), manifest)
+            try {
+                val futures = plan.ranges.indices.map { i ->
+                    pool.submit(Callable {
+                        downloadChunk(urlRef, ::refreshUrl, dest, manifest, store, i, isCancelled, calls, rangeUnsupported, ::report)
+                    })
+                }
+                pool.shutdown()
+                while (true) {
+                    if (isCancelled()) {
+                        calls.values.forEach { runCatching { it.cancel() } }
+                        pool.shutdownNow()
+                        throw CancellationException("Download cancelled")
+                    }
+                    if (rangeUnsupported.get()) {
+                        calls.values.forEach { runCatching { it.cancel() } }
+                        pool.shutdownNow()
+                        return false
+                    }
+                    if (futures.all { it.isDone }) break
+                    try { Thread.sleep(50) } catch (_: InterruptedException) { Thread.currentThread().interrupt(); throw CancellationException("Download cancelled") }
+                }
+                var failure: Throwable? = null
+                for (f in futures) {
+                    try { f.get() } catch (e: java.util.concurrent.ExecutionException) { if (failure == null) failure = e.cause ?: e }
+                }
+                if (failure != null) {
+                    if (failure is CancellationException) throw failure
+                    throw IllegalStateException("Download stopped: ${failure.message}. Check the internet and tap install again — it resumes.")
+                }
+                if (dest.length() != total) throw IllegalStateException("Download stopped: got ${dest.length()} of $total bytes. Tap install again — it resumes.")
+                manifestFile(dest).delete()
+                progress(total, total)
+                return true
+            } finally {
+                runCatching { store.close() }
+                pool.shutdownNow()
+            }
+        }
+
+        /**
+         * Downloads a file, resuming from a partial file when one exists. The entry point keeps its
+         * contract: same arguments (plus optional [connections] / [isCancelled], both defaulted so
+         * every existing caller is unchanged), same progress callback (monotonic, ends at the total),
+         * same resume behaviour, same final size check, same 6-retry discipline, same error text.
+         * The one fix callers can feel: cancel now stops the download at once (the old blocking
+         * read could stall up to the 120 s read timeout), via [isCancelled] — LocalModels passes
+         * its job's state; the default is the thread's interrupt flag.
+         *
+         * What made model downloads slow, measured 2026-11-20: this was one connection, one
+         * stream, 64 KB buffer. The Hugging Face resolve URL 302-redirects (measured 0.7–1.1 s
+         * per resolve from this sandbox) to a signed CloudFront URL on us.aws.cdn.hf.co, which
+         * answers 206 / Accept-Ranges: bytes — so the file CAN be fetched in parallel ranges,
+         * and the resolve only needs paying once. There is no verified faster host for these
+         * files (no documented HF mirror; hf-mirror.com is unofficial and unverified, so it is
+         * NOT used) — the speedup is parallelism plus resolve-once, not a different host. The
+         * sandbox proxy caps at ~2–6 MB/s either way, so sandbox speed is not phone speed and
+         * no phone speedup is claimed here; ParallelDownloadTest proves the mechanism against a
+         * per-connection-throttled local server instead.
+         */
+        fun downloadResumable(
+            url: String, dest: File, expected: Long,
+            connections: Int = DOWNLOAD_CONNECTIONS,
+            isCancelled: () -> Boolean = { Thread.currentThread().isInterrupted },
+            progress: (Long, Long) -> Unit,
+        ) {
+            dest.parentFile?.mkdirs()
+            // A chunk manifest from an earlier parallel attempt describes which byte ranges are on
+            // disk. If it belongs to a different file (the expected size changed) or its file is
+            // gone, it is stale: drop it rather than trusting it.
+            val prior = readManifest(dest)
+            if (prior != null && !dest.exists()) manifestFile(dest).delete()
+            else if (prior != null && expected > 0 && prior.total != expected) { dest.delete(); manifestFile(dest).delete() }
+            if (expected > 0 && dest.exists()) {
+                val len = dest.length()
+                if (len > expected) { dest.delete(); manifestFile(dest).delete() }
+                // A parallel partial can reach the full length while still having holes, so the
+                // length alone only proves completion when there is no manifest or it agrees.
+                else if (len == expected && (prior == null || prior.isComplete())) return
+            }
+            if (expected >= PARALLEL_MIN_BYTES && connections > 1) {
+                var attempt = 0
+                while (true) {
+                    try {
+                        val probe = probe(url, expected)
+                        if (probe.rangeSupported && probe.total == expected) {
+                            if (downloadParallel(probe.resolvedUrl, dest, expected, connections, isCancelled, progress)) return
+                            break // the server stopped honouring Range mid-download: one stream instead
+                        }
+                        break // no Range support (or a different size): the old single-stream path
+                    } catch (e: IOException) {
+                        if (isCancelled()) throw CancellationException("Download cancelled")
+                        if (++attempt >= MAX_DOWNLOAD_ATTEMPTS) throw IllegalStateException("Download stopped: ${e.message}. Check the internet and tap install again — it resumes.")
+                        sleepBackoff(attempt, isCancelled)
+                    }
+                }
+            }
+            downloadSingleStream(url, dest, expected, isCancelled, progress)
+        }
+
+        /**
+         * The old single-stream path, kept for small files, unknown sizes and servers without
+         * Range support. Same resume (Range: bytes=have-), same 6 retries, same error text — plus
+         * a 256 KB buffer (was 64 KB), a fail-fast check when the server's stated size disagrees
+         * with [expected] (the old code downloaded the whole file up to 3 times before noticing),
+         * and a guard against the old endless loop on a persistent size mismatch. A partial
+         * written by the parallel path is NOT a prefix (later ranges may already be on disk), so
+         * resuming it as one stream would leave holes: it is deleted and started over instead.
+         * Cancel is prompt here too: a watcher thread cancels the live call as soon as
+         * [isCancelled] turns true, so the blocked read fails at once instead of after 120 s.
+         */
+        private fun downloadSingleStream(
+            url: String, dest: File, expected: Long,
+            isCancelled: () -> Boolean, progress: (Long, Long) -> Unit,
+        ) {
+            dest.parentFile?.mkdirs()
+            val man = readManifest(dest)
+            if (man != null && !man.isComplete()) { dest.delete(); manifestFile(dest).delete() }
+            var attempt = 0
+            var sizeMismatches = 0
+            val callRef = AtomicReference<Call?>(null)
+            val stopWatcher = AtomicBoolean(false)
+            val watcher = Thread {
+                while (!stopWatcher.get()) {
+                    if (isCancelled()) { callRef.get()?.cancel(); return@Thread }
+                    try { Thread.sleep(100) } catch (_: InterruptedException) { return@Thread }
+                }
+            }.apply { isDaemon = true; start() }
+            try {
+                while (true) {
+                    if (isCancelled()) throw CancellationException("Download cancelled")
+                    val have = if (dest.exists()) dest.length() else 0L
+                    if (expected > 0 && have == expected) { manifestFile(dest).delete(); return }
+                    if (expected > 0 && have > expected) dest.delete()
+                    try {
+                        val rb = Request.Builder().url(url).header("User-Agent", Http.UA)
+                        if (have > 0) rb.header("Range", "bytes=$have-")
+                        val call = Http.download.newCall(rb.build())
+                        callRef.set(call)
+                        call.execute().use { r ->
+                            check(r.isSuccessful) { "Download failed (HTTP ${r.code})" }
+                            val append = r.code == 206
+                            // Fail fast when the server's file is a different size than expected,
+                            // instead of downloading it and looping (the old behaviour).
+                            val serverTotal = when {
+                                r.code == 206 -> r.header("Content-Range")?.substringAfter('/', "")?.toLongOrNull() ?: -1L
+                                else -> r.body?.contentLength() ?: -1L
+                            }
+                            if (expected > 0 && serverTotal > 0 && serverTotal != expected) {
+                                throw IllegalStateException("Download stopped: the file on the server is $serverTotal bytes, expected $expected.")
+                            }
+                            val total = if (expected > 0) expected else (r.body!!.contentLength() + if (append) have else 0)
+                            var done = if (append) have else 0L
+                            FileOutputStream(dest, append).use { o ->
+                                val src = r.body!!.byteStream(); val buf = ByteArray(DOWNLOAD_BUFFER_BYTES); var last = 0L
+                                while (true) {
+                                    val n = src.read(buf); if (n < 0) break
+                                    o.write(buf, 0, n); done += n
+                                    if (done - last > 512 * 1024) {
+                                        if (isCancelled()) throw CancellationException("Download cancelled")
+                                        progress(done, total); last = done
+                                    }
+                                }
+                            }
+                            progress(done, total)
+                        }
+                        callRef.set(null)
+                        if (expected <= 0 || dest.length() == expected) { manifestFile(dest).delete(); return }
+                        if (++sizeMismatches >= 3) throw IllegalStateException("Download stopped: the file on the server is ${dest.length()} bytes, expected $expected.")
+                    } catch (e: CancellationException) { throw e }
+                      catch (e: IOException) {
+                        if (isCancelled()) throw CancellationException("Download cancelled")
+                        if (++attempt >= MAX_DOWNLOAD_ATTEMPTS) throw IllegalStateException("Download stopped: ${e.message}. Check the internet and tap install again — it resumes.")
+                        sleepBackoff(attempt, isCancelled)
+                    }
+                }
+            } finally {
+                stopWatcher.set(true)
             }
         }
 

@@ -183,6 +183,40 @@ object ScheduleEngine {
         }
     }
 
+    /**
+     * Idea store feed (2026-11-20): arms the daily refresh — one small
+     * batch of new ideas a day, first fire at the next 07:00 local time,
+     * then every 24 hours. KEEP: re-arming on app start never cancels an
+     * already-enqueued refresh (same rule as the schedules above), and the
+     * worker runs without the user opening the app. No network constraint
+     * on purpose, like a scheduled run: on-device/local models can
+     * generate with no network at all.
+     */
+    fun armIdeaFeed(ctx: Context) {
+        val req = PeriodicWorkRequestBuilder<IdeaFeedWorker>(24, TimeUnit.HOURS)
+            .setInitialDelay(com.mazharansari.x.data.IdeaFeed.millisUntilNextMorning(System.currentTimeMillis()), TimeUnit.MILLISECONDS)
+            .addTag(IdeaFeedWorker.WORK_NAME_DAILY)
+            .build()
+        runCatching {
+            WorkManager.getInstance(ctx).enqueueUniquePeriodicWork(
+                IdeaFeedWorker.WORK_NAME_DAILY, ExistingPeriodicWorkPolicy.KEEP, req)
+        }
+    }
+
+    /**
+     * Manual refresh from the Ideas screen ("New ideas" / "Generate now").
+     * One-time work, REPLACE so a second tap re-runs instead of queuing
+     * behind the first. The worker marks the run manual, so it sends no
+     * notification — the user is looking at the screen.
+     */
+    fun refreshIdeaFeedNow(ctx: Context) {
+        val data = Data.Builder().putBoolean(IdeaFeedWorker.KEY_MANUAL, true).build()
+        val req = OneTimeWorkRequestBuilder<IdeaFeedWorker>().setInputData(data).addTag(IdeaFeedWorker.WORK_NAME_NOW).build()
+        runCatching {
+            WorkManager.getInstance(ctx).enqueueUniqueWork(IdeaFeedWorker.WORK_NAME_NOW, ExistingWorkPolicy.REPLACE, req)
+        }
+    }
+
     /** Cancels both triggers for a schedule: its WorkManager job, its exact alarm, and any exact-fired work. */
     fun disarm(ctx: Context, id: String) {
         runCatching { WorkManager.getInstance(ctx).cancelUniqueWork(workName(id)) }
@@ -231,5 +265,8 @@ object ScheduleEngine {
             val edited = e.anchorEpochMs != 0L && !anchorMatches(e, e.anchorEpochMs)
             enqueue(ctx, e, target, replace = edited)
         }
+        // Idea store feed: armed on every app start, KEEP — the daily
+        // refresh is independent of the user's own schedules above.
+        runCatching { armIdeaFeed(ctx) }
     }
 }

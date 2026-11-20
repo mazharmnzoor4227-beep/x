@@ -29,6 +29,9 @@ import com.mazharansari.x.ui.Route
 import com.mazharansari.x.ui.components.*
 import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
+import androidx.compose.ui.platform.LocalContext
+import com.mazharansari.x.data.IdeaFeed
+import com.mazharansari.x.work.ScheduleEngine
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -150,11 +153,46 @@ fun FeedScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit) {
 
 // ── Ideas ───────────────────────────────────────────────────────────────────
 
+/** Idea store section header. Kept as a constant so tests can pin the wording. */
+const val IDEAS_STORE_SECTION = "IDEA STORE — NEW EVERY DAY"
+/** The user's own ideas section header. Kept as a constant so tests can pin the wording. */
+const val IDEAS_YOURS_SECTION = "YOUR IDEAS"
+/** Honest empty state for the store: no seed or demo ideas ever exist — the first batch only arrives from a real daily refresh. */
+const val IDEAS_STORE_EMPTY = "No store ideas yet — the first batch arrives with the next daily refresh."
+/** Empty state for the user's own ideas. */
+const val IDEAS_YOURS_EMPTY = "No ideas yet — ask X to save an idea from any chat."
+
+/**
+ * Tap-to-execute (Idea store, 2026-11-20): the ONLY way an idea becomes
+ * work. Opens a fresh X chat and SENDS the idea as the first message —
+ * the same newChat + send path [ChatViewModel.createProject] uses for a
+ * template's first prompt — so X Bot receives the idea verbatim and can
+ * build, plan or write whatever the user then asks. Back returns to the
+ * chat, where the run is already going.
+ */
+private fun startWorkOnIdea(vm: ChatViewModel, ideaText: String, back: () -> Unit) {
+    vm.newChat()
+    vm.send(IdeaFeed.startWorkMessage(ideaText))
+    back()
+}
+
 @Composable
 fun IdeasScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit) {
     val p = P
     val ideas by vm.g.ideas.ideas.collectAsState()
+    val refreshState by vm.g.ideas.refreshState.collectAsState()
+    val ctx = LocalContext.current
     var area by remember { mutableStateOf("You") }
+    // Store feed vs the user's own ideas: two separate lists, never mixed
+    // into one undifferentiated list. Ideas saved before the feed existed
+    // decode with source "user", so they stay the user's own.
+    val storeIdeas = remember(ideas) { ideas.filter { it.source == IdeaFeed.SOURCE_STORE } }
+    val userIdeas = remember(ideas) { ideas.filter { it.source != IdeaFeed.SOURCE_STORE } }
+    // A refresh is in flight when an attempt started after the last terminal state.
+    val refreshing = refreshState.lastAttemptAtMs > refreshState.lastSuccessAtMs &&
+        refreshState.lastAttemptAtMs > refreshState.lastFailureAtMs
+    val newToday = remember(storeIdeas) { storeIdeas.count { IdeaFeed.isNewToday(it.createdAt, System.currentTimeMillis()) } }
+    val showFailure = !refreshing && refreshState.lastFailureAtMs > refreshState.lastSuccessAtMs && refreshState.lastError.isNotBlank()
     Column(Modifier.fillMaxSize().background(p.bg)) {
         ScreenHeader("Ideas", back)
         AddRow("Save an idea…", "Save") { vm.g.ideas.add(it, area) }
@@ -165,11 +203,75 @@ fun IdeasScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit) 
                 }
             }
         }
-        if (ideas.isEmpty()) {
-            WorkspaceEmpty(Gk.sparkles, "No ideas yet", "Ask X to save an idea from any chat.", "New chat") { vm.newChat(); back() }
-        } else {
-            LazyColumn(Modifier.weight(1f).navigationBarsPadding(), contentPadding = PaddingValues(bottom = 32.dp)) {
-                ideas.groupBy { it.area }.forEach { (group, list) ->
+        LazyColumn(Modifier.weight(1f).navigationBarsPadding(), contentPadding = PaddingValues(bottom = 32.dp)) {
+            // ── Idea store: new ideas first, with arrival date ──
+            item {
+                Text(IDEAS_STORE_SECTION, style = Type.label.copy(letterSpacing = 0.08.sp), color = p.textSecondary, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp))
+            }
+            item {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            when {
+                                refreshing -> "Getting new ideas…"
+                                refreshState.everSucceeded -> "Updated ${IdeaFeed.dayLabel(refreshState.lastSuccessAtMs)}" +
+                                    if (newToday > 0) " · $newToday new today" else ""
+                                else -> "Not updated yet"
+                            },
+                            style = Type.small.copy(fontSize = 14.sp), color = p.textSecondary,
+                        )
+                        if (showFailure) {
+                            Text("Couldn't refresh: ${refreshState.lastError}", style = Type.small.copy(fontSize = 13.sp, lineHeight = 18.sp), color = p.danger, modifier = Modifier.padding(top = 4.dp))
+                        }
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        Modifier.height(36.dp).clip(RoundedCornerShape(8.dp))
+                            .background(if (refreshing) p.surfaceSunken else p.accent)
+                            .clickable(enabled = !refreshing) { ScheduleEngine.refreshIdeaFeedNow(ctx) }
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(if (refreshing) "Refreshing…" else "New ideas", style = Type.small.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium), color = if (refreshing) p.muted else p.onAccent)
+                    }
+                }
+            }
+            if (storeIdeas.isEmpty() && !refreshing) {
+                item {
+                    WorkspaceCard {
+                        Text(IDEAS_STORE_EMPTY, style = Type.small.copy(fontSize = 14.sp, lineHeight = 20.sp), color = p.textSecondary)
+                        Spacer(Modifier.height(12.dp))
+                        Box(
+                            Modifier.height(48.dp).clip(RoundedCornerShape(8.dp)).background(p.accent)
+                                .clickable { ScheduleEngine.refreshIdeaFeedNow(ctx) }.padding(horizontal = 20.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Generate now", style = Type.small.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium), color = p.onAccent)
+                        }
+                    }
+                }
+            } else {
+                items(storeIdeas, key = { it.id }) { idea ->
+                    WorkspaceCard(onClick = { startWorkOnIdea(vm, idea.text, back) }) {
+                        Text(idea.text, style = Type.small.copy(fontSize = 15.sp), color = p.text)
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                            Text("${idea.area} · ${IdeaFeed.dayLabel(idea.createdAt)}", style = Type.tiny, color = p.muted, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { startWorkOnIdea(vm, idea.text, back) }) { Text("Start work", color = p.accent) }
+                        }
+                    }
+                }
+            }
+            // ── The user's own ideas (saved by hand or by the agent) ──
+            item {
+                Text(IDEAS_YOURS_SECTION, style = Type.label.copy(letterSpacing = 0.08.sp), color = p.textSecondary, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp))
+            }
+            if (userIdeas.isEmpty()) {
+                item {
+                    Text(IDEAS_YOURS_EMPTY, style = Type.small.copy(fontSize = 14.sp, lineHeight = 20.sp), color = p.textSecondary,
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 8.dp))
+                }
+            } else {
+                userIdeas.groupBy { it.area }.forEach { (group, list) ->
                     item { Text(group.uppercase(), style = Type.label.copy(letterSpacing = 0.08.sp), color = p.textSecondary, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp)) }
                     items(list, key = { it.id }) { idea ->
                         WorkspaceCard(onClick = { vm.newChat(); vm.draft = idea.text; back() }) {
@@ -178,7 +280,10 @@ fun IdeasScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Unit) 
                                 TextButton(onClick = { vm.g.ideas.toggleDone(idea.id) }) { Text(if (idea.done) "Done" else "Mark done", color = p.accent) }
                                 TextButton(onClick = { vm.g.ideas.remove(idea.id) }) { Text("Delete", color = p.danger) }
                             }
-                            Text(fmtTime(idea.createdAt), style = Type.tiny, color = p.muted, modifier = Modifier.padding(top = 4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                                Text(fmtTime(idea.createdAt), style = Type.tiny, color = p.muted, modifier = Modifier.weight(1f))
+                                TextButton(onClick = { startWorkOnIdea(vm, idea.text, back) }) { Text("Start work", color = p.accent) }
+                            }
                         }
                     }
                 }

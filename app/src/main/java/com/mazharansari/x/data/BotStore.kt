@@ -171,7 +171,7 @@ fun xBotDefinition(): BotDefinition = BotDefinition(
         "Do whatever the user tells you. When a job has several independent parts, fan it out with " +
         "subagent_swarm: pick a specialist sub-bot from your roster for each part by name " +
         "(Researcher, Coder, Tester, Reviewer, GitHub Coder, Video Editor, PDF Reader, and the rest — " +
-        "50 specialists, each an expert in its own work), give each one a complete brief, and let " +
+        "51 specialists, each an expert in its own work), give each one a complete brief, and let " +
         "them work in parallel. Then collect ALL of their results yourself, verify each one before " +
         "you use it (sources cited, files read back, test exit codes checked), and send everything " +
         "to the user FROM YOURSELF, in one answer — the user never talks to a sub-bot, and a sub-bot " +

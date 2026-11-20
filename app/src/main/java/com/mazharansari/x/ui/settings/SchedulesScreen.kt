@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
@@ -86,7 +85,7 @@ fun SchedulesScreen(vm: ChatViewModel, back: () -> Unit) {
                             Text(digest?.let { "Every day at ${"%02d:%02d".format(it.hour, it.minute)} — overnight research, repo CI status and quota left, as a new chat." } ?: "Overnight research, repo CI status and quota left, as a new chat every morning.", style = Type.tiny, color = p.text2)
                             if (digest != null && digest.lastRunAt > 0) Text("Last briefing ${fmt.format(Date(digest.lastRunAt))}: ${digest.lastStatus.ifBlank { "done" }}", style = Type.tiny, color = p.text3)
                         }
-                        Switch(checked = digest?.enabled == true, onCheckedChange = { on ->
+                        AxionSwitch(digest?.enabled == true) { on ->
                             if (on) {
                                 val e = DigestBuilder.digestEntry()
                                 store.add(e)
@@ -94,7 +93,7 @@ fun SchedulesScreen(vm: ChatViewModel, back: () -> Unit) {
                             } else {
                                 digest?.let { store.remove(it.id); ScheduleEngine.disarm(ctx, it.id) }
                             }
-                        })
+                        }
                     }
                     if (digest != null) {
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -150,26 +149,26 @@ fun SchedulesScreen(vm: ChatViewModel, back: () -> Unit) {
                                 if (e.requireNetwork) Text("Runs only when the phone is online.", style = Type.tiny, color = p.text3)
                             }
                             TextButton(onClick = { deleting = e }) { Text("Delete", color = p.danger) }
-                            Switch(checked = e.enabled, onCheckedChange = { on ->
+                            AxionSwitch(e.enabled) { on ->
                                 store.setEnabled(e.id, on)
                                 val fresh = store.get(e.id) ?: e.copy(enabled = on)
                                 if (on) ScheduleEngine.arm(ctx, fresh, store) else ScheduleEngine.disarm(ctx, e.id)
-                            })
+                            }
                         }
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("Needs network", style = Type.tiny, color = p.text2)
-                            Switch(checked = e.requireNetwork, onCheckedChange = { on ->
+                            AxionSwitch(e.requireNetwork) { on ->
                                 store.setRequireNetwork(e.id, on)
                                 val fresh = store.get(e.id) ?: e.copy(requireNetwork = on)
                                 if (fresh.enabled) ScheduleEngine.arm(ctx, fresh, store)
-                            })
+                            }
                             Spacer(Modifier.width(16.dp))
                             Text("Exact time", style = Type.tiny, color = p.text2)
-                            Switch(checked = e.exactTiming, onCheckedChange = { on ->
+                            AxionSwitch(e.exactTiming) { on ->
                                 store.setExactTiming(e.id, on)
                                 val fresh = store.get(e.id) ?: e.copy(exactTiming = on)
                                 if (fresh.enabled) ScheduleEngine.arm(ctx, fresh, store)
-                            })
+                            }
                         }
                     }
                 }

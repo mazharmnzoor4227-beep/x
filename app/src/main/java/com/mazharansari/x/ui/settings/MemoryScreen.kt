@@ -1,5 +1,8 @@
 package com.mazharansari.x.ui.settings
 
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,14 +16,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mazharansari.x.data.MemoryFileImport
 import com.mazharansari.x.data.MemoryStore
 import com.mazharansari.x.data.MemoryTarget
 import com.mazharansari.x.ui.ChatViewModel
 import com.mazharansari.x.ui.components.*
 import com.mazharansari.x.ui.theme.P
 import com.mazharansari.x.ui.theme.Type
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * v0.10 (Hermes learning loop): everything X has saved about the user, in the open.
@@ -35,6 +43,50 @@ fun MemoryScreen(vm: ChatViewModel, back: () -> Unit) {
     val data by store.data.collectAsState()
     var editing by remember { mutableStateOf<Triple<MemoryTarget, Int, String>?>(null) }   // target, index (-1 = new), text
     var error by remember { mutableStateOf<String?>(null) }
+    var notice by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var fileTarget by remember { mutableStateOf<MemoryTarget?>(null) }
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    // Memory fix (2026-11-20): file input. The section whose "Add from file" was tapped is
+    // where the entries go — the file never picks the section. Any type is accepted ("*/*"):
+    // ZIP / PDF / Word / Excel / text are read by MemoryFileImport; anything unreadable is
+    // reported honestly instead of pretending it was saved. Files are read only to save as
+    // memories in this app, never sent anywhere. Over 10 MB is refused with a clear error.
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val target = fileTarget ?: return@rememberLauncherForActivityResult
+        fileTarget = null
+        if (uri == null || busy) return@rememberLauncherForActivityResult
+        busy = true; notice = "Reading file…"; error = null
+        scope.launch {
+            var fileName = "file"
+            val report = withContext(Dispatchers.IO) {
+                runCatching {
+                    fileName = ctx.contentResolver.query(uri, null, null, null, null)?.use { c ->
+                        if (c.moveToFirst()) c.getString(c.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)) else null
+                    } ?: "file"
+                    val bytes = ctx.contentResolver.openInputStream(uri)?.use { input ->
+                        val out = java.io.ByteArrayOutputStream()
+                        val buf = ByteArray(8192)
+                        var n: Int
+                        var total = 0L
+                        while (input.read(buf).also { n = it } >= 0) {
+                            total += n
+                            if (total > MemoryFileImport.MAX_FILE_BYTES) break
+                            out.write(buf, 0, n)
+                        }
+                        out.toByteArray()
+                    } ?: throw IllegalStateException("Could not open that file.")
+                    if (bytes.size > MemoryFileImport.MAX_FILE_BYTES)
+                        throw IllegalStateException("That file is over 10 MB — too large to import as memories.")
+                    MemoryFileImport.importInto(store, target, fileName, bytes)
+                }
+            }
+            busy = false
+            report.onSuccess { notice = it.describe(fileName); error = null }
+            report.onFailure { error = it.message ?: "Could not read that file."; notice = null }
+        }
+    }
 
     Column(Modifier.fillMaxSize().background(p.bg)) {
         ScreenHeader("Memory", back)
@@ -44,9 +96,12 @@ fun MemoryScreen(vm: ChatViewModel, back: () -> Unit) {
                     style = Type.small.copy(fontSize = 14.sp, lineHeight = 20.sp), color = p.text2,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
                 error?.let { Text(it, style = Type.small, color = p.danger, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)) }
+                notice?.let { Text(it, style = Type.small, color = p.text2, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)) }
             }
-            memorySection(store, MemoryTarget.USER, "About you", data.user) { editing = it }
-            memorySection(store, MemoryTarget.MEMORY, "Facts, lessons & projects", data.notes) { editing = it }
+            memorySection(store, MemoryTarget.USER, "About you", data.user, onEdit = { editing = it },
+                onAddFile = { fileTarget = it; pickFile.launch(arrayOf("*/*")) })
+            memorySection(store, MemoryTarget.MEMORY, "Facts, lessons & projects", data.notes, onEdit = { editing = it },
+                onAddFile = { fileTarget = it; pickFile.launch(arrayOf("*/*")) })
             item {
                 Spacer(Modifier.height(10.dp))
                 Text("Memory is kept small on purpose (About you: ${MemoryStore.USER_CHAR_BUDGET} characters, Facts & lessons: ${MemoryStore.MEMORY_CHAR_BUDGET}). When a section is full, X replaces or removes an old entry before adding a new one.",
@@ -83,6 +138,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.memorySection(
     title: String,
     entries: List<String>,
     onEdit: (Triple<MemoryTarget, Int, String>) -> Unit,
+    onAddFile: (MemoryTarget) -> Unit,
 ) {
     item { SectionLabel(title) }
     if (entries.isEmpty()) {
@@ -108,6 +164,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.memorySection(
             GkIcon(Gk.plus, null, 18.dp, P.accent)
             Spacer(Modifier.width(8.dp))
             Text("Add", style = Type.label, color = P.accent)
+        }
+    }
+    item {
+        Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp).clickable { onAddFile(target) }, verticalAlignment = Alignment.CenterVertically) {
+            GkIcon(Gk.file, null, 18.dp, P.accent)
+            Spacer(Modifier.width(8.dp))
+            Text("Add from file", style = Type.label, color = P.accent)
         }
     }
 }

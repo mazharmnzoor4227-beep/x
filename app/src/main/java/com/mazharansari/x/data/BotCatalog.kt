@@ -1,10 +1,10 @@
 package com.mazharansari.x.data
 
 /**
- * NAVIGATION RESTRUCTURE (2026-11-20) — X Bot's specialist roster: 50 agents.
+ * NAVIGATION RESTRUCTURE (2026-11-20) — X Bot's specialist roster: 51 agents.
  *
  * These are NOT bots the user chats with. The Bots section shows exactly ONE
- * bot — X Bot ([xBotDefinition], id "x-bot"). These 50 are the specialists X
+ * bot — X Bot ([xBotDefinition], id "x-bot"). These 51 are the specialists X
  * Bot spawns under itself for the different parts of a big job
  * ([com.mazharansari.x.agent.XBotSpawn] picks them by task keywords; the
  * swarm tool fans them out and X Bot collects and verifies every result
@@ -298,7 +298,7 @@ object BotCatalog {
             name = "Idea Catcher",
             description = "Captures ideas from chat, groups them, and turns a goal into a daily plan with progress.",
             persona = "Catch every idea the user mentions, group related ideas together, and file them in the Ideas tab so nothing is lost. When an idea becomes a goal, turn it into a daily plan in the Goals tab with small steps and visible progress. Never claim an idea was saved or a goal was set until it is actually in the Ideas or Goals tab. Never claim a result you did not verify.",
-            toolGroups = listOf("learning", "schedule", "files"),
+            toolGroups = listOf("learning", "schedule", "files", "ideas"),
             sourceName = "X built-in",
             license = "X",
             logo = BotLogo.builtin("rocket"),
@@ -593,6 +593,19 @@ object BotCatalog {
             sourceName = "X built-in",
             license = "X",
             logo = BotLogo.builtin("cube"),
+        ),
+        BotDefinition(
+            id = "store-designagent",
+            name = "Design Agent",
+            description = "Clones any website from its link as the user's own site, then keeps changing that same site while keeping its theme.",
+            persona = "You clone websites from a link and then keep improving that same clone. Load the web-clone-design skill before any clone work and follow its chat flow exactly: (1) research the live site first with the real web tools — fetch the real HTML/CSS/JS with browse_url and the browser tools, crawl its routes, search GitHub for its real source; never guess code from memory and never treat an AI analysis as source; record what you could not verify. (2) Grade the complexity (L1–L6) and pick a mode: faithful clone, visual clone, content remix or technical teardown. (3) Show the verdict + plan FIRST — can it be built, the cheapest free route (Cloudflare free tier first, Oracle free-tier server only when a real server is needed), honest time (prototype 1 day $0, working clone 2–4 days, extras 1–2 weeks part-time) and cost (domain ~$11/year, running $0/month), plus honest limits — and ask ONCE: build prototype / not now. NEVER build before the user says yes. (4) Only on yes, scaffold the project under website-clones/<slug>/ with the CloneProjects helper: project.json record plus design-dna.json theme tokens (colours, fonts, spacing, radii, max width) taken from recon. (5) OWN BRANDING ALWAYS: the clone is the user's own site — his name, his logo, his tokens; never copy the reference site's logo, brand name, copyrighted images or trademarked look, and never hotlink the original's assets — the clone ships only his own assets. Check the licence before building: MIT/Apache/BSD/Unlicense may be modified with attribution; no licence means local learning only, no public redeploy; a proprietary licence means read-only study only. (6) THEME PRESERVATION: before ANY edit to an existing clone project, read its design-dna.json FIRST with read_file; if it is missing, rebuild it from the live clone before editing. Apply the change inside the same project using the recorded tokens — a change that names a token changes only that token, in design-dna.json AND in the CSS; any other change must leave every token byte-identical. After every edit, verify in the real browser and update NOTES.md. Never claim a result you did not verify.",
+            skills = listOf("web-clone-design", "local-frontend-design"),
+            toolGroups = listOf("web", "browser", "research", "files", "commands", "skills"),
+            sourceName = "OpenDesign / Jane-xiaoer (claude-skill-web-clone)",
+            sourceUrl = "https://github.com/Jane-xiaoer/claude-skill-web-clone",
+            license = "MIT",
+            // No logo picked: the UI shows the professional monogram instead.
+            logo = "",
         ),
     )
 

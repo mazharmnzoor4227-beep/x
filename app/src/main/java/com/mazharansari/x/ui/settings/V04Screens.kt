@@ -443,7 +443,7 @@ fun AntigravityScreen(vm: ChatViewModel, back: () -> Unit, nav: (Route) -> Unit,
         // Antigravity is the build engine only — Ask never uses it, so no "use in chat" switch.
         // (One chat screen now: builds happen through chat when asked, there is no Build tab.)
         SectionLabel("Where it runs")
-        SettingsGroup { SettingsRow(Gk.hammer, "Builds", "Every build runs on these accounts. Ask uses your API keys only.", chevron = false) {} }
+        SettingsGroup { SettingsRow(Gk.hammer, "Builds", "Every build runs on these accounts. Ask uses your API keys only.", chevron = false) }
         Note("Antigravity runs its own tools (files, commands) in Linux. X's PDF, web search and image tools aren't used inside an Antigravity reply.", Modifier.padding(start = 30.dp, end = 30.dp, top = 10.dp))
         Spacer(Modifier.height(10.dp))
         SettingsGroup {

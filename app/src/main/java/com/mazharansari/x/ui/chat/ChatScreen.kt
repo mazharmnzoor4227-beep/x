@@ -41,6 +41,7 @@ import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.mazharansari.x.data.*
+import com.mazharansari.x.llm.ModelChoice
 import com.mazharansari.x.ui.ChatViewModel
 import com.mazharansari.x.ui.Route
 import com.mazharansari.x.ui.components.*
@@ -93,6 +94,11 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit, onBack: () -> Unit 
     val g = vm.g
     val settings by g.settings.state.collectAsState()
     val connectors by g.connectors.list.collectAsState()
+    val agyStore by g.agy.store.collectAsState()
+    // Model chooser (2026-11-20): the rows come from the providers' real configured models/accounts; remembered
+    // so the token check (a small file walk per account) does not re-run on every streaming recomposition.
+    val chooserEntries = remember(connectors, agyStore.accounts) { ModelChoice.buildChooserEntries(connectors, agyStore.accounts, g.agy::hasToken) }
+    val pickedLabel = remember(settings.pickedModel, settings.mode, chooserEntries) { ModelChoice.displayLabelFromEntries(settings.pickedModel, settings.mode, chooserEntries) }
     val listening by g.speech.listening.collectAsState()
     val finishing by g.speech.finishing.collectAsState()
     val partial by g.speech.partial.collectAsState()
@@ -202,7 +208,7 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit, onBack: () -> Unit 
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f).clickable(remember { MutableInteractionSource() }, null) { model = true }) {
                                 Text(vm.title.ifBlank { "New chat" }, style = Type.row.copy(fontSize = 16.sp), color = p.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(if (vm.running) "Thinking…" else settings.mode, style = Type.mono, color = p.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(if (vm.running) "Thinking…" else pickedLabel, style = Type.mono, color = p.text2, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                         if (bot == null) {
@@ -224,7 +230,11 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit, onBack: () -> Unit 
                             onVoice = { navigate(Route.VoiceCall) })
                     } else {
                         LazyColumn(state = list, modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)) {
+                            // Bottom 24dp: the last line must clear the chips row
+                            // with room to spare — with only 12dp it could rest
+                            // half under the list's bottom edge (the "black layer"
+                            // over the reply in the 2026-11-20 video).
+                            contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
                             items(messages, key = { it.id }, contentType = { it.role }) { m ->
                                 if (m.role == Role.USER) UserBubble(m)
                                 else AssistantMessage(
@@ -247,13 +257,26 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit, onBack: () -> Unit 
                         }
                     }
                     UpdateBanner(vm, navigate)
+                    // ── Scroll-to-bottom: a bare chevron floating alone at the
+                    // list's bottom-right — NO tile, NO background, NO border,
+                    // NO layer behind or above it, just the arrow (IconTap
+                    // draws no background at all; the 48dp box is only the
+                    // touch target). It used to be an in-flow CircleButton
+                    // (p.surface tile + border) inside the bottom stack:
+                    // every time it appeared the stack grew 58dp, the list
+                    // viewport shrank by the same 58dp, and the last visible
+                    // message line was shoved half under the list's bottom
+                    // edge — the "black layer" climbing over the reply in
+                    // the 2026-11-20 video. As an overlay on the list it
+                    // never moves the list or the chips row, and with no
+                    // background the text behind it stays fully visible.
+                    AnimatedVisibility(messages.isNotEmpty() && list.canScrollForward && !vm.running, enter = fadeIn() + scaleIn(initialScale = 0.8f), exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 12.dp)) {
+                        IconTap(Gk.chevronDown, "Scroll to bottom", 22.dp, p.text, 48.dp) { scope.launch { list.animateScrollToItem(messages.lastIndex, 1_000_000) } }
+                    }
                 }
                 // ── Bottom stack: read-aloud pill, banners, tools, composer ──
                 Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 6.dp)) {
-                    AnimatedVisibility(messages.isNotEmpty() && list.canScrollForward && !vm.running, enter = fadeIn() + scaleIn(initialScale = 0.8f), exit = fadeOut() + scaleOut(targetScale = 0.8f),
-                        modifier = Modifier.align(Alignment.End).padding(end = 12.dp, bottom = 10.dp)) {
-                        CircleButton(Gk.chevronDown, "Scroll to bottom", size = 48.dp, iconSize = 22.dp, bg = p.surface) { scope.launch { list.animateScrollToItem(messages.lastIndex, 1_000_000) } }
-                    }
                     AnimatedVisibility(pillVisible, modifier = Modifier.align(Alignment.CenterHorizontally),
                         enter = fadeIn(tween(180)) + slideInVertically(tween(240, easing = FastOutSlowInEasing)) { it / 2 } + expandVertically(tween(240), expandFrom = Alignment.Bottom),
                         exit = fadeOut(tween(150)) + slideOutVertically(tween(200)) { it / 2 } + shrinkVertically(tween(220), shrinkTowards = Alignment.Bottom)) {
@@ -310,13 +333,13 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit, onBack: () -> Unit 
                             researchOn = settings.deepResearch, onResearch = onResearch,
                             longTaskOn = settings.longTask, onLongTask = onLongTask,
                             turboOn = settings.turbo, onTurbo = onTurbo,
-                            modelLabel = settings.mode, onModel = { plus = false; model = true },
+                            modelLabel = pickedLabel, onModel = { plus = false; model = true },
                             modifier = Modifier.padding(bottom = 8.dp),
                         )
                         Composer(
                             modifier = Modifier.onGloballyPositioned { composerTopPx = it.boundsInRoot().top },
                             text = vm.draft, onText = { vm.draft = it }, placeholder = "Ask anything",
-                            modeLabel = settings.mode.lowercase().replaceFirstChar { it.uppercase() }, running = vm.running,
+                            modeLabel = pickedLabel, running = vm.running,
                             attachments = vm.pending, onRemoveAttachment = { vm.pending.remove(it) },
                             listening = listening, level = { g.speech.level() }, partial = partial,
                             onPlus = { model = false; plus = !plus }, onMode = { plus = false; model = !model },
@@ -391,7 +414,7 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit, onBack: () -> Unit 
                     onDismissRequest = { vm.dismissPaste() },
                     containerColor = p.card, shape = RoundedCornerShape(10.dp),
                     title = { Text("Send as a file?", style = Type.title, color = p.text) },
-                    text = { Text("This message is very long (${pasted.length / 1000}k characters). As a file it stays fast and the model reads it in full; as text it may fail at the provider.", style = Type.small, color = p.text2) },
+                    text = { Text("This message is long (${pasted.length} characters). As a file it stays fast and the model reads it in full; as text it may fail at the provider.", style = Type.small, color = p.text2) },
                     confirmButton = { TextButton(onClick = { vm.resolvePaste(true) }) { Text("Send as file", color = p.accent) } },
                     dismissButton = { TextButton(onClick = { vm.resolvePaste(false) }) { Text("Send as text", color = p.text2) } },
                 )
@@ -422,8 +445,8 @@ fun ChatScreen(vm: ChatViewModel, navigate: (Route) -> Unit, onBack: () -> Unit 
                 onSkills = { navigate(Route.Skills) },
                 onConnectors = { navigate(Route.Connectors) },
                 onUploadSkill = { pickSkill.launch(arrayOf("*/*")) })
-            ModelPopover(model, { model = false }, bottomGap = popBottom, maxHeight = popMax, mode = settings.mode, connectors = connectors,
-                onPick = { m -> g.settings.update { it.copy(mode = m) } }, onConnectors = { navigate(Route.Connectors) })
+            ModelPopover(model, { model = false }, bottomGap = popBottom, maxHeight = popMax, entries = chooserEntries, pickedId = settings.pickedModel,
+                onPick = { id -> vm.pickModel(id) }, onConnectors = { navigate(Route.Connectors) })
             if (overflowOpen) {
                 AxionSheet({ overflowOpen = false }) {
                     SheetRow(Gk.pencil, "Rename", onClick = { overflowOpen = false; renamingChat = true })

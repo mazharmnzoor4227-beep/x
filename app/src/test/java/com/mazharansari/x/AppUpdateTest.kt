@@ -103,17 +103,14 @@ class AppUpdateTest {
         assertTrue("$off", off is UpdateState.Failed && (off as UpdateState.Failed).message.startsWith("No internet") )
     }
 
-    // ---- Redesign round 2 (Addendum C): X has no update feed yet. The two Axion feeds are
-    // gone; the default list is empty, and the default updater says so instead of offering
-    // anything. The multi-feed machinery below is kept for X's own feed, when it exists. ----
+    // ---- 2026-11-20 (blanket audit, fix 3): X HAS its own feed now — its own
+    // GitHub repo mazharmnzoor4227-beep/x releases (verified real, public).
+    // The default list is that one URL, never an Axion feed; the check hits it
+    // (fake HTTP below) instead of failing with "not set up". ----
 
-    @Test fun defaultFeedsEmptyUntilXHasItsOwn() {
-        assertTrue("no feed is configured until X has its own", UpdateRules.FEEDS.isEmpty())
-    }
-
-    @Test fun defaultUpdaterSaysNotSetUp() = runBlocking {
-        val st = AppUpdater(ApplicationProvider.getApplicationContext(), currentCode = 6).check()
-        assertTrue("$st", st is UpdateState.Failed && (st as UpdateState.Failed).message.contains("not set up"))
+    @Test fun defaultFeedIsXsOwnGitHubReleases() {
+        assertEquals(listOf("https://api.github.com/repos/mazharmnzoor4227-beep/x/releases/latest"), UpdateRules.FEEDS)
+        assertFalse(UpdateRules.FEEDS.any { "axion" in it })
     }
 
     @Test fun bothFeedsHigherVersionWins() = runBlocking {

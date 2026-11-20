@@ -178,13 +178,36 @@ class OpenAiClient(
         if (req.quick) quickReasoning(provider.id, req.model)?.forEach { (k, v) -> put(k, v) }
         else if (req.effort == "low") lowReasoning(provider.id, req.model)?.forEach { (k, v) -> put(k, v) }
         putJsonArray("messages") {
-            for (item in req.items) when (item) {
-                is SystemItem -> addJsonObject { put("role", "system"); put("content", item.text) }
+            // ALLaM pin (ScriptHint.arabicFirstPin): an Arabic-first model served on this
+            // OpenAI-compatible path (Groq "allam-2-7b", or the user's own server running
+            // it) answers short Latin greetings in Arabic despite the shared rule in the
+            // main system prompt. The pin is applied HERE, where the model id is known
+            // and the wire request is built: appended to the system message (or injected
+            // as one when the caller sent none — Agent.askOnce sends a bare user message,
+            // so without this the model gets no language rule at all), and repeated as a
+            // per-message anchor on the last user message, since this model is optimised
+            // to work without a system prompt and weights user-role text more heavily.
+            // Any other model is byte-identical to before.
+            val lastUser = req.items.filterIsInstance<UserItem>().lastOrNull()?.text.orEmpty()
+            val arabicPin = if (com.mazharansari.x.agent.ScriptHint.isArabicFirstModel(req.model))
+                com.mazharansari.x.agent.ScriptHint.arabicFirstPin(lastUser) else null
+            val lastUserIdx = req.items.indexOfLast { it is UserItem }
+            var systemPinned = false
+            if (arabicPin != null && req.items.none { it is SystemItem }) {
+                addJsonObject { put("role", "system"); put("content", arabicPin) }
+                systemPinned = true
+            }
+            for ((idx, item) in req.items.withIndex()) when (item) {
+                is SystemItem -> addJsonObject {
+                    put("role", "system")
+                    put("content", if (arabicPin != null && !systemPinned) { systemPinned = true; item.text + "\n\n" + arabicPin } else item.text)
+                }
                 is UserItem -> addJsonObject {
                     put("role", "user")
-                    if (item.media.isEmpty() || !provider.vision) put("content", item.text)
+                    val text = if (arabicPin != null && idx == lastUserIdx) item.text + "\n\n" + com.mazharansari.x.agent.ScriptHint.ruleFor(item.text) else item.text
+                    if (item.media.isEmpty() || !provider.vision) put("content", text)
                     else putJsonArray("content") {
-                        addJsonObject { put("type", "text"); put("text", item.text) }
+                        addJsonObject { put("type", "text"); put("text", text) }
                         item.media.filter { it.mime.startsWith("image/") }.forEach { m ->
                             addJsonObject {
                                 put("type", "image_url")

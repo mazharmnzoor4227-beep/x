@@ -100,12 +100,12 @@ class LiveAgentTest {
         } catch (e: IllegalStateException) {
             // Live GitHub API, unauthenticated quota is 60/hr per shared CI egress IP — a 403
             // means the environment is rate-limited, not that the import path is broken.
-            assumeTrue("GitHub API rate-limited (HTTP 403) — skipping live import check", !e.message.orEmpty().contains("GitHub HTTP 403"))
+            assumeTrue("GitHub API rate-limited (HTTP 403) — skipping live import check", !e.message.orEmpty().contains("rate limit"))
             throw e
         }
         println("SKILLS FOUND: ${found.size}: " + found.take(12).joinToString { it.name })
         val installed = runBlocking { repo.install(found.filter { it.name in setOf("pdf", "docx", "frontend-design") }, "https://github.com/anthropics/skills") }
-        println("INSTALLED: " + installed.joinToString { it.name + " (" + it.description.take(50) + ")" })
+        println("INSTALLED: " + installed.added.joinToString { it.name + " (" + it.description.take(50) + ")" } + if (installed.failed.isNotEmpty()) " FAILED: " + installed.failed.joinToString { it.name + ": " + it.reason } else "")
         assert(found.isNotEmpty())
         assert(repo.body("pdf") != null)
     }

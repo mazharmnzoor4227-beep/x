@@ -1,13 +1,9 @@
 package com.mazharansari.x.data
 
 import android.content.Context
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -42,7 +38,6 @@ class MemoryStore(ctx: Context) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val _data = MutableStateFlow(runCatching { json.decodeFromString<MemoryData>(file.readText()) }.getOrDefault(MemoryData()))
     val data: StateFlow<MemoryData> = _data.asStateFlow()
-    private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     companion object {
         const val USER_CHAR_BUDGET = 1_500
@@ -54,10 +49,22 @@ class MemoryStore(ctx: Context) {
     fun entries(t: MemoryTarget): List<String> = if (t == MemoryTarget.USER) _data.value.user else _data.value.notes
     fun usedChars(t: MemoryTarget): Int = entries(t).sumOf { it.length + 1 }
 
+    // Memory fix (2026-11-20): persistence used to be a fire-and-forget IO write — the in-memory
+    // list updated at once, but the file write raced the process. An entry added and then lost to
+    // a swipe-away / process death never reached disk, so the screen stayed empty. The file is
+    // tiny by construction (both budgets together are under 5 KB), so write it synchronously on
+    // every mutation: when add()/replace()/remove() returns, the entry is on disk. The write goes
+    // through a temp file + rename so a crash mid-write can never tear memory.json.
     private fun mutate(f: (MemoryData) -> MemoryData) {
         _data.value = f(_data.value)
         val snap = _data.value
-        io.launch { synchronized(file) { runCatching { file.writeText(json.encodeToString(snap)) } } }
+        synchronized(file) {
+            runCatching {
+                val tmp = File(file.parentFile, "memory.json.tmp")
+                tmp.writeText(json.encodeToString(snap))
+                if (!tmp.renameTo(file)) file.writeText(json.encodeToString(snap))
+            }
+        }
     }
 
     private fun clean(text: String) = text.trim().replace(Regex("\\s*\n\\s*"), " ")
@@ -125,6 +132,9 @@ class MemoryStore(ctx: Context) {
         val text = clean(raw)
         if (text.isBlank()) return "The entry is empty."
         if (text.length > ENTRY_MAX_CHARS) return "Keep it under $ENTRY_MAX_CHARS characters."
+        val others = cur.filterIndexed { i, _ -> i != index }
+        if (others.sumOf { it.length + 1 } + text.length + 1 > budgetOf(t))
+            return "The ${t.name.lowercase()} memory is full (${budgetOf(t)} characters). Shorten the entry or remove something else first."
         mutate { d -> if (t == MemoryTarget.USER) d.copy(user = cur.toMutableList().also { it[index] = text }) else d.copy(notes = cur.toMutableList().also { it[index] = text }) }
         return null
     }

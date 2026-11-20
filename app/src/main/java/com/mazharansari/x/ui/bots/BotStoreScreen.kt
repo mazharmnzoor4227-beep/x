@@ -43,7 +43,7 @@ import com.mazharansari.x.ui.theme.Type
 /**
  * THE BOTS SECTION (navigation restructure, 2026-11-20): WhatsApp-style,
  * exactly ONE bot — X Bot, the user's own main bot. No list of many bots,
- * no store catalog any more: the 50 specialists in [BotCatalog] are the
+ * no store catalog any more: the 51 specialists in [BotCatalog] are the
  * roster X Bot spawns from, not bots the user chats with.
  *
  * - Tapping X Bot's row opens THAT bot's own chat ([Route.BotChat]); Back
@@ -173,7 +173,7 @@ fun BotStoreScreen(vm: ChatViewModel, back: () -> Unit, navigate: (Route) -> Uni
             },
             onDismiss = { editingWorker = null })
     }
-    // ── Roster sheet: all 50 specialists X Bot can spawn ──
+    // ── Roster sheet: all 51 specialists X Bot can spawn ──
     if (rosterOpen) {
         AxionSheet({ rosterOpen = false }) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)) {

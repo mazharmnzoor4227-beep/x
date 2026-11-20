@@ -22,6 +22,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -45,18 +48,57 @@ sealed interface UpdateState {
     data class Failed(val message: String, val info: UpdateInfo? = null) : UpdateState
 }
 
+/** One GitHub release, as the releases API returns it (only the fields X reads). */
+@Serializable
+data class GitHubReleaseAsset(val name: String = "", val browser_download_url: String = "", val size: Long = 0)
+
+@Serializable
+data class GitHubRelease(val tag_name: String = "", val name: String = "", val body: String = "", val assets: List<GitHubReleaseAsset> = emptyList())
+
+/**
+ * What X needs from a GitHub release to offer it as an update. [versionCode]
+ * and [sha256] come from the release notes (see [UpdateRules.parseGitHubRelease]);
+ * the APK itself comes from the release's attached .apk asset.
+ */
+data class GitHubReleaseInfo(
+    val versionName: String,
+    val versionCode: Int?,
+    val sha256: String?,
+    val apkUrl: String?,
+    val apkSize: Long,
+    val shaAssetUrl: String?,
+    val notes: String,
+)
+
 /** Pure parts (unit-tested on the JVM): feed parsing, version compare, hashes, the certificate rule. */
 object UpdateRules {
     /**
-     * Redesign round 2, Addendum C: X has NO update feed yet. The two Axion feeds this app
-     * inherited from the donor code (axion.130-210-62-94.sslip.io and
-     * claworabeauty.store/uploads/dl/axion) are DELETED — they served Axion's updates, and
-     * that is exactly the banner the user saw ("Update available" offering Axion's update).
-     * X gets its own feed (its own GitHub repo mazharmnzoor4227-beep/x releases) later; until
-     * then the check is disabled by design: [AppUpdater.check] returns a Failed state that
-     * says so, and [AppUpdater.quietCheck] does nothing. Do NOT point this at any Axion URL.
+     * 2026-11-20 (blanket audit, fix 3): X's OWN update feed — its own GitHub
+     * repo mazharmnzoor4227-beep/x releases, via the releases API (verified
+     * 2026-11-20: the repo is real and public; it has NO releases yet, so
+     * until the first release is published the check says so honestly).
+     * The two Axion feeds this app inherited from the donor code
+     * (axion.130-210-62-94.sslip.io and claworabeauty.store/uploads/dl/axion)
+     * stay DELETED — they served Axion's updates, and that is exactly the
+     * banner the user saw ("Update available" offering Axion's update).
+     * Do NOT point this at any Axion URL.
+     *
+     * RELEASE CONTRACT (what a published release must carry for X to offer it):
+     * - a tag like v1.1 (the version name; the leading "v" is dropped),
+     * - the APK attached as an asset (first file ending in .apk),
+     * - the release notes (body) carrying a ```json fenced block with
+     *   {"versionCode": <the APK's versionCode>, "sha256": "<64 hex chars>"}
+     *   (and optionally "notes"); the SHA-256 may instead ride as a .sha256
+     *   asset (its first word is the hash). Without a versionCode or a
+     *   SHA-256 the release is NOT offered — the check fails with a plain
+     *   message saying what is missing, never a guessed version or hash.
+     * The downloaded APK is verified exactly like before: SHA-256 must match
+     * ([AppUpdater.download]) and it must be signed with X's key ([CERT_SHA256]).
+     * The API is unauthenticated (60 requests/hour per IP); X checks at most
+     * once a day on its own, plus when the user taps Check for updates.
      */
-    val FEEDS: List<String> = emptyList()
+    const val GITHUB_RELEASES_URL = "https://api.github.com/repos/mazharmnzoor4227-beep/x/releases/latest"
+    val FEEDS: List<String> = listOf(GITHUB_RELEASES_URL)
     /** SHA-256 of X's release signing certificate (x-release keystore). An update signed with any other key is refused. */
     const val CERT_SHA256 = "7f458cdb4e0b7e8f11a3a6be4d893f8f8c78becfeb56949a0f549bc862328b0f"
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -69,6 +111,41 @@ object UpdateRules {
         return i.copy(sha256 = i.sha256.trim().lowercase())
     }
     fun isNewer(info: UpdateInfo, currentCode: Int) = info.versionCode > currentCode
+
+    /**
+     * Reads a GitHub releases-API response (see the [FEEDS] contract): the tag
+     * becomes the version name, the .apk asset becomes the download, and the
+     * versionCode / SHA-256 come from the ```json block in the release notes
+     * (or, for the hash, from a .sha256 asset). Missing pieces stay null —
+     * the caller refuses the release with a plain message instead of guessing.
+     */
+    fun parseGitHubRelease(text: String): GitHubReleaseInfo {
+        val rel = try { json.decodeFromString(GitHubRelease.serializer(), text) } catch (e: Exception) { throw IOException("The X release feed isn't valid JSON.") }
+        val versionName = rel.tag_name.trim().removePrefix("v").removePrefix("V")
+        if (versionName.isBlank()) throw IOException("The X release has no version tag.")
+        val bodyJson = runCatching {
+            val fenced = Regex("```json\\s*\\n(.*?)\\n```", RegexOption.DOT_MATCHES_ALL).find(rel.body)?.groupValues?.get(1)
+            val raw = fenced ?: rel.body.trim().takeIf { it.startsWith("{") }
+            raw?.let { Json.parseToJsonElement(it).jsonObject }
+        }.getOrNull()
+        val code = bodyJson?.get("versionCode")?.jsonPrimitive?.intOrNull
+        val sha = bodyJson?.get("sha256")?.jsonPrimitive?.contentOrNull?.trim()?.lowercase()
+            ?.takeIf { Regex("^[0-9a-f]{64}$").matches(it) }
+        val apk = rel.assets.firstOrNull { it.name.lowercase().endsWith(".apk") }
+        val shaAsset = rel.assets.firstOrNull { it.name.lowercase().endsWith(".sha256") }
+        val notes = bodyJson?.get("notes")?.jsonPrimitive?.contentOrNull ?: rel.name
+        return GitHubReleaseInfo(versionName, code, sha, apk?.browser_download_url?.takeIf { it.startsWith("https://") },
+            apk?.size ?: 0, shaAsset?.browser_download_url?.takeIf { it.startsWith("https://") }, notes.orEmpty())
+    }
+
+    /** Turns a parsed release plus its resolved SHA-256 into the [UpdateInfo] the download path verifies (same rules as [parse]). */
+    fun githubToUpdateInfo(rel: GitHubReleaseInfo, sha256: String): UpdateInfo {
+        val code = rel.versionCode ?: throw IOException("The X release does not state a versionCode — add {\"versionCode\": N} to its release notes.")
+        if (code <= 0) throw IOException("The X release has no valid versionCode.")
+        val url = rel.apkUrl ?: throw IOException("The X release has no APK file attached.")
+        if (!Regex("^[0-9a-f]{64}$").matches(sha256)) throw IOException("The X release has no valid SHA-256.")
+        return UpdateInfo(code, rel.versionName, url, sha256.lowercase(), rel.apkSize, rel.notes)
+    }
     fun sha256(f: File): String {
         val md = MessageDigest.getInstance("SHA-256")
         f.inputStream().use { s -> val buf = ByteArray(1 shl 16); while (true) { val n = s.read(buf); if (n < 0) break; md.update(buf, 0, n) } }
@@ -104,7 +181,7 @@ class AppUpdater(
         set(v) { prefs.edit().putInt("dismissed", v).apply() }
 
     suspend fun check(): UpdateState = withContext(Dispatchers.IO) {
-        // No feed configured (Addendum C): never touch the network, never offer anything.
+        // No feed configured: never touch the network, never offer anything.
         if (feeds.isEmpty()) {
             val st = UpdateState.Failed("X does not check for updates yet — its own update feed is not set up.")
             _state.value = st; return@withContext st
@@ -134,16 +211,43 @@ class AppUpdater(
 
     /** One feed fetch: non-200 or an invalid feed body throws, so the caller can try the next feed. */
     private fun fetchFeed(url: String): UpdateInfo {
+        // X's own feed is the GitHub releases API (see UpdateRules.FEEDS) — its
+        // response is a release, not the flat feed JSON, so it parses separately.
+        if (url.substringBefore('?').endsWith("/releases/latest")) return fetchGitHubRelease(url)
         val (code, body) = http.newCall(Request.Builder().url(url + "?t=" + System.currentTimeMillis()).header("User-Agent", Http.UA).header("Cache-Control", "no-cache").build())
             .execute().use { it.code to it.body?.string().orEmpty() }
         if (code != 200) throw IOException("The update server answered $code. Try again later.")
         return UpdateRules.parse(body)
     }
 
+    /** The GitHub releases feed: latest release → UpdateInfo (SHA-256 from the notes or a .sha256 asset). */
+    private fun fetchGitHubRelease(url: String): UpdateInfo {
+        val (code, body) = http.newCall(Request.Builder().url(url).header("User-Agent", Http.UA)
+            .header("Accept", "application/vnd.github+json").header("Cache-Control", "no-cache").build())
+            .execute().use { it.code to it.body?.string().orEmpty() }
+        if (code == 404) throw IOException("No X release has been published yet on GitHub.")
+        if (code == 403) throw IOException("GitHub's releases API refused the request (rate limit). Try again later.")
+        if (code != 200) throw IOException("The update server answered $code. Try again later.")
+        val rel = UpdateRules.parseGitHubRelease(body)
+        val sha = rel.sha256 ?: rel.shaAssetUrl?.let { fetchShaAsset(it) }
+            ?: throw IOException("The X release does not state its SHA-256 — add it to the release notes or attach a .sha256 file.")
+        return UpdateRules.githubToUpdateInfo(rel, sha)
+    }
+
+    /** A .sha256 asset's content: "<hash>  <filename>" or a bare hash — the first word is the hash. */
+    private fun fetchShaAsset(url: String): String {
+        val (code, body) = http.newCall(Request.Builder().url(url).header("User-Agent", Http.UA).build())
+            .execute().use { it.code to it.body?.string().orEmpty() }
+        if (code != 200) throw IOException("The X release's checksum file could not be read ($code).")
+        return body.trim().split(Regex("\\s+")).firstOrNull().orEmpty().lowercase()
+            .takeIf { Regex("^[0-9a-f]{64}$").matches(it) }
+            ?: throw IOException("The X release's checksum file has no valid SHA-256.")
+    }
+
     /** On app start, at most once a day, silently; a notification when something newer is out. */
     suspend fun quietCheck() {
         if (Build.FINGERPRINT == "robolectric") return
-        if (feeds.isEmpty()) return   // no feed yet (Addendum C): no check, no banner, no notification
+        if (feeds.isEmpty()) return   // no feed configured: no check, no banner, no notification
         val last = prefs.getLong("lastCheck", 0)
         if (System.currentTimeMillis() - last < 24 * 3_600_000L) return
         val st = check()

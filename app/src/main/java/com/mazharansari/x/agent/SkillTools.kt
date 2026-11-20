@@ -24,7 +24,12 @@ class InstallSkillsTool : Tool {
         val url = args.s("url").orEmpty()
         val found = runCatching { ctx.skills.scanGitHub(url) }.getOrElse { return ToolOutput("Could not read repo: ${it.message}", isError = true) }
         if (found.isEmpty()) return ToolOutput("No SKILL.md files found in $url", isError = true)
-        val added = ctx.skills.install(found, url)
-        return ToolOutput("Installed ${added.size} skills:\n" + added.joinToString("\n") { "- ${it.name}: ${it.description}" }, doneTitle = "Learned ${added.size} skills")
+        val result = ctx.skills.install(found, url)
+        if (result.added.isEmpty()) {
+            val why = result.failed.firstOrNull()?.let { " (${it.name}: ${it.reason})" }.orEmpty()
+            return ToolOutput("Could not install any skills from $url$why", isError = true)
+        }
+        val failedNote = if (result.failed.isNotEmpty()) "\n${result.failed.size} failed: " + result.failed.take(5).joinToString("; ") { "${it.name} — ${it.reason}" } else ""
+        return ToolOutput("Installed ${result.added.size} skills:\n" + result.added.joinToString("\n") { "- ${it.name}: ${it.description}" } + failedNote, doneTitle = "Learned ${result.added.size} skills")
     }
 }

@@ -59,6 +59,25 @@ object LlamaNative {
  * CAVEAT, shown honestly in the Models screen: no candidate covers Urdu
  * properly — Hindi yes, Urdu limited.
  * Sizes and SHA-256 below are Hugging Face's own (checked 1 Nov 2026).
+ *
+ * TIERED CATALOG (2026-11-20): the same entries are grouped by phone in
+ * ModelTiers.kt — 2 GB RAM, 4 GB / 64 GB, 4 GB / 128 GB, 6 GB, 8 GB — so
+ * every phone is offered only models that actually run on it. Every new
+ * entry below was verified 2026-11-20 against the live Hugging Face API
+ * (file list size + resolve HEAD X-Linked-Size / X-Linked-ETag, which is
+ * the file's SHA-256 — proven by the three older entries, whose ETags
+ * match their earlier download-verified SHA-256s exactly, and by a full
+ * 491,400,032-byte download + sha256sum of the 0.5B file, which matched
+ * its ETag 74a4da8c…7a9db). No Instruct-2507 GGUF exists: HF search for
+ * Qwen3-1.7B-Instruct-2507 and Qwen3-0.6B-Instruct-2507 GGUFs is empty,
+ * so the honest instruct all-rounder at ~1.5B is Qwen2.5-1.5B-Instruct.
+ * REJECTED in the tiering pass: official Qwen2.5-7B-Instruct Q4_K_M
+ * (SPLIT into two files — the downloader handles one file only; the
+ * single-file bartowski build is wired instead); Qwen3-4B Q4_K_M (BASE
+ * model, verified to exist, but no chat gain over the two 3B instructs
+ * on the 6 GB tier); LFM2-350M Q4_K_M (weaker than Qwen2.5-0.5B-Instruct
+ * and LFM2 support in the vendored llama.cpp is unproven); Qwen3-0.6B
+ * Q4_K_M (BASE model, no gain over the 0.5B instruct on the 2 GB tier).
  */
 enum class LocalModel(val id: String, val title: String, val family: String, val params: String, val url: String, val bytes: Long, val sha256: String,
                       val minRamGb: Int, val ctx: Int, val purpose: String, val blurb: String) {
@@ -76,7 +95,38 @@ enum class LocalModel(val id: String, val title: String, val family: String, val
         "https://huggingface.co/bartowski/Qwen_Qwen3-1.7B-GGUF/resolve/main/Qwen_Qwen3-1.7B-Q4_K_M.gguf",
         1_282_439_584, "72c5c3cb38fa32d5256e2fe30d03e7a64c6c79e668ad84057e3bd66e250b24fb", 4, 4096,
         "Base model · raw completion",
-        "Base model — NOT instruction-tuned, so weak for chat. Raw completion and code experiments only; for chat, LFM3 (the default) is the right pick.");
+        "Base model — NOT instruction-tuned, so weak for chat. Raw completion and code experiments only; for chat, LFM3 (the default) is the right pick."),
+    // --- Tiered catalog (2026-11-20, all verified against live Hugging Face, see KDoc above) ---
+    QWEN_0_5B("qwen2.5-0.5b", "Qwen2.5 0.5B", "Qwen", "0.5B · Q4_K_M",
+        "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+        491_400_032, "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db", 2, 4096,
+        "Chat · smallest — for 2 GB phones",
+        "Smallest chat model that still answers properly. Instruction-tuned, so it follows simple questions — but very small: short answers only, weak on anything hard. The only model that fits a 2 GB RAM phone."),
+    QWEN_1_5B("qwen2.5-1.5b", "Qwen2.5 1.5B", "Qwen", "1.5B · Q4_K_M",
+        "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+        1_117_320_736, "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e", 4, 4096,
+        "Chat · all-rounder (instruct)",
+        "Instruction-tuned all-rounder — the honest chat pick at this size (no Instruct-2507 GGUF exists). Good general chat and short writing; LFM3 stays the default for Hindi and agent work."),
+    QWEN_3B("qwen2.5-3b", "Qwen2.5 3B", "Qwen", "3B · Q4_K_M",
+        "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
+        2_104_932_768, "626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d", 6, 4096,
+        "Chat · stronger all-rounder",
+        "Instruction-tuned, noticeably stronger than the 1.5B models at chat, explanations and longer answers. Needs a 6 GB phone — on 4 GB it will likely crash or crawl."),
+    LLAMA_3B("llama-3.2-3b", "Llama 3.2 3B", "Meta", "3B · Q4_K_M",
+        "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+        2_019_377_696, "6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff", 6, 4096,
+        "Chat · all-rounder",
+        "Instruction-tuned all-rounder from Meta. Strong general chat, similar to Qwen2.5-3B — pick either. Needs a 6 GB phone."),
+    QWEN_7B("qwen2.5-7b", "Qwen2.5 7B", "Qwen", "7B · Q4_K_M",
+        "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+        4_683_074_240, "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423", 8, 4096,
+        "Chat · strongest on-device",
+        "Instruction-tuned 7B — the strongest chat model that fits on a phone. Much better answers than the small models, but slow on CPU and needs an 8 GB phone with ~5 GB free storage."),
+    LLAMA_8B("llama-3.1-8b", "Llama 3.1 8B", "Meta", "8B · Q4_K_M",
+        "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+        4_920_739_232, "7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c", 8, 4096,
+        "Chat · strongest on-device",
+        "Instruction-tuned 8B from Meta — the biggest model offered. Best on-device answers, slowest on CPU. Needs an 8 GB phone with ~5 GB free storage.");
     companion object { fun byId(id: String?) = entries.firstOrNull { it.id == id } }
 }
 
@@ -117,10 +167,13 @@ class LocalModelStore(private val ctx: Context) {
                 val need = m.bytes - (if (partial(m).exists()) partial(m).length() else 0) + 200L * 1024 * 1024
                 check(freeBytes() >= need) { "Not enough space: needs ${need / 1048576} MB free." }
                 set(m, DlState.Downloading(partial(m).takeIf { it.exists() }?.length() ?: 0, m.bytes))
-                LinuxRuntime.downloadResumable(m.url, partial(m), m.bytes) { done, total -> set(m, DlState.Downloading(done, total)) }
+                // Cancel must stop the download at once, not after the next read timeout: the
+                // parallel downloader polls this and cancels every chunk's live call.
+                val myJob = coroutineContext[Job]
+                LinuxRuntime.downloadResumable(m.url, partial(m), m.bytes, isCancelled = { myJob?.isCancelled == true }) { done, total -> set(m, DlState.Downloading(done, total)) }
                 set(m, DlState.Verifying)
                 val sum = sha256(partial(m))
-                if (!sum.equals(m.sha256, true)) { partial(m).delete(); error("The download was damaged (checksum). Tap download again.") }
+                if (!sum.equals(m.sha256, true)) { partial(m).delete(); LinuxRuntime.manifestFile(partial(m)).delete(); error("The download was damaged (checksum). Tap download again.") }
                 check(partial(m).renameTo(file(m))) { "Could not save the model" }
                 set(m, DlState.Ready)
             } catch (e: CancellationException) { set(m, DlState.None); throw e
@@ -129,7 +182,7 @@ class LocalModelStore(private val ctx: Context) {
     }
 
     fun cancel(m: LocalModel) { jobs.remove(m.id)?.cancel(); set(m, DlState.None) }
-    fun delete(m: LocalModel) { cancel(m); LocalEngine.unloadIf(file(m)); file(m).delete(); partial(m).delete(); set(m, DlState.None) }
+    fun delete(m: LocalModel) { cancel(m); LocalEngine.unloadIf(file(m)); file(m).delete(); partial(m).delete(); LinuxRuntime.manifestFile(partial(m)).delete(); set(m, DlState.None) }
 
     companion object {
         fun sha256(f: File): String {
