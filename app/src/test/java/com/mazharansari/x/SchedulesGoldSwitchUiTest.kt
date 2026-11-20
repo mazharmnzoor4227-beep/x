@@ -55,13 +55,35 @@ class SchedulesGoldSwitchUiTest {
         return sc to vm!!
     }
 
+    /** Poll for a node without requiring Compose idle (V06Nav pattern). If
+     * the node is below the fold in a LazyColumn it is not composed yet, so
+     * each empty poll scrolls the list one item further before retrying. */
+    private fun waitForNode(matcher: SemanticsMatcher, timeoutMs: Long = 10_000) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var scrolled = 0
+        while (System.currentTimeMillis() < deadline) {
+            compose.mainClock.advanceTimeBy(200)
+            Thread.sleep(100)
+            if (compose.onAllNodes(matcher).fetchSemanticsNodes().isNotEmpty()) return
+            runCatching { compose.onNode(hasScrollAction()).performScrollToIndex(scrolled++) }
+        }
+        error("node $matcher never appeared")
+    }
+
     @Test fun schedulesScreenUsesGoldSwitchAndItsToggleStillFlips() {
         val store = app.graph.schedules
         store.entries.value.map { it.id }.forEach { store.remove(it) }
         store.add(ScheduleEntry("probe-1", "Toggle probe task", "probe prompt", ScheduleType.DAILY, 9, 0))
         val (sc, vm) = launch(Route.Schedules)
         try {
-            compose.onNodeWithText("Toggle probe task").assertExists()
+            // The probe must be in the store the screen reads — if this
+            // fails, the store lost it before the Activity started.
+            checkNotNull(vm.g.schedules.get("probe-1")) { "probe entry missing from the schedules store" }
+            // The header proves the debugStart navigation landed on Schedules.
+            waitForNode(hasText("Schedules"))
+            // Polled, not assertExists: the entry renders below the briefing
+            // card and the first composition may not have it yet.
+            waitForNode(hasText("Toggle probe task"))
             assertEquals(true, vm.g.schedules.get("probe-1")?.enabled)
             // No Material Switch anywhere on this screen: one always exposes
             // ToggleableState in semantics; AxionSwitch never does.
