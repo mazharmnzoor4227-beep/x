@@ -217,7 +217,11 @@ class MemoryWiringTest {
 
     @Test fun oversizedFileDoesNotBlowBudget() {
         val store = freshStore()
-        val big = "This is a very long fact about the shop and its products. ".repeat(400)
+        // Numbered facts, so the split entries are all DIFFERENT: the same
+        // sentence repeated 400x splits into identical 600-char chunks, and
+        // every chunk after the first counts as "already saved" instead of
+        // "full" — the budget is never reported full at all.
+        val big = (0 until 400).joinToString(" ") { "Fact $it about the shop and its products is worth remembering." }
             .toByteArray(Charsets.UTF_8)
         val rep = MemoryFileImport.importInto(store, MemoryTarget.MEMORY, "big.txt", big)
         assertTrue("some entries must save, got $rep", rep.saved > 0)

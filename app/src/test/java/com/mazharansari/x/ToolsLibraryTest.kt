@@ -39,7 +39,12 @@ class ToolsLibraryTest {
     private fun agent(tools: List<Tool>, sw: Map<String, Boolean>) = Agent(Workspace(File(app.filesDir, "workspace")), SkillRepo(app, File(app.filesDir, "skills")), baseTools = tools, extraTools = { emptyList() }, toolSwitches = { sw })
 
     @Test fun everyRealToolBelongsToAGroupAndNamesAreUnique() {
-        val names = (Agent.defaultTools() + GenerateImageTool(app.graph.imageGen)).map { it.spec.name }
+        // The full production tool set (ChatViewModel.kt:939): defaultTools()
+        // + the image tool + the ideas/goals tools, which need their stores
+        // and so live outside defaultTools() — the catalog's "ideas" group
+        // lists save_idea/set_goal, so the names here must include them too.
+        val names = (Agent.defaultTools() + GenerateImageTool(app.graph.imageGen) +
+            ideasGoalsTools(app.graph.ideas, app.graph.goals)).map { it.spec.name }
         assertEquals(names.size, names.toSet().size)
         names.forEach { assertNotNull("tool $it has no group in the Tools library", ToolCatalog.groupOf(it)) }
         ToolCatalog.groups.flatMap { it.tools }.forEach { assertTrue("catalog lists $it but no such tool exists", it in names) }

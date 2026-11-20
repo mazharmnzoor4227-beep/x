@@ -54,7 +54,11 @@ fun speedLabel(v: Float): String {
 
 fun clockLabel(ms: Long): String {
     val s = (ms / 1000).coerceAtLeast(0)
-    return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, (s / 60) % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
+    // Zero-padded minutes (MM:SS, "01:05" — "%d" gave "1:05") and a fixed
+    // locale, so the timer never renders Arabic-Indic digits under a
+    // non-Latin default locale.
+    return if (s >= 3600) String.format(java.util.Locale.US, "%d:%02d:%02d", s / 3600, (s / 60) % 60, s % 60)
+    else String.format(java.util.Locale.US, "%02d:%02d", s / 60, s % 60)
 }
 
 @Composable

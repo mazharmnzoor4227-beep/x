@@ -1229,8 +1229,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             own.firstOrNull { it.provider == "Local model" && it.model == com.mazharansari.x.llm.ModelChoice.DEFAULT_LOCAL_MODEL_ID }
                 ?: runCatching { lfm3AttemptFromFile(lfm3) }.getOrNull()
         val ownTail = if (lfm3Attempt == null) own else own.filterNot { it == lfm3Attempt }
-        // Antigravity in chat: the picked account first when one is picked; otherwise where its stored mode puts it
-        // ("first" = before the keys, "fallback" = after the keys, "off" = not in chat at all).
+        // Antigravity in chat: only when the user picked an Antigravity
+        // account in the model chooser (the ModelPick.Agy branch below).
+        // The stored useInChat mode ("first"/"fallback"/"off") no longer
+        // places it in Ask at all — v0.4: Ask = API keys only.
         val agyAttempt = if (runCatching { g.agyReady() }.getOrDefault(false))
             Attempt("Antigravity", g.agy.store.value.model.ifBlank { "auto" }, g.agyClient, patientMs = 180_000) else null
         g.agyClient.pinnedAccountEmail = (pick as? com.mazharansari.x.llm.ModelChoice.ModelPick.Agy)?.email
@@ -1246,14 +1248,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             }
             return reordered
         }
-        // LFM3 first — except when the user explicitly set Antigravity "first"
-        // for chat: that explicit choice keeps its place, and LFM3 goes right
-        // after it (still ahead of every cloud key, and allam stays last).
-        return when (g.agy.store.value.useInChat) {
-            "first" -> listOfNotNull(agyAttempt) + listOfNotNull(lfm3Attempt) + keys + ownTail + free
-            "fallback" -> listOfNotNull(lfm3Attempt) + keys + ownTail + listOfNotNull(agyAttempt) + free
-            else -> listOfNotNull(lfm3Attempt) + keys + ownTail + free
-        }
+        // v0.4 (mazhar 2:28 PM): Ask = API keys only — Antigravity is the
+        // build engine, never an Ask model. A stored useInChat of "first" /
+        // "fallback" is a leftover from the v0.4 draft (the setting has no UI
+        // any more, and V04Screens notes Ask never uses it), so it must not
+        // leak Antigravity into Ask. (An explicitly picked Antigravity
+        // account — the ModelPick.Agy branch above — still goes first.)
+        return listOfNotNull(lfm3Attempt) + keys + ownTail + free
     }
 
     /** The LFM3-1.7B attempt, built straight from the downloaded file (no local connector needed). */

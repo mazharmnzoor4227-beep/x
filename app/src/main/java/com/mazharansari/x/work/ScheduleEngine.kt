@@ -153,7 +153,14 @@ object ScheduleEngine {
      * every few seconds.
      */
     private fun enqueue(ctx: Context, e: ScheduleEntry, targetMs: Long, replace: Boolean) {
-        val wm = WorkManager.getInstance(ctx)
+        // Same guard as disarm()/armIdeaFeed()/refreshIdeaFeedNow(): under
+        // Robolectric the per-JVM WorkManager singleton is bound to an
+        // earlier test's (torn-down) Application, so getInstance() can throw
+        // IllegalStateException here — and the toggle that called arm() would
+        // crash with it. The store flip already happened; a failed arm just
+        // means this JVM cannot enqueue. On a real phone WorkManager is
+        // always initialised at app start, so this never swallows a real arm.
+        val wm = runCatching { WorkManager.getInstance(ctx) }.getOrNull() ?: return
         val data = Data.Builder().putString(KEY_ID, e.id).build()
         val delay = (targetMs - System.currentTimeMillis()).coerceAtLeast(MIN_DELAY_MS)
         // P1-8: a schedule that needs network waits for connectivity instead of

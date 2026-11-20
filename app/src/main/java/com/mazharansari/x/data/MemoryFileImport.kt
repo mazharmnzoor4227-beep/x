@@ -51,6 +51,15 @@ object MemoryFileImport {
             if (notSavedFull > 0) parts += "$notSavedFull ${if (notSavedFull == 1) "entry did" else "entries did"} not fit — the section is full"
             if (unreadable.isNotEmpty()) parts += unreadable.joinToString(" ")
             if (truncated) parts += "Only the first part of the file was read."
+            // Nothing saved at all must say so first — the old code only said
+            // it when parts was empty, so a report that only carried an
+            // unreadable reason ("No readable text was found.") never said
+            // "Nothing could be saved" and the reason read as the whole story.
+            if (saved == 0 && alreadySaved == 0 && notSavedFull == 0) {
+                val lead = "Nothing could be saved from $fileName."
+                val rest = parts.joinToString(" ")
+                return if (rest.isEmpty()) lead else "$lead $rest"
+            }
             if (parts.isEmpty()) return "Nothing could be saved from $fileName."
             return parts.joinToString(". ") + "."
         }

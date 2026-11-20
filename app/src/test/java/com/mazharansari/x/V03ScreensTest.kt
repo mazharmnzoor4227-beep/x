@@ -196,7 +196,14 @@ class V03ScreensTest {
             // popover itself (Composer onPlus sets model=false), so no back
             // press is needed to reach the plus popover.
             compose.mainClock.advanceTimeBy(500)
-            compose.onNodeWithText("Auto").performClick(); compose.mainClock.advanceTimeBy(400)
+            // "Auto" is TWO nodes here — the header subtitle (ChatScreen) and
+            // the composer ModeChip (Composer) both show the picked label, so
+            // onNodeWithText("Auto") fails as ambiguous. The chip is the last
+            // one in tree order (header first, composer last); tapping it
+            // opens the model popover, which the next line proves by its
+            // own unique row ("Let X choose the best model").
+            compose.onAllNodesWithText("Auto").onLast().performClick(); compose.mainClock.advanceTimeBy(400)
+            compose.onNodeWithText("Let X choose the best model").assertIsDisplayed()
             shotNoIdle("v3_model_popover_keyboard")
             compose.onNodeWithContentDescription("Attach").performClick(); compose.mainClock.advanceTimeBy(400)
             shotNoIdle("v3_plus_popover_keyboard")

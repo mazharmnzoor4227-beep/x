@@ -41,7 +41,12 @@ class SkillRepo(private val ctx: Context?, private val dir: File, private val fe
         val persisted = runCatching { json.decodeFromString<List<Skill>>(index.readText()) }.getOrDefault(emptyList())
         val names = runCatching { ctx?.assets?.list("skills")?.toList() }.getOrNull().orEmpty().ifEmpty { BUILT_IN }
         val builtIn = names.mapNotNull { n ->
-            val text = runCatching { ctx!!.assets.open("skills/$n/SKILL.md").bufferedReader().readText() }.getOrNull() ?: return@mapNotNull null
+            // .use: every open is closed — the old readText() without a close
+            // leaked one asset stream per built-in per SkillRepo construction,
+            // and a long shared-JVM suite opens hundreds (every Agent/Graph
+            // build constructs one), which can exhaust file descriptors and
+            // make a later open fail so the built-in silently drops out.
+            val text = runCatching { ctx!!.assets.open("skills/$n/SKILL.md").bufferedReader().use { it.readText() } }.getOrNull() ?: return@mapNotNull null
             val (name, desc) = frontMatter(text, n)
             Skill(name, desc, "built-in", "asset:skills/$n/SKILL.md")
         }
@@ -63,7 +68,7 @@ class SkillRepo(private val ctx: Context?, private val dir: File, private val fe
         fun norm(x: String) = x.lowercase().replace(Regex("[^a-z0-9]"), "")
         val s = _skills.value.firstOrNull { it.name.equals(name, true) } ?: _skills.value.firstOrNull { norm(it.name) == norm(name) }
             ?: _skills.value.firstOrNull { norm(it.name).contains(norm(name)) || norm(name).contains(norm(it.name)) } ?: return null
-        return if (s.path.startsWith("asset:")) ctx?.assets?.open(s.path.removePrefix("asset:"))?.bufferedReader()?.readText()
+        return if (s.path.startsWith("asset:")) ctx?.assets?.open(s.path.removePrefix("asset:"))?.bufferedReader()?.use { it.readText() }
         else File(s.path).takeIf { it.exists() }?.readText()
     }
 

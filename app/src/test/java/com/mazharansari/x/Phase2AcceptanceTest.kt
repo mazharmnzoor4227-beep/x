@@ -54,7 +54,14 @@ class Phase2AcceptanceTest {
                     3 -> emit(call("f1", "flaky_tool", "{}"))                        // fails, retried once, fails again
                     4 -> emit(call("b1", "backup_tool", "{}"))                       // the model switches approach after the system note
                     5 -> emit(call("u2", "plan_update", """{"index":1,"status":"done"}"""))
-                    else -> { emit(LlmEvent.Text("All done: the Zed notes app uses the blue theme.")); emit(LlmEvent.Finished("stop")) }
+                    // Closing line with no completion claim (no "done/ready" verb
+                    // next to an artifact): the Brain verify gate fires on a
+                    // "done" + artifact claim with no file/command evidence
+                    // behind it and appends its disclaimer, so "All done: …"
+                    // can never come back verbatim from a run whose tools are
+                    // fakes. The plan/steps/failure assertions below are what
+                    // this test proves; the closing line just pins the run ended.
+                    else -> { emit(LlmEvent.Text("That is the Zed notes app, with the blue theme you asked for.")); emit(LlmEvent.Finished("stop")) }
                 }
             }
         }
@@ -67,7 +74,7 @@ class Phase2AcceptanceTest {
         val out = agent.run(history, UserItem("Now build the whole notes app: write the page, then add search, and finally export everything to PDF."),
             { listOf(Attempt("Fake", "fake-model", client)) }, rec, intent = Intent.ACTION)
 
-        assertEquals("All done: the Zed notes app uses the blue theme.", out)
+        assertEquals("That is the Zed notes app, with the blue theme you asked for.", out)
         // 1. a plan came first: the very first request offered ONLY plan_set
         assertEquals(listOf("plan_set"), seen[0].tools.map { it.name })
         assertTrue(rec.plans.first().size == 3)
