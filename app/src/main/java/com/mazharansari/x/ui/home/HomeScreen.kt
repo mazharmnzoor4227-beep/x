@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -231,9 +232,9 @@ fun HomeScreen(vm: ChatViewModel, navigate: (Route) -> Unit, back: () -> Unit) {
     }
 }
 
-/** One of the 4 top options: line icon above a 12sp label, equal width. */
+/** One of the 4 top options: line icon above a 12sp label, equal width. RowScope receiver so Modifier.weight(1f) resolves (it is a RowScope extension). */
 @Composable
-private fun MenuTopOption(icon: Int, label: String, onClick: () -> Unit) {
+private fun RowScope.MenuTopOption(icon: Int, label: String, onClick: () -> Unit) {
     val p = P
     Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick)
         .padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
